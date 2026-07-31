@@ -61,6 +61,10 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px #0
 .secondary-button { color: var(--ink); background: var(--surface-soft); border: 1px solid var(--line); }
 .danger-button { color: #fff; background: #c33f4c; }
 .dashboard { display: grid; align-content: start; gap: 20px; }
+.meter-panel { display: grid; gap: 20px; }
+.meter-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); }
+.meter-tab { padding: 11px; border: 0; border-radius: 12px; color: var(--muted); background: transparent; font-weight: 800; }
+.meter-tab.active { color: #fff; background: var(--navy); box-shadow: 0 6px 18px var(--shadow); }
 .topbar .eyebrow { margin: 0 0 6px; }
 .topbar h1 { margin: 0; font-size: 28px; }
 .icon-button { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: var(--surface); }
@@ -78,6 +82,17 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px #0
 .progress span { display: block; width: 0; height: 100%; background: #48d3a4; transition: width .3s; }
 .row { color: #aec3ce; font-size: 11px; }
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.water-hero { background: linear-gradient(135deg, #126a86, #12394b); }
+:root[data-theme="dark"] .water-hero { background: linear-gradient(135deg, #145f7b, #10384c); }
+.water-badge { color: #0a4355; background: #8ee4f5; }
+.forecast-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 10px; }
+.forecast-grid div { padding: 14px; border-radius: 16px; background: var(--surface-soft); }
+.forecast-grid small { display: block; margin-bottom: 7px; color: var(--muted); }
+.forecast-grid strong { font-size: 17px; }
+.confidence { padding: 5px 8px; border-radius: 999px; color: #8a5b00 !important; background: #fff0bd; font-weight: 800; }
+.confidence[data-level="alta"] { color: #096448 !important; background: #c9f5e5; }
+.confidence[data-level="média"] { color: #6b5700 !important; background: #f8edb6; }
+.leak-alert { margin: 13px 0 0; padding: 12px; border-radius: 13px; color: #8d2730; background: #ffe0e3; font-size: 12px; font-weight: 700; line-height: 1.45; }
 .metric p { margin-bottom: 6px; color: var(--muted); font-size: 12px; }
 .metric strong { display: block; font-size: 18px; }
 .metric small { color: var(--muted); font-size: 10px; }
@@ -103,6 +118,15 @@ dialog::backdrop { background: #071015aa; backdrop-filter: blur(4px); }
 .dialog-card { padding: 24px; }
 .dialog-card p { color: var(--muted); }
 .dialog-actions { justify-content: flex-end; gap: 10px; }
+.scanner-card { display: grid; gap: 15px; }
+.scanner-card h2 { margin: 0; }
+.camera-picker { display: grid; place-items: center; min-height: 72px; border: 1px dashed var(--green); border-radius: 16px; color: var(--green); background: var(--surface-soft); cursor: pointer; font-weight: 800; }
+.camera-picker span { margin: 0; color: inherit; font-size: 14px; }
+.camera-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+#scanner-preview { width: 100%; max-height: 260px; border-radius: 15px; object-fit: contain; background: #091116; }
+.scanner-progress { overflow: hidden; height: 7px; border-radius: 8px; background: var(--line); }
+.scanner-progress span { display: block; width: 0; height: 100%; background: var(--green); transition: width .2s; }
+.scanner-progress p { margin-top: 9px; color: var(--muted); font-size: 11px; }
 
 @media (max-width: 390px) {
   .compact-form { grid-template-columns: 1fr; }

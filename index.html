@@ -39,6 +39,13 @@
         </div>
       </header>
 
+      <nav class="meter-tabs" aria-label="Tipo de medidor">
+        <button class="meter-tab active" type="button" data-meter="energy">⚡ Energia</button>
+        <button class="meter-tab" type="button" data-meter="water">💧 Água</button>
+      </nav>
+
+      <div id="energy-panel" class="meter-panel">
+
       <article class="hero-card">
         <div class="row hero-heading"><p>Consumo neste ciclo</p><span id="flag-badge" class="flag-badge">Bandeira amarela</span></div>
         <strong><span id="cycle-consumption">0</span> <small>kWh</small></strong>
@@ -50,6 +57,15 @@
         <article class="card metric"><p>Total estimado</p><strong id="estimated-cost">R$ 0,00</strong><small>Energia + bandeira + iluminação</small></article>
         <article class="card metric"><p>Média diária</p><strong id="daily-average">0 kWh</strong><small>No ciclo atual</small></article>
       </div>
+
+      <section class="card forecast-card" aria-labelledby="forecast-title">
+        <div class="section-heading"><h2 id="forecast-title">Previsão do próximo ciclo</h2><span id="forecast-confidence" class="confidence">Confiança baixa</span></div>
+        <div class="forecast-grid">
+          <div><small>Consumo previsto</small><strong id="forecast-consumption">0 kWh</strong></div>
+          <div><small>Conta prevista</small><strong id="forecast-cost">R$ 32,00</strong></div>
+        </div>
+        <p id="forecast-range" class="note">Adicione mais leituras para melhorar a previsão.</p>
+      </section>
 
       <section class="card cost-breakdown" aria-labelledby="cost-title">
         <div class="section-heading"><h2 id="cost-title">Composição estimada</h2><span id="rate-label">R$ 0,894560/kWh</span></div>
@@ -69,6 +85,7 @@
         <form id="reading-form" class="form">
           <label><span>Leitura atual (kWh)</span><input id="reading" type="number" inputmode="numeric" min="0" step="1" placeholder="00000" required></label>
           <label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label>
+          <button class="scan-button secondary-button" type="button" data-scan-target="reading" data-unit="kWh">📷 Escanear medidor</button>
           <button class="primary-button" type="submit">Salvar leitura</button>
         </form>
         <p id="reading-message" class="note status-message" role="status" aria-live="polite"></p>
@@ -89,6 +106,60 @@
       <div class="section-heading"><h2>Últimas leituras</h2><button id="clear-readings" class="text-button" type="button">Limpar</button></div>
       <div id="empty-state" class="empty">Nenhuma leitura registrada ainda.</div>
       <ul id="reading-list" class="reading-list"></ul>
+      </div>
+
+      <div id="water-panel" class="meter-panel" hidden>
+        <article class="hero-card water-hero">
+          <div class="row hero-heading"><p>Consumo de água neste ciclo</p><span class="flag-badge water-badge">Água</span></div>
+          <strong><span id="water-consumption">0</span> <small>m³</small></strong>
+          <div class="progress" role="progressbar" aria-label="Progresso da meta de água" aria-valuemin="0" aria-valuemax="100"><span id="water-progress-fill"></span></div>
+          <div class="row"><span id="water-goal-label">Meta: 15 m³</span><span id="water-goal-percent">0%</span></div>
+        </article>
+
+        <div class="metrics">
+          <article class="card metric"><p>Total estimado</p><strong id="water-estimated-cost">R$ 0,00</strong><small>Água + esgoto + taxa fixa</small></article>
+          <article class="card metric"><p>Média diária</p><strong id="water-daily-average">0 m³</strong><small>No ciclo atual</small></article>
+        </div>
+
+        <section class="card forecast-card">
+          <div class="section-heading"><h2>Previsão do próximo ciclo</h2><span id="water-forecast-confidence" class="confidence">Confiança baixa</span></div>
+          <div class="forecast-grid">
+            <div><small>Consumo previsto</small><strong id="water-forecast-consumption">0 m³</strong></div>
+            <div><small>Conta prevista</small><strong id="water-forecast-cost">R$ 0,00</strong></div>
+          </div>
+          <p id="water-forecast-range" class="note">Adicione mais leituras para melhorar a previsão.</p>
+          <p id="leak-alert" class="leak-alert" hidden>⚠ Consumo contínuo detectado. Verifique possíveis vazamentos.</p>
+        </section>
+
+        <section class="card reading-card">
+          <p class="eyebrow">NOVA LEITURA DE ÁGUA</p>
+          <h2>Registre seu hidrômetro</h2>
+          <p class="note">Use os dígitos pretos em m³. Os decimais podem ser informados para detectar pequenos vazamentos.</p>
+          <form id="water-reading-form" class="form">
+            <label><span>Leitura atual (m³)</span><input id="water-reading" type="number" inputmode="decimal" min="0" step="0.001" placeholder="00000,000" required></label>
+            <label><span>Data e hora</span><input id="water-reading-date" type="datetime-local" required></label>
+            <button class="scan-button secondary-button" type="button" data-scan-target="water-reading" data-unit="m³">📷 Escanear hidrômetro</button>
+            <button class="primary-button" type="submit">Salvar leitura</button>
+          </form>
+          <p id="water-reading-message" class="note status-message" role="status" aria-live="polite"></p>
+        </section>
+
+        <details class="card settings-card">
+          <summary>Preferências de água</summary>
+          <form id="water-settings-form" class="form compact-form">
+            <label><span>Tarifa média por m³ (R$)</span><input id="water-rate" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+            <label><span>Meta mensal (m³)</span><input id="water-goal" type="number" inputmode="decimal" min="0.1" step="0.1" required></label>
+            <label><span>Esgoto sobre a água (%)</span><input id="sewer-percent" type="number" inputmode="decimal" min="0" step="1" required></label>
+            <label><span>Taxa fixa (R$)</span><input id="water-fixed-fee" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+            <button class="secondary-button" type="submit">Salvar preferências</button>
+          </form>
+          <p id="water-settings-message" class="note status-message" role="status" aria-live="polite"></p>
+        </details>
+
+        <div class="section-heading"><h2>Últimas leituras de água</h2><button id="clear-water-readings" class="text-button" type="button">Limpar</button></div>
+        <div id="water-empty-state" class="empty">Nenhuma leitura de água registrada ainda.</div>
+        <ul id="water-reading-list" class="reading-list"></ul>
+      </div>
     </section>
   </main>
   <dialog id="clear-dialog">
@@ -98,7 +169,20 @@
       <div class="dialog-actions"><button value="cancel" class="secondary-button">Cancelar</button><button value="confirm" class="danger-button">Limpar</button></div>
     </form>
   </dialog>
+  <dialog id="scanner-dialog">
+    <div class="dialog-card scanner-card">
+      <div class="section-heading"><h2>Escanear medidor</h2><button id="close-scanner" class="icon-button" type="button" aria-label="Fechar">×</button></div>
+      <p class="note">Enquadre apenas os números do visor, evite reflexos e mantenha a câmera firme.</p>
+      <label class="camera-picker"><span>📷 Abrir câmera</span><input id="meter-photo" type="file" accept="image/*" capture="environment"></label>
+      <img id="scanner-preview" alt="Prévia do medidor" hidden>
+      <div id="scanner-progress" class="scanner-progress" hidden><span></span><p>Analisando os números…</p></div>
+      <label><span>Número reconhecido — confira antes de usar</span><input id="scanner-result" type="number" inputmode="decimal" min="0" step="0.001" placeholder="Aguardando foto"></label>
+      <p id="scanner-message" class="note status-message" role="status"></p>
+      <button id="use-scanner-result" class="primary-button" type="button">Usar esta leitura</button>
+    </div>
+  </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="./config.js"></script>
   <script type="module" src="./app.js"></script>
 </body>

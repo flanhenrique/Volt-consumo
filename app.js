@@ -1,6 +1,9 @@
 const READINGS_KEY = "volt-readings-v2";
 const SETTINGS_KEY = "volt-settings-v1";
 const THEME_KEY = "volt-theme";
+const REMEMBER_KEY = "volt-remember-user";
+const SAVED_EMAIL_KEY = "volt-saved-email";
+const SESSION_MARKER_KEY = "volt-session-active";
 const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
 const FLAGS = {
   green: { name: "Bandeira verde", rate: 0, className: "flag-green" },
@@ -21,30 +24,91 @@ const welcome = $("#welcome");
 const dashboard = $("#dashboard");
 const readingList = $("#reading-list");
 const emptyState = $("#empty-state");
-let readings = loadReadings();
-let settings = loadSettings();
+let readings = [];
+let settings = { ...DEFAULT_SETTINGS };
+let supabaseClient = null;
+let currentUserId = null;
 
 applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
 setDefaultDate();
 populateSettings();
+restoreRememberPreference();
+initializeAuth();
 
-$("#login-form").addEventListener("submit", (event) => {
+$("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  welcome.hidden = true;
-  dashboard.hidden = false;
-  render();
+  if (!supabaseClient) return;
+  const button = $("#login-button");
+  const message = $("#login-message");
+  const rememberUser = $("#remember-user").checked;
+  const email = $("#login-email").value.trim();
+  button.disabled = true;
+  button.textContent = "Entrando…";
+  message.textContent = "";
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password: $("#login-password").value
+  });
+  button.disabled = false;
+  button.textContent = "Entrar";
+  if (error) {
+    message.textContent = "E-mail ou senha incorretos.";
+    return;
+  }
+  localStorage.setItem(REMEMBER_KEY, String(rememberUser));
+  if (rememberUser) {
+    localStorage.setItem(SAVED_EMAIL_KEY, email);
+    sessionStorage.removeItem(SESSION_MARKER_KEY);
+  } else {
+    localStorage.removeItem(SAVED_EMAIL_KEY);
+    sessionStorage.setItem(SESSION_MARKER_KEY, "true");
+  }
 });
 
-$("#logout").addEventListener("click", () => {
-  dashboard.hidden = true;
-  welcome.hidden = false;
+$("#signup-button").addEventListener("click", async () => {
+  if (!supabaseClient || !$("#login-form").reportValidity()) return;
+  const email = $("#login-email").value.trim();
+  const password = $("#login-password").value;
+  const button = $("#signup-button");
+  const message = $("#login-message");
+  button.disabled = true;
+  button.textContent = "Criando conta…";
+  message.textContent = "";
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${location.origin}${location.pathname}` }
+  });
+
+  button.disabled = false;
+  button.textContent = "Criar minha conta";
+  if (error) {
+    message.textContent = error.message.toLowerCase().includes("already")
+      ? "Este e-mail já possui uma conta. Use Entrar."
+      : "Não foi possível criar a conta. Confira os dados e tente novamente.";
+    return;
+  }
+
+  localStorage.setItem(SAVED_EMAIL_KEY, email);
+  $("#remember-user").checked = true;
+  localStorage.setItem(REMEMBER_KEY, "true");
+  $("#login-password").value = "";
+  message.textContent = data.session
+    ? "Conta criada. Você já pode usar o app."
+    : "Conta criada. Abra o e-mail de confirmação para liberar o acesso.";
+});
+
+$("#logout").addEventListener("click", async () => {
+  sessionStorage.removeItem(SESSION_MARKER_KEY);
+  if (supabaseClient) await supabaseClient.auth.signOut();
 });
 
 document.querySelectorAll(".theme-toggle").forEach((button) => {
   button.addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
 });
 
-$("#reading-form").addEventListener("submit", (event) => {
+$("#reading-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const value = Number($("#reading").value);
   const localDate = $("#reading-date").value;
@@ -70,52 +134,137 @@ $("#reading-form").addEventListener("submit", (event) => {
     return;
   }
 
-  readings.push({ value, date: date.toISOString() });
+  const reading = { value, date: date.toISOString() };
+  const { error } = await supabaseClient.from("meter_readings").insert({
+    user_id: currentUserId,
+    value: reading.value,
+    measured_at: reading.date
+  });
+  if (error) {
+    message.textContent = "Não foi possível salvar a leitura. Tente novamente.";
+    return;
+  }
+  readings.push(reading);
   readings.sort((a, b) => new Date(a.date) - new Date(b.date));
   readings = readings.slice(-100);
   saveReadings();
   $("#reading").value = "";
   setDefaultDate();
-  message.textContent = "Leitura salva neste aparelho.";
+  message.textContent = "Leitura salva com segurança na sua conta.";
   render();
 });
 
-$("#settings-form").addEventListener("submit", (event) => {
+$("#settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const rate = Number($("#rate").value);
   const goal = Number($("#goal").value);
   const lightingFee = Number($("#lighting-fee").value);
   const flag = $("#tariff-flag").value;
   if (rate <= 0 || goal <= 0 || lightingFee < 0 || !FLAGS[flag]) return;
-  settings = { rate, goal, flag, lightingFee };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  const nextSettings = { rate, goal, flag, lightingFee };
+  const { error } = await supabaseClient.from("user_settings").upsert({
+    user_id: currentUserId,
+    rate,
+    goal,
+    flag,
+    lighting_fee: lightingFee,
+    updated_at: new Date().toISOString()
+  });
+  if (error) {
+    $("#settings-message").textContent = "Não foi possível salvar as preferências.";
+    return;
+  }
+  settings = nextSettings;
+  cacheUserData();
   $("#settings-message").textContent = "Preferências atualizadas.";
   render();
 });
 
 $("#clear-readings").addEventListener("click", () => $("#clear-dialog").showModal());
-$("#clear-dialog").addEventListener("close", () => {
+$("#clear-dialog").addEventListener("close", async () => {
   if ($("#clear-dialog").returnValue !== "confirm") return;
+  const { error } = await supabaseClient.from("meter_readings").delete().eq("user_id", currentUserId);
+  if (error) {
+    $("#reading-message").textContent = "Não foi possível limpar as leituras.";
+    return;
+  }
   readings = [];
   saveReadings();
   render();
 });
 
-function loadReadings() {
+function loadLegacyReadings() {
   try {
     const saved = localStorage.getItem(READINGS_KEY);
     if (saved !== null) {
       const data = JSON.parse(saved);
       return Array.isArray(data) ? data : [];
     }
-    localStorage.setItem(READINGS_KEY, JSON.stringify(INITIAL_READINGS));
     return structuredClone(INITIAL_READINGS);
   } catch {
     return structuredClone(INITIAL_READINGS);
   }
 }
 
-function loadSettings() {
+async function initializeAuth() {
+  const config = window.VOLT_SUPABASE || {};
+  const configured = /^https:\/\/.+\.supabase\.co$/.test(config.url || "")
+    && config.publishableKey
+    && !config.publishableKey.startsWith("COLE_AQUI");
+
+  if (!configured || !window.supabase?.createClient) {
+    $("#login-button").disabled = true;
+    $("#login-message").textContent = "Login aguardando a configuração segura do Supabase.";
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(config.url, config.publishableKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) $("#login-message").textContent = "Não foi possível verificar a sessão.";
+  const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
+  const sessionOnlyExpired = !rememberUser
+    && !sessionStorage.getItem(SESSION_MARKER_KEY)
+    && data?.session;
+  if (sessionOnlyExpired) {
+    await supabaseClient.auth.signOut();
+    updateAuthScreen(null);
+    return;
+  }
+  await updateAuthScreen(data?.session?.user || null);
+
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    setTimeout(() => updateAuthScreen(session?.user || null), 0);
+  });
+}
+
+function restoreRememberPreference() {
+  const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
+  $("#remember-user").checked = rememberUser;
+  if (rememberUser) $("#login-email").value = localStorage.getItem(SAVED_EMAIL_KEY) || "";
+}
+
+async function updateAuthScreen(user) {
+  const signedIn = Boolean(user);
+  welcome.hidden = signedIn;
+  dashboard.hidden = !signedIn;
+  $("#login-password").value = "";
+  $("#login-message").textContent = signedIn ? "" : "Entre com seu e-mail e senha.";
+  if (!signedIn) {
+    currentUserId = null;
+    readings = [];
+    settings = { ...DEFAULT_SETTINGS };
+    return;
+  }
+  const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
+  $("#user-name").textContent = displayName;
+  await loadUserData(user.id);
+  render();
+}
+
+function loadLegacySettings() {
   try {
     return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
   } catch {
@@ -124,7 +273,82 @@ function loadSettings() {
 }
 
 function saveReadings() {
-  localStorage.setItem(READINGS_KEY, JSON.stringify(readings));
+  cacheUserData();
+}
+
+async function loadUserData(userId) {
+  currentUserId = userId;
+  const [readingResult, settingsResult] = await Promise.all([
+    supabaseClient.from("meter_readings").select("value, measured_at").order("measured_at"),
+    supabaseClient.from("user_settings").select("rate, goal, flag, lighting_fee").maybeSingle()
+  ]);
+
+  if (readingResult.error || settingsResult.error) {
+    const cached = loadUserCache(userId);
+    readings = cached.readings;
+    settings = cached.settings;
+    $("#reading-message").textContent = "Sem conexão: exibindo a última cópia deste dispositivo.";
+    populateSettings();
+    return;
+  }
+
+  readings = (readingResult.data || []).map((item) => ({
+    value: Number(item.value),
+    date: item.measured_at
+  }));
+
+  if (readings.length === 0 && localStorage.getItem(READINGS_KEY) !== null) {
+    const legacy = loadLegacyReadings();
+    if (legacy.length) {
+      const { error } = await supabaseClient.from("meter_readings").insert(legacy.map((item) => ({
+        user_id: userId,
+        value: item.value,
+        measured_at: item.date
+      })));
+      if (!error) {
+        readings = legacy;
+        localStorage.removeItem(READINGS_KEY);
+      }
+    }
+  }
+
+  if (settingsResult.data) {
+    settings = {
+      rate: Number(settingsResult.data.rate),
+      goal: Number(settingsResult.data.goal),
+      flag: settingsResult.data.flag,
+      lightingFee: Number(settingsResult.data.lighting_fee)
+    };
+  } else {
+    settings = loadLegacySettings();
+    const { error } = await supabaseClient.from("user_settings").upsert({
+      user_id: userId,
+      rate: settings.rate,
+      goal: settings.goal,
+      flag: settings.flag,
+      lighting_fee: settings.lightingFee
+    });
+    if (!error) localStorage.removeItem(SETTINGS_KEY);
+  }
+  cacheUserData();
+  populateSettings();
+}
+
+function cacheUserData() {
+  if (!currentUserId) return;
+  localStorage.setItem(`volt-user-data-${currentUserId}`, JSON.stringify({ readings, settings }));
+}
+
+function loadUserCache(userId) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(`volt-user-data-${userId}`) || "{}");
+    return {
+      readings: Array.isArray(cached.readings) ? cached.readings : [],
+      settings: { ...DEFAULT_SETTINGS, ...(cached.settings || {}) }
+    };
+  } catch {
+    return { readings: [], settings: { ...DEFAULT_SETTINGS } };
+  }
 }
 
 function populateSettings() {

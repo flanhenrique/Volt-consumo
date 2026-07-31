@@ -21,16 +21,18 @@
       <h1>Sua energia,<br>mais clara.</h1>
       <p class="lead">Registre o medidor, acompanhe seu consumo e antecipe o valor da próxima conta.</p>
       <form id="login-form" class="card form">
-        <label><span>E-mail</span><input type="email" autocomplete="username" placeholder="voce@exemplo.com" required></label>
-        <label><span>Senha</span><input type="password" autocomplete="current-password" minlength="6" placeholder="••••••••" required></label>
-        <button class="primary-button" type="submit">Entrar</button>
+        <label><span>E-mail</span><input id="login-email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required></label>
+        <label><span>Senha</span><input id="login-password" type="password" autocomplete="current-password" minlength="6" placeholder="••••••••" required></label>
+        <label class="remember-option"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
+        <button id="login-button" class="primary-button" type="submit">Entrar</button>
+        <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
       </form>
-      <p class="note auth-note">A tela de entrada ainda é demonstrativa. Nenhuma senha é armazenada.</p>
+      <p id="login-message" class="note auth-note" role="status" aria-live="polite">Verificando sessão…</p>
     </section>
 
     <section id="dashboard" class="screen dashboard" hidden>
       <header class="topbar">
-        <div><p class="eyebrow">MEU CONSUMO</p><h1>Olá, Henrique</h1></div>
+        <div><p class="eyebrow">MEU CONSUMO</p><h1>Olá, <span id="user-name">Henrique</span></h1></div>
         <div class="header-actions">
           <button class="theme-toggle icon-button" type="button" aria-label="Ativar modo noturno" title="Alternar tema">☾</button>
           <button id="logout" class="icon-button" type="button" aria-label="Sair" title="Sair">↗</button>
@@ -96,6 +98,8 @@
       <div class="dialog-actions"><button value="cancel" class="secondary-button">Cancelar</button><button value="confirm" class="danger-button">Limpar</button></div>
     </form>
   </dialog>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

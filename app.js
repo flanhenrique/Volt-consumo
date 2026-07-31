@@ -1,7 +1,13 @@
 const READINGS_KEY = "volt-readings-v2";
 const SETTINGS_KEY = "volt-settings-v1";
 const THEME_KEY = "volt-theme";
-const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250 };
+const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
+const FLAGS = {
+  green: { name: "Bandeira verde", rate: 0, className: "flag-green" },
+  yellow: { name: "Bandeira amarela", rate: 0.01885, className: "flag-yellow" },
+  red1: { name: "Bandeira vermelha 1", rate: 0.04463, className: "flag-red" },
+  red2: { name: "Bandeira vermelha 2", rate: 0.07877, className: "flag-red" }
+};
 const INITIAL_READINGS = [
   { value: 28425, date: "2026-07-20T18:52:00-04:00" },
   { value: 28431, date: "2026-07-21T18:30:00-04:00" },
@@ -78,8 +84,10 @@ $("#settings-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const rate = Number($("#rate").value);
   const goal = Number($("#goal").value);
-  if (rate <= 0 || goal <= 0) return;
-  settings = { rate, goal };
+  const lightingFee = Number($("#lighting-fee").value);
+  const flag = $("#tariff-flag").value;
+  if (rate <= 0 || goal <= 0 || lightingFee < 0 || !FLAGS[flag]) return;
+  settings = { rate, goal, flag, lightingFee };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   $("#settings-message").textContent = "Preferências atualizadas.";
   render();
@@ -122,6 +130,8 @@ function saveReadings() {
 function populateSettings() {
   $("#rate").value = settings.rate.toFixed(6);
   $("#goal").value = settings.goal;
+  $("#tariff-flag").value = settings.flag;
+  $("#lighting-fee").value = settings.lightingFee.toFixed(2);
 }
 
 function setDefaultDate() {
@@ -147,13 +157,26 @@ function render() {
   const elapsed = readings.length > 1 ? new Date(readings.at(-1).date) - new Date(readings.at(0).date) : 86400000;
   const days = Math.max(1, elapsed / 86400000);
   const progress = Math.min(100, Math.round(consumption / settings.goal * 100));
+  const flag = FLAGS[settings.flag] || FLAGS.yellow;
+  const baseCost = consumption * settings.rate;
+  const flagCost = consumption * flag.rate;
+  const totalCost = baseCost + flagCost + settings.lightingFee;
+  const currency = (value) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   $("#cycle-consumption").textContent = consumption.toLocaleString("pt-BR");
-  $("#estimated-cost").textContent = (consumption * settings.rate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  $("#estimated-cost").textContent = currency(totalCost);
   $("#daily-average").textContent = `${(consumption / days).toFixed(1).replace(".", ",")} kWh`;
   $("#goal-label").textContent = `Meta: ${settings.goal.toLocaleString("pt-BR")} kWh`;
   $("#goal-percent").textContent = `${progress}%`;
   $("#rate-label").textContent = `R$ ${settings.rate.toLocaleString("pt-BR", { minimumFractionDigits: 6, maximumFractionDigits: 6 })}/kWh`;
+  $("#base-cost").textContent = currency(baseCost);
+  $("#flag-cost").textContent = currency(flagCost);
+  $("#flag-cost-label").textContent = `${flag.name} (R$ ${flag.rate.toLocaleString("pt-BR", { minimumFractionDigits: 5, maximumFractionDigits: 5 })}/kWh)`;
+  $("#lighting-cost").textContent = currency(settings.lightingFee);
+  $("#breakdown-total").textContent = currency(totalCost);
+  const badge = $("#flag-badge");
+  badge.textContent = flag.name;
+  badge.className = `flag-badge ${flag.className}`;
   $("#progress-fill").style.width = `${progress}%`;
   $(".progress").setAttribute("aria-valuenow", String(progress));
 

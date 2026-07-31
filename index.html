@@ -38,16 +38,27 @@
       </header>
 
       <article class="hero-card">
-        <p>Consumo neste ciclo</p>
+        <div class="row hero-heading"><p>Consumo neste ciclo</p><span id="flag-badge" class="flag-badge">Bandeira amarela</span></div>
         <strong><span id="cycle-consumption">0</span> <small>kWh</small></strong>
         <div class="progress" role="progressbar" aria-label="Progresso da meta mensal" aria-valuemin="0" aria-valuemax="100"><span id="progress-fill"></span></div>
         <div class="row"><span id="goal-label">Meta: 250 kWh</span><span id="goal-percent">0%</span></div>
       </article>
 
       <div class="metrics">
-        <article class="card metric"><p>Estimativa</p><strong id="estimated-cost">R$ 0,00</strong><small id="rate-label">R$ 0,894560/kWh</small></article>
+        <article class="card metric"><p>Total estimado</p><strong id="estimated-cost">R$ 0,00</strong><small>Energia + bandeira + iluminação</small></article>
         <article class="card metric"><p>Média diária</p><strong id="daily-average">0 kWh</strong><small>No ciclo atual</small></article>
       </div>
+
+      <section class="card cost-breakdown" aria-labelledby="cost-title">
+        <div class="section-heading"><h2 id="cost-title">Composição estimada</h2><span id="rate-label">R$ 0,894560/kWh</span></div>
+        <dl>
+          <div><dt>Energia consumida</dt><dd id="base-cost">R$ 0,00</dd></div>
+          <div><dt id="flag-cost-label">Bandeira amarela</dt><dd id="flag-cost">R$ 0,00</dd></div>
+          <div><dt>Iluminação pública</dt><dd id="lighting-cost">R$ 32,00</dd></div>
+          <div class="breakdown-total"><dt>Total</dt><dd id="breakdown-total">R$ 0,00</dd></div>
+        </dl>
+        <p class="note">Estimativa sem impostos ou outros encargos que possam constar na fatura.</p>
+      </section>
 
       <section class="card reading-card">
         <p class="eyebrow">NOVA LEITURA</p>
@@ -66,6 +77,8 @@
         <form id="settings-form" class="form compact-form">
           <label><span>Tarifa por kWh (R$)</span><input id="rate" type="number" inputmode="decimal" min="0" step="0.000001" required></label>
           <label><span>Meta mensal (kWh)</span><input id="goal" type="number" inputmode="numeric" min="1" step="1" required></label>
+          <label><span>Bandeira tarifária</span><select id="tariff-flag" required><option value="green">Verde — sem adicional</option><option value="yellow">Amarela — R$ 0,01885/kWh</option><option value="red1">Vermelha 1 — R$ 0,04463/kWh</option><option value="red2">Vermelha 2 — R$ 0,07877/kWh</option></select></label>
+          <label><span>Iluminação pública fixa (R$)</span><input id="lighting-fee" type="number" inputmode="decimal" min="0" step="0.01" required></label>
           <button class="secondary-button" type="submit">Salvar preferências</button>
         </form>
         <p id="settings-message" class="note status-message" role="status" aria-live="polite"></p>

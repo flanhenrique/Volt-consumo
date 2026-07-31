@@ -1,10 +1,17 @@
-const KEY="volt-readings-v1",RATE=.92,GOAL=250;
+const KEY="volt-readings-v2",RATE=.894560,GOAL=250;
+const INITIAL_READINGS=[
+  {value:28425,date:"2026-07-20T18:52:00-04:00"},
+  {value:28431,date:"2026-07-21T18:30:00-04:00"},
+  {value:28446,date:"2026-07-24T08:52:00-04:00"},
+  {value:28475,date:"2026-07-27T09:08:00-04:00"},
+  {value:28490,date:"2026-07-30T07:40:00-04:00"}
+];
 const welcome=document.querySelector("#welcome"),dashboard=document.querySelector("#dashboard"),list=document.querySelector("#reading-list"),empty=document.querySelector("#empty-state");
 let readings=load();
 document.querySelector("#login-form").addEventListener("submit",e=>{e.preventDefault();welcome.hidden=true;dashboard.hidden=false;render()});
 document.querySelector("#logout").addEventListener("click",()=>{dashboard.hidden=true;welcome.hidden=false});
 document.querySelector("#reading-form").addEventListener("submit",e=>{e.preventDefault();const input=document.querySelector("#reading"),value=Number(input.value),previous=readings.at(-1)?.value??0,message=document.querySelector("#reading-message");if(!Number.isFinite(value)||value<previous){message.textContent=`A leitura deve ser igual ou maior que ${previous} kWh.`;return}readings.push({value,date:new Date().toISOString()});readings=readings.slice(-24);localStorage.setItem(KEY,JSON.stringify(readings));input.value="";message.textContent="Leitura salva neste aparelho.";render()});
 document.querySelector("#clear-readings").addEventListener("click",()=>{readings=[];localStorage.removeItem(KEY);render()});
-function load(){try{const data=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(data)?data:[]}catch{return[]}}
+function load(){try{const saved=localStorage.getItem(KEY);if(saved!==null){const data=JSON.parse(saved);return Array.isArray(data)?data:[]}localStorage.setItem(KEY,JSON.stringify(INITIAL_READINGS));return INITIAL_READINGS.map(item=>({...item}))}catch{return INITIAL_READINGS.map(item=>({...item}))}}
 function render(){const first=readings.at(0)?.value??0,last=readings.at(-1)?.value??first,consumption=Math.max(0,last-first),days=readings.length>1?Math.max(1,(new Date(readings.at(-1).date)-new Date(readings.at(0).date))/864e5):1,progress=Math.min(100,Math.round(consumption/GOAL*100));document.querySelector("#cycle-consumption").textContent=consumption.toLocaleString("pt-BR");document.querySelector("#estimated-cost").textContent=(consumption*RATE).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});document.querySelector("#daily-average").textContent=`${(consumption/days).toFixed(1).replace(".",",")} kWh`;document.querySelector("#goal-percent").textContent=`${progress}%`;document.querySelector("#progress-fill").style.width=`${progress}%`;list.replaceChildren(...[...readings].reverse().map((item,index)=>{const li=document.createElement("li"),i=readings.length-1-index,previous=readings[i-1]?.value,delta=previous==null?"Leitura inicial":`+${item.value-previous} kWh`;li.innerHTML=`<div><strong>${item.value.toLocaleString("pt-BR")} kWh</strong><br><span>${new Date(item.date).toLocaleString("pt-BR")}</span></div><span>${delta}</span>`;return li}));empty.hidden=readings.length>0}
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));

@@ -78,8 +78,9 @@
         <p class="note">Estimativa sem impostos ou outros encargos que possam constar na fatura.</p>
       </section>
 
-      <section class="card reading-card">
-        <p class="eyebrow">NOVA LEITURA</p>
+      <dialog id="energy-reading-dialog" class="reading-dialog">
+      <section class="dialog-card reading-card">
+        <div class="section-heading"><p class="eyebrow">NOVA LEITURA</p><button class="icon-button close-reading-dialog" type="button" aria-label="Fechar">×</button></div>
         <h2>Registre seu medidor</h2>
         <p class="note">Informe o valor exibido no medidor e a data exata da leitura.</p>
         <form id="reading-form" class="form">
@@ -90,6 +91,7 @@
         </form>
         <p id="reading-message" class="note status-message" role="status" aria-live="polite"></p>
       </section>
+      </dialog>
 
       <details class="card settings-card">
         <summary>Preferências de cálculo</summary>
@@ -131,8 +133,9 @@
           <p id="leak-alert" class="leak-alert" hidden>⚠ Consumo contínuo detectado. Verifique possíveis vazamentos.</p>
         </section>
 
-        <section class="card reading-card">
-          <p class="eyebrow">NOVA LEITURA DE ÁGUA</p>
+        <dialog id="water-reading-dialog" class="reading-dialog">
+        <section class="dialog-card reading-card">
+          <div class="section-heading"><p class="eyebrow">NOVA LEITURA DE ÁGUA</p><button class="icon-button close-reading-dialog" type="button" aria-label="Fechar">×</button></div>
           <h2>Registre seu hidrômetro</h2>
           <p class="note">Use os dígitos pretos em m³. Os decimais podem ser informados para detectar pequenos vazamentos.</p>
           <form id="water-reading-form" class="form">
@@ -143,6 +146,7 @@
           </form>
           <p id="water-reading-message" class="note status-message" role="status" aria-live="polite"></p>
         </section>
+        </dialog>
 
         <details class="card settings-card">
           <summary>Preferências de água</summary>
@@ -160,6 +164,7 @@
         <div id="water-empty-state" class="empty">Nenhuma leitura de água registrada ainda.</div>
         <ul id="water-reading-list" class="reading-list"></ul>
       </div>
+      <button id="new-reading-fab" class="reading-fab" type="button" aria-label="Registrar uma nova leitura" title="Registrar uma nova leitura"><span aria-hidden="true">ϟ</span></button>
     </section>
   </main>
   <dialog id="clear-dialog">

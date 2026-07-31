@@ -46,6 +46,18 @@ document.querySelectorAll(".meter-tab").forEach((button) => button.addEventListe
   $("#water-panel").hidden = button.dataset.meter !== "water";
 }));
 
+$("#new-reading-fab").addEventListener("click", () => {
+  const meter = document.querySelector(".meter-tab.active")?.dataset.meter || "energy";
+  const dialog = meter === "water" ? $("#water-reading-dialog") : $("#energy-reading-dialog");
+  setDefaultDate();
+  dialog.showModal();
+  dialog.querySelector("input")?.focus();
+});
+
+document.querySelectorAll(".close-reading-dialog").forEach((button) => {
+  button.addEventListener("click", () => button.closest("dialog").close());
+});
+
 document.querySelectorAll(".scan-button").forEach((button) => button.addEventListener("click", () => {
   scannerTarget = button.dataset.scanTarget;
   $("#scanner-result").step = scannerTarget === "reading" ? "1" : "0.001";
@@ -187,6 +199,7 @@ $("#reading-form").addEventListener("submit", async (event) => {
   setDefaultDate();
   message.textContent = "Leitura salva com segurança na sua conta.";
   render();
+  $("#energy-reading-dialog").close();
 });
 
 $("#water-reading-form").addEventListener("submit", async (event) => {
@@ -217,6 +230,7 @@ $("#water-reading-form").addEventListener("submit", async (event) => {
   setDefaultDates();
   message.textContent = "Leitura de água salva com segurança.";
   renderWater();
+  $("#water-reading-dialog").close();
 });
 
 $("#water-settings-form").addEventListener("submit", async (event) => {

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f3f6f9">
+  <meta name="description" content="Acompanhe suas leituras e seu consumo de energia.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -12,7 +13,10 @@
 <body>
   <main class="shell">
     <section id="welcome" class="screen auth-screen">
-      <div class="brand-mark">ϟ</div>
+      <div class="welcome-actions">
+        <div class="brand-mark" aria-hidden="true">ϟ</div>
+        <button class="theme-toggle icon-button" type="button" aria-label="Ativar modo noturno" title="Alternar tema">☾</button>
+      </div>
       <p class="eyebrow">VOLT CONSUMO</p>
       <h1>Sua energia,<br>mais clara.</h1>
       <p class="lead">Registre o medidor, acompanhe seu consumo e antecipe o valor da próxima conta.</p>
@@ -21,33 +25,64 @@
         <label><span>Senha</span><input type="password" autocomplete="current-password" minlength="6" placeholder="••••••••" required></label>
         <button class="primary-button" type="submit">Entrar</button>
       </form>
-      <p class="note">A autenticação segura será ativada na publicação. Nenhuma senha é salva neste protótipo.</p>
+      <p class="note auth-note">A tela de entrada ainda é demonstrativa. Nenhuma senha é armazenada.</p>
     </section>
+
     <section id="dashboard" class="screen dashboard" hidden>
-      <header class="topbar"><div><p class="eyebrow">MEU CONSUMO</p><h1>Olá, Henrique</h1></div><button id="logout" class="icon-button" aria-label="Sair">↗</button></header>
+      <header class="topbar">
+        <div><p class="eyebrow">MEU CONSUMO</p><h1>Olá, Henrique</h1></div>
+        <div class="header-actions">
+          <button class="theme-toggle icon-button" type="button" aria-label="Ativar modo noturno" title="Alternar tema">☾</button>
+          <button id="logout" class="icon-button" type="button" aria-label="Sair" title="Sair">↗</button>
+        </div>
+      </header>
+
       <article class="hero-card">
-        <p>Consumo neste ciclo</p><strong><span id="cycle-consumption">0</span> <small>kWh</small></strong>
-        <div class="progress"><span id="progress-fill"></span></div>
-        <div class="row"><span>Meta: 250 kWh</span><span id="goal-percent">0%</span></div>
+        <p>Consumo neste ciclo</p>
+        <strong><span id="cycle-consumption">0</span> <small>kWh</small></strong>
+        <div class="progress" role="progressbar" aria-label="Progresso da meta mensal" aria-valuemin="0" aria-valuemax="100"><span id="progress-fill"></span></div>
+        <div class="row"><span id="goal-label">Meta: 250 kWh</span><span id="goal-percent">0%</span></div>
       </article>
+
       <div class="metrics">
-        <article class="card metric"><p>Estimativa</p><strong id="estimated-cost">R$ 0,00</strong><small>Tarifa editável</small></article>
+        <article class="card metric"><p>Estimativa</p><strong id="estimated-cost">R$ 0,00</strong><small id="rate-label">R$ 0,894560/kWh</small></article>
         <article class="card metric"><p>Média diária</p><strong id="daily-average">0 kWh</strong><small>No ciclo atual</small></article>
       </div>
+
       <section class="card reading-card">
-        <p class="eyebrow">NOVA LEITURA</p><h2>Registre seu medidor</h2>
-        <p class="note">Digite a leitura atual. O fluxo está preparado para receber OCR real.</p>
+        <p class="eyebrow">NOVA LEITURA</p>
+        <h2>Registre seu medidor</h2>
+        <p class="note">Informe o valor exibido no medidor e a data exata da leitura.</p>
         <form id="reading-form" class="form">
           <label><span>Leitura atual (kWh)</span><input id="reading" type="number" inputmode="numeric" min="0" step="1" placeholder="00000" required></label>
+          <label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label>
           <button class="primary-button" type="submit">Salvar leitura</button>
         </form>
-        <p id="reading-message" class="note" role="status"></p>
+        <p id="reading-message" class="note status-message" role="status" aria-live="polite"></p>
       </section>
-      <div class="section-heading"><h2>Últimas leituras</h2><button id="clear-readings" class="text-button">Limpar</button></div>
+
+      <details class="card settings-card">
+        <summary>Preferências de cálculo</summary>
+        <form id="settings-form" class="form compact-form">
+          <label><span>Tarifa por kWh (R$)</span><input id="rate" type="number" inputmode="decimal" min="0" step="0.000001" required></label>
+          <label><span>Meta mensal (kWh)</span><input id="goal" type="number" inputmode="numeric" min="1" step="1" required></label>
+          <button class="secondary-button" type="submit">Salvar preferências</button>
+        </form>
+        <p id="settings-message" class="note status-message" role="status" aria-live="polite"></p>
+      </details>
+
+      <div class="section-heading"><h2>Últimas leituras</h2><button id="clear-readings" class="text-button" type="button">Limpar</button></div>
       <div id="empty-state" class="empty">Nenhuma leitura registrada ainda.</div>
       <ul id="reading-list" class="reading-list"></ul>
     </section>
   </main>
+  <dialog id="clear-dialog">
+    <form method="dialog" class="dialog-card">
+      <h2>Limpar histórico?</h2>
+      <p>As leituras salvas neste aparelho serão removidas.</p>
+      <div class="dialog-actions"><button value="cancel" class="secondary-button">Cancelar</button><button value="confirm" class="danger-button">Limpar</button></div>
+    </form>
+  </dialog>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

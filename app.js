@@ -40,11 +40,22 @@ populateWaterSettings();
 restoreRememberPreference();
 initializeAuth();
 
+function updateReadingFab(meter) {
+  const isWater = meter === "water";
+  const fab = $("#new-reading-fab");
+  fab.querySelector("span").textContent = isWater ? "💧" : "ϟ";
+  fab.setAttribute("aria-label", isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia");
+  fab.title = isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia";
+}
+
 document.querySelectorAll(".meter-tab").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll(".meter-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
   $("#energy-panel").hidden = button.dataset.meter !== "energy";
   $("#water-panel").hidden = button.dataset.meter !== "water";
+  updateReadingFab(button.dataset.meter);
 }));
+
+updateReadingFab(document.querySelector(".meter-tab.active")?.dataset.meter || "energy");
 
 $("#new-reading-fab").addEventListener("click", () => {
   const meter = document.querySelector(".meter-tab.active")?.dataset.meter || "energy";

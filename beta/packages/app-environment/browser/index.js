@@ -26,10 +26,10 @@ export const BETA_ENVIRONMENT = deepFreeze({
     featureFlags: {
         "engines.rule": true,
         "engines.calculation": true,
-        "experimental.ocr": true,
-        "experimental.ai": true,
-        "experimental.dashboard": true,
-        "experimental.integrations": true
+        "experimental.ocr": false,
+        "experimental.ai": false,
+        "experimental.dashboard": false,
+        "experimental.integrations": false
     }
 });
 export function resolveAppEnvironment(candidate) {

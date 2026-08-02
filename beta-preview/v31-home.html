@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR" data-environment="beta" data-theme="dark" data-probe-id="v31-home">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Início v31</title>
+<link rel="stylesheet" href="./v31-volt-lumen-tokens.css">
+<link rel="stylesheet" href="./v31-volt-lumen-components.css">
+<link rel="stylesheet" href="./v31-beta-v3.css">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head><body><main class="shell"><section id="dashboard" class="screen dashboard"><div class="beta-v2-shell"><header class="beta-header" data-scrolled="true"><div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA</span></p><h1>Olá, Henrique!</h1></div><button class="icon-button" type="button" aria-label="Alternar tema">☾</button></header><main class="beta-content" id="beta-content"><section class="beta-page active">
+<div class="cycle-heading"><div><p class="eyebrow">CICLO DE CONTAGEM</p><h2>Ciclo atual</h2></div><span class="cycle-chip">01 ago – 31 ago</span></div>
+<div class="utility-grid">
+<article class="utility-card water"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">●</span><h3>Água</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong>8,412 m³</strong></div><div class="financial-preview"><p>Estimativa</p><strong>R$ 67,30</strong></div></div><small class="cycle-comparison decrease">▼ -4,1% vs. ciclo anterior</small></article>
+<article class="utility-card energy"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">ϟ</span><h3>Energia</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong>168 kWh</strong></div><div class="financial-preview"><p>Estimativa</p><strong>R$ 185,44</strong></div></div><small class="cycle-comparison increase">▲ +7,8% vs. ciclo anterior</small></article>
+</div>
+<article class="cycle-summary-card financial-summary-card"><div class="summary-header"><div><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Total estimado</h2></div><strong class="financial-total">R$ 252,74</strong></div>
+<div class="summary-values"><div><small>Energia</small><strong>R$ 185,44</strong></div><div><small>Água</small><strong>R$ 67,30</strong></div><div><small>Total geral</small><strong>R$ 252,74</strong></div></div>
+<div class="financial-insights"><p class="increase">▲ +5,2% em relação ao ciclo anterior.</p><p>Previsão de encerramento: R$ 268,10 · confiança média.</p></div></article></section></main><button class="beta-reading-fab" type="button" aria-label="Registrar Nova Leitura"><img src="./icon.svg" alt=""><span>Registrar Nova Leitura</span></button><nav class="bottom-navigation" aria-label="Navegação principal"><span class="nav-indicator" data-ready="true" style="--nav-indicator-width:calc((100% - 16px)/4);--nav-indicator-x:calc(0 * (100% - 16px)/4)"></span><button type="button" class="active" aria-current="page"><span aria-hidden="true">⌂</span><small>Início</small></button><button type="button"><span aria-hidden="true">≡</span><small>Leituras</small></button><button type="button"><span aria-hidden="true">▥</span><small>Relatórios</small></button><button type="button"><span aria-hidden="true">⚙</span><small>Configurações</small></button></nav></div></section></main>
+<script>
+addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    scrollTo(0, document.body.scrollHeight);
+    requestAnimationFrame(() => {
+      const vw = document.documentElement.clientWidth;
+      const bleed = [...document.querySelectorAll("body *")].filter((el) => {
+        if (el.closest("[hidden]")) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return r.right > vw + 1 || r.left < -1;
+      }).map((el) => el.className || el.tagName);
+      const nav = document.querySelector(".bottom-navigation");
+      const fab = document.querySelector(".beta-reading-fab");
+      const items = [...document.querySelectorAll(".beta-page > *, .beta-page li")];
+      let hidden = 0;
+      if (nav) {
+        const navTop = nav.getBoundingClientRect().top;
+        const fabTop = fab ? fab.getBoundingClientRect().top : Infinity;
+        const limit = Math.min(navTop, fabTop);
+        hidden = items.filter((el) => el.getBoundingClientRect().bottom > limit + 1).length;
+      }
+      parent.postMessage({
+        probe: true,
+        id: document.documentElement.dataset.probeId,
+        scrollOverflow: document.documentElement.scrollWidth > vw + 1,
+        bleed: [...new Set(bleed)].slice(0, 4),
+        hiddenBehindNav: hidden,
+        pageHeight: Math.round(document.body.scrollHeight)
+      }, "*");
+    });
+  });
+});
+</script></body></html>

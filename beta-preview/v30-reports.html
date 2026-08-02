@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR" data-environment="beta" data-theme="dark" data-probe-id="v30-reports">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Relatórios v30</title>
+<link rel="stylesheet" href="./v30-volt-lumen-tokens.css">
+<link rel="stylesheet" href="./v30-volt-lumen-components.css">
+<link rel="stylesheet" href="./v30-beta-v3.css">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head><body><main class="shell"><section id="dashboard" class="screen dashboard"><div class="beta-v2-shell"><header class="beta-header" data-scrolled="true"><div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA</span></p><h1>Olá, Henrique!</h1></div><button class="icon-button" type="button" aria-label="Alternar tema">☾</button></header><main class="beta-content" id="beta-content"><section class="beta-page active">
+<div class="page-heading"><div><p class="eyebrow">ANÁLISE</p><h2>Relatórios</h2></div><button class="secondary-button compact-action pdf-action" type="button">Exportar PDF</button></div>
+<article class="report-card"><h3>Consumo por leitura</h3><p class="note">Evolução entre registros consecutivos.</p><div class="bar-chart"><div class="bar-column"><small>6 kWh</small><span class="bar-track"><span style="height:40%"></span></span><time>21/07</time></div><div class="bar-column"><small>15 kWh</small><span class="bar-track"><span style="height:100%"></span></span><time>24/07</time></div><div class="bar-column"><small>4 kWh</small><span class="bar-track"><span style="height:27%"></span></span><time>01/08</time></div><div class="bar-column"><small>9 kWh</small><span class="bar-track"><span style="height:60%"></span></span><time>01/08</time></div><div class="bar-column"><small>11 kWh</small><span class="bar-track"><span style="height:73%"></span></span><time>02/08</time></div></div><div class="report-stats"><div><small>Maior consumo</small><strong>15,0 kWh</strong></div><div><small>Menor consumo</small><strong>4,0 kWh</strong></div><div><small>Consumo médio</small><strong>9,0 kWh</strong></div></div></article>
+<article class="report-card compact-comparison-card"><h3>Comparativo atual</h3><div class="report-comparison"><div><small>Energia</small><strong>168 kWh</strong></div><div><small>Água</small><strong>8,412 m³</strong></div><div><small>Valor estimado</small><strong>R$ 252,74</strong></div></div></article>
+<article class="report-card"><h3>Evolução da água</h3><p class="note">Variação entre leituras do hidrômetro.</p><div class="bar-chart water-chart"><div class="bar-column"><small>1,500 m³</small><span class="bar-track"><span style="height:100%"></span></span><time>24/07</time></div><div class="bar-column"><small>0,500 m³</small><span class="bar-track"><span style="height:33%"></span></span><time>01/08</time></div><div class="bar-column"><small>1,500 m³</small><span class="bar-track"><span style="height:100%"></span></span><time>01/08</time></div></div></article></section></main><button class="beta-reading-fab" type="button" aria-label="Registrar Nova Leitura"><img src="./icon.svg" alt=""><span>Registrar Nova Leitura</span></button><nav class="bottom-navigation" aria-label="Navegação principal"><span class="nav-indicator" data-ready="true" style="--nav-indicator-width:calc((100% - 16px)/4);--nav-indicator-x:calc(2 * (100% - 16px)/4)"></span><button type="button"><span aria-hidden="true">⌂</span><small>Início</small></button><button type="button"><span aria-hidden="true">≡</span><small>Leituras</small></button><button type="button" class="active" aria-current="page"><span aria-hidden="true">▥</span><small>Relatórios</small></button><button type="button"><span aria-hidden="true">⚙</span><small>Configurações</small></button></nav></div></section></main>
+<script>
+addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    scrollTo(0, document.body.scrollHeight);
+    requestAnimationFrame(() => {
+      const vw = document.documentElement.clientWidth;
+      const bleed = [...document.querySelectorAll("body *")].filter((el) => {
+        if (el.closest("[hidden]")) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return r.right > vw + 1 || r.left < -1;
+      }).map((el) => el.className || el.tagName);
+      const nav = document.querySelector(".bottom-navigation");
+      const fab = document.querySelector(".beta-reading-fab");
+      const items = [...document.querySelectorAll(".beta-page > *, .beta-page li")];
+      let hidden = 0;
+      if (nav) {
+        const navTop = nav.getBoundingClientRect().top;
+        const fabTop = fab ? fab.getBoundingClientRect().top : Infinity;
+        const limit = Math.min(navTop, fabTop);
+        hidden = items.filter((el) => el.getBoundingClientRect().bottom > limit + 1).length;
+      }
+      parent.postMessage({
+        probe: true,
+        id: document.documentElement.dataset.probeId,
+        scrollOverflow: document.documentElement.scrollWidth > vw + 1,
+        bleed: [...new Set(bleed)].slice(0, 4),
+        hiddenBehindNav: hidden,
+        pageHeight: Math.round(document.body.scrollHeight)
+      }, "*");
+    });
+  });
+});
+</script></body></html>

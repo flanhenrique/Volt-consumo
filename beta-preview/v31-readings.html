@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR" data-environment="beta" data-theme="dark" data-probe-id="v31-readings">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Leituras v31</title>
+<link rel="stylesheet" href="./v31-volt-lumen-tokens.css">
+<link rel="stylesheet" href="./v31-volt-lumen-components.css">
+<link rel="stylesheet" href="./v31-beta-v3.css">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head><body><main class="shell"><section id="dashboard" class="screen dashboard"><div class="beta-v2-shell"><header class="beta-header" data-scrolled="true"><div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA</span></p><h1>Olá, Henrique!</h1></div><button class="icon-button" type="button" aria-label="Alternar tema">☾</button></header><main class="beta-content" id="beta-content"><section class="beta-page active">
+<div class="page-heading"><div><p class="eyebrow">HISTÓRICO</p><h2>Leituras</h2></div><button class="secondary-button compact-action" type="button" data-new-reading>Nova leitura</button></div>
+<p class="note status-message" role="status"></p>
+<ul class="beta-reading-list">
+<li class="beta-reading-item"><span class="reading-icon energy">ϟ</span><div class="reading-info"><strong>28.459 kWh</strong><small>Energia · 02/08/2026, 16:00</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon water">●</span><div class="reading-info"><strong>103,500 m³</strong><small>Água · 02/08/2026, 15:00</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon energy">ϟ</span><div class="reading-info"><strong>28.450 kWh</strong><small>Energia · 01/08/2026, 05:00</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon water">●</span><div class="reading-info"><strong>102,000 m³</strong><small>Água · 01/08/2026, 06:00</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon energy">ϟ</span><div class="reading-info"><strong>28.446 kWh</strong><small>Energia · 24/07/2026, 12:52</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon water">●</span><div class="reading-info"><strong>101,500 m³</strong><small>Água · 24/07/2026, 12:52</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon energy">ϟ</span><div class="reading-info"><strong>28.431 kWh</strong><small>Energia · 21/07/2026, 22:30</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+<li class="beta-reading-item"><span class="reading-icon energy">ϟ</span><div class="reading-info"><strong>28.425 kWh</strong><small>Energia · 20/07/2026, 22:52</small></div><details class="reading-menu"><summary aria-label="Ações">⋮</summary><div><button type="button">Editar</button><button type="button" class="danger-text">Excluir</button></div></details></li>
+</ul></section></main><button class="beta-reading-fab" type="button" aria-label="Registrar Nova Leitura"><img src="./icon.svg" alt=""><span>Registrar Nova Leitura</span></button><nav class="bottom-navigation" aria-label="Navegação principal"><span class="nav-indicator" data-ready="true" style="--nav-indicator-width:calc((100% - 16px)/4);--nav-indicator-x:calc(1 * (100% - 16px)/4)"></span><button type="button"><span aria-hidden="true">⌂</span><small>Início</small></button><button type="button" class="active" aria-current="page"><span aria-hidden="true">≡</span><small>Leituras</small></button><button type="button"><span aria-hidden="true">▥</span><small>Relatórios</small></button><button type="button"><span aria-hidden="true">⚙</span><small>Configurações</small></button></nav></div></section></main>
+<script>
+addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    scrollTo(0, document.body.scrollHeight);
+    requestAnimationFrame(() => {
+      const vw = document.documentElement.clientWidth;
+      const bleed = [...document.querySelectorAll("body *")].filter((el) => {
+        if (el.closest("[hidden]")) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return r.right > vw + 1 || r.left < -1;
+      }).map((el) => el.className || el.tagName);
+      const nav = document.querySelector(".bottom-navigation");
+      const fab = document.querySelector(".beta-reading-fab");
+      const items = [...document.querySelectorAll(".beta-page > *, .beta-page li")];
+      let hidden = 0;
+      if (nav) {
+        const navTop = nav.getBoundingClientRect().top;
+        const fabTop = fab ? fab.getBoundingClientRect().top : Infinity;
+        const limit = Math.min(navTop, fabTop);
+        hidden = items.filter((el) => el.getBoundingClientRect().bottom > limit + 1).length;
+      }
+      parent.postMessage({
+        probe: true,
+        id: document.documentElement.dataset.probeId,
+        scrollOverflow: document.documentElement.scrollWidth > vw + 1,
+        bleed: [...new Set(bleed)].slice(0, 4),
+        hiddenBehindNav: hidden,
+        pageHeight: Math.round(document.body.scrollHeight)
+      }, "*");
+    });
+  });
+});
+</script></body></html>

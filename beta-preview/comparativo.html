@@ -1,0 +1,118 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Volt Beta v3.1 — antes e depois</title><style>
+:root{color-scheme:light;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{margin:0;padding:36px 24px 80px;background:#eef3f7;color:#12202b}
+h1{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
+.sub{margin:0 0 6px;max-width:74ch;color:#596b78;line-height:1.6;font-size:14px}
+h2{margin:40px 0 4px;font-size:21px;letter-spacing:-.02em}
+h3{margin:22px 0 12px;font-size:15px;color:#516470;font-weight:600}
+.pair{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+figure{margin:0}
+.frame{overflow:hidden;border:1px solid #c2ced6;border-radius:20px;background:#fff;box-shadow:0 12px 32px #0d212f1c}
+iframe{border:0;transform-origin:0 0}
+figcaption{margin-top:8px;color:#596b78;font-size:12px;font-weight:600}
+.tag{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}
+.before{background:#fbdfe3;color:#8d2029}
+.after{background:#d6f2e6;color:#0a5c43}
+table{border-collapse:collapse;margin-top:14px;font-size:13px;width:100%;max-width:900px}
+th,td{padding:7px 10px;border-bottom:1px solid #dce4e9;text-align:left}
+th{color:#516470;font-weight:600;font-size:12px}
+.ok{color:#0a6b4e;font-weight:700}
+.bad{color:#a8293c;font-weight:700}
+</style></head><body>
+<h1>Volt Consumo — Beta v3.1</h1>
+<p class="sub">Cada moldura é um iframe na largura real do dispositivo: as media queries avaliam de verdade. À esquerda o v3.0 publicado, à direita o v3.1. CSS idêntico ao que sai do build.</p>
+<p class="sub">Dados de exemplo, estáticos. Não há autenticação, cálculo nem persistência nestas páginas.</p>
+
+<h2>Início</h2>
+<h3>iPhone SE</h3><div class="pair">
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v30-home.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v31-home.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 13</h3><div class="pair">
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v30-home.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v31-home.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 16 Pro Max</h3><div class="pair">
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v30-home.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v31-home.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android pequeno</h3><div class="pair">
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v30-home.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v31-home.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android grande</h3><div class="pair">
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v30-home.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v31-home.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Tablet</h3><div class="pair">
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v30-home.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v31-home.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Desktop</h3><div class="pair">
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v30-home.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v31-home.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div>
+<h2>Leituras</h2>
+<h3>iPhone SE</h3><div class="pair">
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v30-readings.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v31-readings.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 13</h3><div class="pair">
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v30-readings.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v31-readings.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 16 Pro Max</h3><div class="pair">
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v30-readings.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v31-readings.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android pequeno</h3><div class="pair">
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v30-readings.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v31-readings.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android grande</h3><div class="pair">
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v30-readings.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v31-readings.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Tablet</h3><div class="pair">
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v30-readings.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v31-readings.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Desktop</h3><div class="pair">
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v30-readings.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v31-readings.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div>
+<h2>Relatórios</h2>
+<h3>iPhone SE</h3><div class="pair">
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v30-reports.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v31-reports.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 13</h3><div class="pair">
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v30-reports.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v31-reports.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 16 Pro Max</h3><div class="pair">
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v30-reports.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v31-reports.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android pequeno</h3><div class="pair">
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v30-reports.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v31-reports.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android grande</h3><div class="pair">
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v30-reports.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v31-reports.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Tablet</h3><div class="pair">
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v30-reports.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v31-reports.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Desktop</h3><div class="pair">
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v30-reports.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v31-reports.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div>
+<h2>Configurações</h2>
+<h3>iPhone SE</h3><div class="pair">
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v30-settings.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:270px;height:480px"><iframe src="./v31-settings.html" width="375" height="667" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 13</h3><div class="pair">
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v30-settings.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:281px;height:608px"><iframe src="./v31-settings.html" width="390" height="844" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>iPhone 16 Pro Max</h3><div class="pair">
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v30-settings.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:317px;height:688px"><iframe src="./v31-settings.html" width="440" height="956" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android pequeno</h3><div class="pair">
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v30-settings.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:259px;height:533px"><iframe src="./v31-settings.html" width="360" height="740" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Android grande</h3><div class="pair">
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v30-settings.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:297px;height:659px"><iframe src="./v31-settings.html" width="412" height="915" style="transform:scale(0.72)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Tablet</h3><div class="pair">
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v30-settings.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:350px;height:467px"><iframe src="./v31-settings.html" width="834" height="1112" style="transform:scale(0.42)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div><h3>Desktop</h3><div class="pair">
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v30-settings.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.0<span class="tag before">antes</span></figcaption></figure>
+<figure><div class="frame" style="width:490px;height:306px"><iframe src="./v31-settings.html" width="1440" height="900" style="transform:scale(0.34)"></iframe></div><figcaption>v3.1<span class="tag after">depois</span></figcaption></figure>
+</div>
+</body></html>

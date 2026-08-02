@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR" data-environment="beta" data-theme="dark" data-probe-id="v30-settings">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Configurações v30</title>
+<link rel="stylesheet" href="./v30-volt-lumen-tokens.css">
+<link rel="stylesheet" href="./v30-volt-lumen-components.css">
+<link rel="stylesheet" href="./v30-beta-v3.css">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+</head><body><main class="shell"><section id="dashboard" class="screen dashboard"><div class="beta-v2-shell"><header class="beta-header" data-scrolled="true"><div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA</span></p><h1>Olá, Henrique!</h1></div><button class="icon-button" type="button" aria-label="Alternar tema">☾</button></header><main class="beta-content" id="beta-content"><section class="beta-page active">
+<div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2>Configurações</h2></div></div>
+<section class="settings-group"><div class="settings-row"><h3>Conta</h3><button class="text-button" type="button">Sair</button></div><form class="form compact-form"><label><span>Nome de exibição</span><input type="text" value="Henrique"></label><label><span>E-mail</span><input type="email" value="henrique@volt.app" readonly></label><p class="note status-message full-row">Conta conectada</p><button class="secondary-button" type="submit">Salvar alterações</button></form></section>
+<section class="settings-group"><h3>Preferências</h3><form class="form compact-form"><label><span>Idioma</span><select><option>Português (Brasil)</option></select></label><label><span>Tema</span><select><option>Usar padrão do dispositivo</option></select></label><label><span>Formato de data</span><select><option>02/08/2026, 18:52</option></select></label><button class="secondary-button" type="submit">Salvar preferências</button></form></section>
+<section class="settings-group"><h3>Notificações</h3><label class="toggle-row"><span><strong>Lembrete diário</strong><small>“Faça o registro do seu consumo.”</small></span><input type="checkbox" checked></label><label class="field-row"><span>Horário</span><input type="time" value="19:00"></label></section>
+<section class="settings-group danger-zone"><h3>Sistema</h3><p class="note">Restaura preferências e dados locais deste dispositivo.</p><button class="danger-button" type="button">Restaurar Aplicativo</button></section></section></main><nav class="bottom-navigation" aria-label="Navegação principal"><span class="nav-indicator" data-ready="true" style="--nav-indicator-width:calc((100% - 16px)/4);--nav-indicator-x:calc(3 * (100% - 16px)/4)"></span><button type="button"><span aria-hidden="true">⌂</span><small>Início</small></button><button type="button"><span aria-hidden="true">≡</span><small>Leituras</small></button><button type="button"><span aria-hidden="true">▥</span><small>Relatórios</small></button><button type="button" class="active" aria-current="page"><span aria-hidden="true">⚙</span><small>Configurações</small></button></nav></div></section></main>
+<script>
+addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    scrollTo(0, document.body.scrollHeight);
+    requestAnimationFrame(() => {
+      const vw = document.documentElement.clientWidth;
+      const bleed = [...document.querySelectorAll("body *")].filter((el) => {
+        if (el.closest("[hidden]")) return false;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return false;
+        return r.right > vw + 1 || r.left < -1;
+      }).map((el) => el.className || el.tagName);
+      const nav = document.querySelector(".bottom-navigation");
+      const fab = document.querySelector(".beta-reading-fab");
+      const items = [...document.querySelectorAll(".beta-page > *, .beta-page li")];
+      let hidden = 0;
+      if (nav) {
+        const navTop = nav.getBoundingClientRect().top;
+        const fabTop = fab ? fab.getBoundingClientRect().top : Infinity;
+        const limit = Math.min(navTop, fabTop);
+        hidden = items.filter((el) => el.getBoundingClientRect().bottom > limit + 1).length;
+      }
+      parent.postMessage({
+        probe: true,
+        id: document.documentElement.dataset.probeId,
+        scrollOverflow: document.documentElement.scrollWidth > vw + 1,
+        bleed: [...new Set(bleed)].slice(0, 4),
+        hiddenBehindNav: hidden,
+        pageHeight: Math.round(document.body.scrollHeight)
+      }, "*");
+    });
+  });
+});
+</script></body></html>

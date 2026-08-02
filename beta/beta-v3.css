@@ -706,44 +706,55 @@ html[data-environment="beta"] .report-card .note {
   margin: 0;
 }
 
+/* O gráfico é uma grade, não uma fila com largura mínima.
+   `grid-auto-columns: minmax(0, 1fr)` divide o espaço disponível entre quantas
+   colunas existirem — cinco leituras ou dez — e nenhuma delas pode empurrar o
+   cartão. Era exatamente isso que a versão anterior fazia: com dez registros,
+   dez colunas de 46px pediam 460px dentro de um cartão de 326px. */
 html[data-environment="beta"] .bar-chart {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
   align-items: end;
-  gap: var(--lm-space-2);
   min-height: 0;
   margin-top: var(--lm-space-3);
-  padding: var(--lm-space-2) var(--lm-space-1) 0;
-  overflow-x: auto;
+  padding: var(--lm-space-2) 0 0;
+  overflow: hidden;
   border-bottom: 1px solid var(--lm-glass-border-strong);
-  scrollbar-width: thin;
 }
 
 html[data-environment="beta"] .bar-column {
   display: grid;
   grid-template-rows: auto var(--beta-chart-track) auto;
-  flex: 1 0 46px;
-  gap: var(--lm-space-1);
+  gap: 3px;
   align-items: end;
-  min-width: 46px;
+  min-width: 0;
   text-align: center;
 }
 
-html[data-environment="beta"] .bar-column small {
+html[data-environment="beta"] .bar-column small,
+html[data-environment="beta"] .bar-column time {
+  overflow: hidden;
   color: var(--lm-ink-muted);
   font-size: var(--lm-text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-environment="beta"] .bar-column small {
   font-weight: var(--lm-weight-bold);
 }
 
 html[data-environment="beta"] .bar-column time {
   padding-bottom: var(--lm-space-1);
-  color: var(--lm-ink-muted);
-  font-size: var(--lm-text-2xs);
 }
 
 html[data-environment="beta"] .bar-track {
   position: relative;
   display: block;
-  width: 24px;
+  width: 100%;
+  max-width: 26px;
   height: var(--beta-chart-track);
   margin: auto;
   overflow: hidden;
@@ -776,8 +787,9 @@ html[data-environment="beta"] .water-chart .bar-track > span {
   );
 }
 
-/* Três colunas em qualquer largura. São rótulo curto e número — empilhar
-   triplicaria a altura da tela sem ganho de leitura. */
+/* Em tela larga, três blocos lado a lado. Em telefone o mesmo conteúdo vira
+   lista — ver seção 12. Três colunas num aparelho estreito espremem rótulo e
+   número até truncar; a lista lê melhor e ocupa menos altura. */
 html[data-environment="beta"] .report-comparison,
 html[data-environment="beta"] .report-stats {
   display: grid;
@@ -1501,6 +1513,71 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
     max-width: 152px;
   }
 
+  /* --- Relatórios em telefone -------------------------------------------
+     O gráfico perde o rótulo numérico por barra: com dez leituras cada coluna
+     tem cerca de 30px e "15,0 kWh" não cabe em nenhum tamanho legível. Os
+     números exatos ficam logo abaixo, na lista de estatísticas. As datas
+     aparecem em colunas alternadas para não colidirem entre si. */
+  html[data-environment="beta"] .bar-column {
+    grid-template-rows: var(--beta-chart-track) auto;
+  }
+
+  html[data-environment="beta"] .bar-column small {
+    display: none;
+  }
+
+  html[data-environment="beta"] .bar-column:nth-child(even) time {
+    visibility: hidden;
+  }
+
+  /* Os pares rótulo/valor viram lista: rótulo à esquerda, número à direita.
+     `display: contents` dissolve o invólucro de cada par para que ambos
+     participem da mesma grade de duas colunas. */
+  html[data-environment="beta"] .report-stats,
+  html[data-environment="beta"] .report-comparison {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+    margin-top: var(--lm-space-3);
+  }
+
+  html[data-environment="beta"] .report-stats > div,
+  html[data-environment="beta"] .report-comparison > div {
+    display: contents;
+  }
+
+  html[data-environment="beta"] .report-stats small,
+  html[data-environment="beta"] .report-comparison small,
+  html[data-environment="beta"] .report-stats strong,
+  html[data-environment="beta"] .report-comparison strong {
+    margin: 0;
+    padding: var(--lm-space-3) 0;
+    border-bottom: 1px solid var(--lm-glass-border);
+    font-size: var(--lm-text-sm);
+    line-height: 1.3;
+  }
+
+  html[data-environment="beta"] .report-stats small,
+  html[data-environment="beta"] .report-comparison small {
+    align-self: center;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  html[data-environment="beta"] .report-stats strong,
+  html[data-environment="beta"] .report-comparison strong {
+    padding-left: var(--lm-space-4);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  html[data-environment="beta"] .report-stats > div:last-child small,
+  html[data-environment="beta"] .report-stats > div:last-child strong,
+  html[data-environment="beta"] .report-comparison > div:last-child small,
+  html[data-environment="beta"] .report-comparison > div:last-child strong {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
   html[data-environment="beta"] .reading-type-grid,
   html[data-environment="beta"] .two-column-form,
   html[data-environment="beta"] .compact-form {
@@ -1540,19 +1617,8 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
     text-align: left;
   }
 
-  html[data-environment="beta"] .report-comparison,
-  html[data-environment="beta"] .report-stats {
-    gap: var(--lm-space-1);
-  }
-
-  html[data-environment="beta"] .report-comparison div,
-  html[data-environment="beta"] .report-stats div {
-    padding: var(--lm-space-2);
-  }
-
-  html[data-environment="beta"] .report-comparison strong,
-  html[data-environment="beta"] .report-stats strong {
-    font-size: var(--lm-text-xs);
+  html[data-environment="beta"] .bar-chart {
+    gap: 2px;
   }
 }
 

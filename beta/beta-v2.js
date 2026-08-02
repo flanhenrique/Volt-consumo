@@ -34,11 +34,15 @@ function initializeBetaExperience() {
   bindReports(shell);
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
+  window.addEventListener("focus", refreshBetaData);
   new MutationObserver(() => {
     if (!dashboard.hidden) renderBetaExperience();
   }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) scheduleDailyReminder();
+    if (!document.hidden) {
+      scheduleDailyReminder();
+      refreshBetaData();
+    }
   });
   renderBetaExperience();
   scheduleDailyReminder();
@@ -47,7 +51,7 @@ function initializeBetaExperience() {
 function betaShellMarkup() {
   return `
     <header class="beta-header">
-      <div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA</span></p><h1 id="beta-greeting">Olá!</h1></div>
+      <div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA v2.2</span></p><h1 id="beta-greeting">Olá!</h1></div>
       <button id="beta-theme-shortcut" class="icon-button" type="button" aria-label="Alternar tema">☾</button>
     </header>
     <main class="beta-content" id="beta-content">
@@ -57,9 +61,10 @@ function betaShellMarkup() {
           <article class="utility-card water"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">●</span><h3>Água</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong id="beta-water-consumption">0 m³</strong></div><div class="financial-preview"><p>Estimativa</p><strong id="beta-water-cost">R$ 0,00</strong></div></div><small id="beta-water-comparison" class="cycle-comparison">Aguardando leituras</small></article>
           <article class="utility-card energy"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">ϟ</span><h3>Energia</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong id="beta-energy-consumption">0 kWh</strong></div><div class="financial-preview"><p>Estimativa</p><strong id="beta-energy-cost">R$ 0,00</strong></div></div><small id="beta-energy-comparison" class="cycle-comparison">Aguardando leituras</small></article>
         </div>
-        <article class="cycle-summary-card">
-          <div class="summary-header"><div><p class="eyebrow">RESUMO DO CICLO</p><h2 id="beta-summary-title">Valor estimado</h2></div><div class="segmented" role="group" aria-label="Exibir resumo por valor ou consumo"><button class="active" type="button" data-summary="cost" aria-pressed="true">Valor</button><button type="button" data-summary="consumption" aria-pressed="false">Consumo total</button></div></div>
+        <article class="cycle-summary-card financial-summary-card">
+          <div class="summary-header"><div><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Total estimado</h2></div><strong id="beta-financial-total" class="financial-total">R$ 0,00</strong></div>
           <div class="summary-values" id="beta-summary-values"></div>
+          <div class="financial-insights"><p id="beta-financial-comparison">Aguardando leituras para comparar os ciclos.</p><p id="beta-cycle-forecast">Aguardando leituras para prever o encerramento.</p></div>
         </article>
       </section>
 
@@ -71,9 +76,9 @@ function betaShellMarkup() {
       </section>
 
       <section class="beta-page" id="beta-reports" data-page="reports" aria-labelledby="beta-reports-title" hidden>
-        <div class="page-heading"><div><p class="eyebrow">ANÁLISE</p><h2 id="beta-reports-title">Relatórios</h2></div><button id="beta-export-pdf" class="secondary-button compact-action" type="button">Exportar PDF</button></div>
-        <article class="report-card"><h3>Consumo por leitura</h3><p class="note">Evolução entre registros consecutivos.</p><div id="beta-energy-chart" class="bar-chart" aria-label="Gráfico de consumo de energia"></div></article>
-        <article class="report-card"><h3>Comparativo atual</h3><div id="beta-report-comparison" class="report-comparison"></div></article>
+        <div class="page-heading"><div><p class="eyebrow">ANÁLISE</p><h2 id="beta-reports-title">Relatórios</h2></div><button id="beta-export-pdf" class="secondary-button compact-action pdf-action" type="button">Exportar PDF</button></div>
+        <article class="report-card"><h3>Consumo por leitura</h3><p class="note">Evolução entre registros consecutivos.</p><div id="beta-energy-chart" class="bar-chart" aria-label="Gráfico de consumo de energia"></div><div id="beta-energy-stats" class="report-stats"></div></article>
+        <article class="report-card compact-comparison-card"><h3>Comparativo atual</h3><div id="beta-report-comparison" class="report-comparison"></div></article>
         <article class="report-card"><h3>Evolução da água</h3><p class="note">Variação entre leituras do hidrômetro.</p><div id="beta-water-chart" class="bar-chart water-chart" aria-label="Gráfico de consumo de água"></div></article>
       </section>
 
@@ -267,14 +272,10 @@ function bindRestore(shell) {
 
 function bindReports(shell) {
   shell.querySelector("#beta-export-pdf").addEventListener("click", () => window.print());
-  shell.querySelectorAll("[data-summary]").forEach((button) => button.addEventListener("click", () => {
-    shell.querySelectorAll("[data-summary]").forEach((candidate) => {
-      const active = candidate === button;
-      candidate.classList.toggle("active", active);
-      candidate.setAttribute("aria-pressed", String(active));
-    });
-    renderBetaExperience();
-  }));
+}
+
+function refreshBetaData() {
+  Promise.resolve(api.refreshData()).catch(() => undefined);
 }
 
 function renderBetaExperience() {
@@ -296,29 +297,52 @@ function renderBetaExperience() {
   setText("#beta-water-cost", currency(api.estimateWater(waterCurrent.consumption).totalCost));
   renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
   renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
-  const summaryMode = document.querySelector("[data-summary].active")?.dataset.summary || "cost";
-  renderSummary(summaryMode, energyCurrent.consumption, waterCurrent.consumption);
+  renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
   renderReadingHistory(snapshot);
-  renderReports(snapshot);
+  renderReports(snapshot, energyCurrent, waterCurrent);
 }
 
-function renderSummary(mode, energyConsumption, waterConsumption) {
-  const energy = energyConsumption || 0;
-  const water = waterConsumption || 0;
-  const title = mode === "cost" ? "Valor estimado" : "Consumo total";
-  setText("#beta-summary-title", title);
+function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {
+  const energyCost = api.estimateEnergy(energyCurrent.consumption).totalCost;
+  const waterCost = api.estimateWater(waterCurrent.consumption).totalCost;
+  const totalCost = energyCost + waterCost;
+  const previousEnergyCost = api.estimateEnergy(energyPrevious.consumption).totalCost;
+  const previousWaterCost = api.estimateWater(waterPrevious.consumption).totalCost;
+  const previousTotal = previousEnergyCost + previousWaterCost;
   const container = document.querySelector("#beta-summary-values");
-  if (mode === "cost") {
-    renderStatGrid(container, [
-      ["Energia", currency(api.estimateEnergy(energy).totalCost)],
-      ["Água", currency(api.estimateWater(water).totalCost)]
-    ]);
+  setText("#beta-financial-total", currency(totalCost));
+  renderStatGrid(container, [
+    ["Energia", currency(energyCost)],
+    ["Água", currency(waterCost)],
+    ["Total geral", currency(totalCost)]
+  ]);
+
+  const comparison = document.querySelector("#beta-financial-comparison");
+  comparison.classList.remove("increase", "decrease", "steady");
+  if (energyCurrent.count < 2 || energyPrevious.count < 2) {
+    comparison.textContent = "Aguardando leituras para comparar os ciclos.";
   } else {
-    renderStatGrid(container, [
-      ["Energia", `${formatNumber(energy)} kWh`],
-      ["Água", `${formatNumber(water, 3)} m³`]
-    ]);
+    const difference = previousTotal > 0 ? ((totalCost - previousTotal) / previousTotal) * 100 : 0;
+    const increased = difference > 0.1;
+    const decreased = difference < -0.1;
+    comparison.textContent = increased || decreased
+      ? `${increased ? "▲ +" : "▼ -"}${Math.abs(difference).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% em relação ao ciclo anterior.`
+      : "• Mesmo valor estimado do ciclo anterior.";
+    comparison.classList.add(increased ? "increase" : decreased ? "decrease" : "steady");
   }
+
+  const cycleDays = Math.max(1, Math.ceil((cycle.current.end - cycle.current.start) / 86_400_000));
+  const energyForecast = snapshot.energy.forecast;
+  const waterForecast = snapshot.water.forecast;
+  const forecastAvailable = (energyForecast.valid && energyForecast.usage > 0) || (waterForecast.valid && waterForecast.usage > 0);
+  if (!forecastAvailable) {
+    setText("#beta-cycle-forecast", "Aguardando leituras para prever o encerramento.");
+    return;
+  }
+  const forecastEnergyCost = api.estimateEnergy(energyForecast.usage * cycleDays / 30).totalCost;
+  const forecastWaterCost = api.estimateWater(waterForecast.usage * cycleDays / 30).totalCost;
+  const confidence = weakestConfidence(energyForecast.confidence, waterForecast.confidence);
+  setText("#beta-cycle-forecast", `Previsão de encerramento: ${currency(forecastEnergyCost + forecastWaterCost)} · confiança ${confidence}.`);
 }
 
 function renderReadingHistory(snapshot) {
@@ -401,14 +425,31 @@ async function handleDeleteConfirm() {
   pendingDeletion = null;
 }
 
-function renderReports(snapshot) {
-  renderBarChart("#beta-energy-chart", deltas(snapshot.energy.readings), "kWh");
+function renderReports(snapshot, energyCurrent, waterCurrent) {
+  const energyDeltas = deltas(snapshot.energy.readings);
+  renderBarChart("#beta-energy-chart", energyDeltas, "kWh");
   renderBarChart("#beta-water-chart", deltas(snapshot.water.readings), "m³");
+  renderConsumptionStats("#beta-energy-stats", energyDeltas, "kWh");
   const comparison = document.querySelector("#beta-report-comparison");
   renderStatGrid(comparison, [
-    ["Energia", `${formatNumber(snapshot.energy.summary.consumption || 0)} kWh`],
-    ["Água", `${formatNumber(snapshot.water.summary.consumption || 0, 3)} m³`],
-    ["Valor estimado", currency((snapshot.energy.estimate.totalCost || 0) + (snapshot.water.estimate.totalCost || 0))]
+    ["Energia", `${formatNumber(energyCurrent.consumption)} kWh`],
+    ["Água", `${formatNumber(waterCurrent.consumption, 3)} m³`],
+    ["Valor estimado", currency(api.estimateEnergy(energyCurrent.consumption).totalCost + api.estimateWater(waterCurrent.consumption).totalCost)]
+  ]);
+}
+
+function renderConsumptionStats(selector, values, unit) {
+  const container = document.querySelector(selector);
+  if (!values.length) {
+    renderStatGrid(container, [["Maior consumo", `0 ${unit}`], ["Menor consumo", `0 ${unit}`], ["Consumo médio", `0 ${unit}`]]);
+    return;
+  }
+  const numericValues = values.map((item) => item.value);
+  const digits = unit === "m³" ? 3 : 1;
+  renderStatGrid(container, [
+    ["Maior consumo", `${formatNumber(Math.max(...numericValues), digits)} ${unit}`],
+    ["Menor consumo", `${formatNumber(Math.min(...numericValues), digits)} ${unit}`],
+    ["Consumo médio", `${formatNumber(numericValues.reduce((total, value) => total + value, 0) / numericValues.length, digits)} ${unit}`]
   ]);
 }
 
@@ -511,6 +552,11 @@ function renderComparison(selector, current, previous) {
   const increased = difference > 0;
   element.textContent = `${increased ? "▲ +" : "▼ -"}${Math.abs(difference).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs. ciclo anterior`;
   element.classList.add(increased ? "increase" : "decrease");
+}
+
+function weakestConfidence(...levels) {
+  const rank = { baixa: 0, média: 1, alta: 2 };
+  return levels.filter((level) => level in rank).sort((left, right) => rank[left] - rank[right])[0] || "baixa";
 }
 
 function formatReadingDate(date) {

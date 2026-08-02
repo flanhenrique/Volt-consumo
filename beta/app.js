@@ -54,6 +54,8 @@ let currentUserId = null;
 let currentUserEmail = "";
 let currentDisplayName = "";
 let scannerTarget = null;
+let betaDataUpdateScheduled = false;
+let betaRefreshPromise = null;
 
 initializeEnvironment();
 enforceOfflineDataPreference();
@@ -711,6 +713,7 @@ function exposeBetaApi() {
     estimateWater: estimateBetaWater,
     exportData: exportCurrentUserData,
     getSnapshot: getBetaSnapshot,
+    refreshData: refreshBetaData,
     resetApplication: resetBetaApplication,
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
@@ -730,6 +733,7 @@ function getBetaSnapshot() {
       readings,
       settings,
       summary: energySummary,
+      forecast: getForecast(readings),
       estimate: calculateEnergyEstimate(energyConsumption, {
         rate: settings.rate,
         flagRate: flag.rate,
@@ -740,6 +744,7 @@ function getBetaSnapshot() {
       readings: waterReadings,
       settings: waterSettings,
       summary: waterSummary,
+      forecast: getForecast(waterReadings),
       estimate: calculateWaterEstimate(waterConsumption, waterSettings)
     }
   });
@@ -848,8 +853,28 @@ async function resetBetaApplication() {
   location.reload();
 }
 
+async function refreshBetaData() {
+  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient) return false;
+  if (betaRefreshPromise) return betaRefreshPromise;
+  betaRefreshPromise = (async () => {
+    await loadUserData(currentUserId);
+    render();
+    return true;
+  })().finally(() => {
+    betaRefreshPromise = null;
+  });
+  return betaRefreshPromise;
+}
+
 function notifyBetaDataUpdate() {
-  if (APP_ENVIRONMENT.id === "beta") window.dispatchEvent(new CustomEvent("volt:beta-data"));
+  if (APP_ENVIRONMENT.id !== "beta" || betaDataUpdateScheduled) return;
+  betaDataUpdateScheduled = true;
+  queueMicrotask(() => {
+    betaDataUpdateScheduled = false;
+    window.dispatchEvent(new CustomEvent("volt:beta-data", {
+      detail: { updatedAt: new Date().toISOString() }
+    }));
+  });
 }
 
 function renderEngineSettings() {

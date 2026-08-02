@@ -98,6 +98,13 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
 .cycle-comparison.steady { color: var(--muted); }
 
 .cycle-summary-card { padding: clamp(20px, 4vw, 30px); }
+.financial-total { color: var(--ink); font-size: clamp(24px, 4vw, 34px); white-space: nowrap; }
+.financial-summary-card .summary-values { grid-template-columns: repeat(3, 1fr); }
+.financial-insights { display: grid; gap: 8px; margin-top: 14px; }
+.financial-insights p { margin: 0; padding: 11px 13px; border-radius: 13px; color: var(--muted); background: var(--surface-soft); font-size: 12px; font-weight: 700; }
+.financial-insights .increase { color: #b75c00; }
+.financial-insights .decrease { color: var(--green); }
+.financial-insights .steady { color: var(--muted); }
 .segmented { display: flex; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-soft); }
 .segmented button { padding: 8px 11px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font-size: 11px; font-weight: 800; }
 .segmented button { white-space: nowrap; }
@@ -165,13 +172,13 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
 .reading-menu button:hover { background: var(--surface-soft); }
 .reading-menu .danger-text { color: #b92d3a; }
 
-.report-card { padding: clamp(19px, 3vw, 26px); }
+.report-card { padding: clamp(15px, 2.4vw, 20px); }
 .report-card h3 { margin: 0 0 6px; }
-.bar-chart { display: flex; align-items: end; gap: 10px; min-height: 230px; margin-top: 20px; padding: 18px 6px 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
-.bar-column { display: grid; grid-template-rows: auto 150px auto; flex: 1 0 55px; gap: 7px; align-items: end; min-width: 55px; text-align: center; }
+.bar-chart { display: flex; align-items: end; gap: 8px; min-height: 160px; margin-top: 12px; padding: 10px 4px 0; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.bar-column { display: grid; grid-template-rows: auto 105px auto; flex: 1 0 50px; gap: 5px; align-items: end; min-width: 50px; text-align: center; }
 .bar-column small { color: var(--muted); font-size: 9px; }
-.bar-column time { padding-bottom: 8px; color: var(--muted); font-size: 10px; }
-.bar-track { position: relative; display: block; width: 28px; height: 150px; margin: auto; overflow: hidden; border-radius: 9px 9px 3px 3px; background: var(--surface-soft); }
+.bar-column time { padding-bottom: 5px; color: var(--muted); font-size: 10px; }
+.bar-track { position: relative; display: block; width: 25px; height: 105px; margin: auto; overflow: hidden; border-radius: 8px 8px 3px 3px; background: var(--surface-soft); }
 .bar-track > span { position: absolute; right: 0; bottom: 0; left: 0; border-radius: inherit; background: linear-gradient(#35c494, #0f8a64); }
 .water-chart .bar-track > span { background: linear-gradient(#53c4df, #167591); }
 .report-comparison { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
@@ -179,6 +186,15 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
 .report-comparison small,
 .report-comparison strong { display: block; }
 .report-comparison small { margin-bottom: 6px; color: var(--muted); font-size: 11px; }
+.report-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.report-stats div { padding: 11px; border-radius: 13px; background: var(--surface-soft); }
+.report-stats small,
+.report-stats strong { display: block; }
+.report-stats small { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+.report-stats strong { font-size: 14px; }
+.compact-comparison-card { padding-block: 15px; }
+.compact-comparison-card .report-comparison { margin-top: 10px; }
+.pdf-action { min-height: 36px; padding: 8px 11px; font-size: 11px; }
 
 .settings-group { padding: clamp(18px, 3vw, 24px); }
 .settings-group h3 { margin: 0 0 17px; font-size: 16px; }
@@ -219,13 +235,13 @@ body > .reading-dialog,
   overflow-y: auto;
 }
 body > .reading-dialog .dialog-card,
-.beta-dialog .dialog-card { width: 100%; max-width: 100%; }
+.beta-dialog .dialog-card { width: 100%; max-width: 100%; box-sizing: border-box; }
 body > .reading-dialog .form,
-.beta-dialog form { min-width: 0; }
+.beta-dialog form { width: 100%; min-width: 0; box-sizing: border-box; }
 body > .reading-dialog label,
-.beta-dialog label { display: block; min-width: 0; }
+.beta-dialog label { display: block; width: 100%; min-width: 0; margin: 0; box-sizing: border-box; }
 body > .reading-dialog :where(input, select, button),
-.beta-dialog :where(input, select, button) { max-width: 100%; }
+.beta-dialog :where(input, select, button) { max-width: 100%; box-sizing: border-box; }
 .beta-v2-shell .form :where(input:not([type="hidden"]), select),
 body > .reading-dialog .form :where(input:not([type="hidden"]), select),
 .beta-dialog .dialog-card :where(input:not([type="hidden"]), select) {
@@ -237,13 +253,23 @@ body > .reading-dialog .form :where(input:not([type="hidden"]), select),
   min-height: 52px;
   margin: 0;
   padding: 0 15px;
+  overflow: hidden;
+  border-radius: 14px;
   box-sizing: border-box;
 }
 body > .reading-dialog .form :where(button),
 .beta-dialog .dialog-card :where(button.primary-button, button.secondary-button, button.danger-button) {
+  width: 100%;
+  max-width: 100%;
+  height: 52px;
   min-height: 52px;
+  margin: 0;
+  padding: 0 15px;
+  border-radius: 14px;
   box-sizing: border-box;
 }
+body > .reading-dialog input[type="datetime-local"],
+.beta-dialog input[type="datetime-local"] { inline-size: 100%; -webkit-appearance: none; appearance: none; }
 .beta-v2-shell input[readonly] { color: var(--muted); cursor: not-allowed; }
 .beta-dialog .dialog-card > label { display: block; margin-top: 14px; }
 
@@ -265,6 +291,7 @@ body > .reading-dialog .form :where(button),
   .beta-content { padding-inline: 16px; }
   .utility-grid,
   .summary-values,
+  .financial-summary-card .summary-values,
   .stack-actions,
   .report-comparison { grid-template-columns: 1fr; }
   .utility-card { min-height: 182px; }
@@ -276,6 +303,7 @@ body > .reading-dialog .form :where(button),
   .beta-reading-fab span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .page-heading { align-items: flex-start; }
   .compact-action { max-width: 130px; }
+  .report-stats { grid-template-columns: 1fr; }
   .reading-type-grid,
   .two-column-form { grid-template-columns: 1fr; }
   .full-row { grid-column: auto; }

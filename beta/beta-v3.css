@@ -1,0 +1,1462 @@
+/* ==========================================================================
+   Volt Consumo — Beta v3
+   Aplicação do Volt Lumen à marcação do produto
+   --------------------------------------------------------------------------
+   Camada exclusivamente visual. Não altera marcação, identificadores, textos,
+   ordem de foco nem comportamento — apenas apresenta.
+
+   Depende de:
+     volt-lumen-tokens.css   (gerado por @volt/design-system)
+     volt-lumen-components.css (primitivas compartilhadas)
+
+   Índice:
+      1. Tela viva (aurora)
+      2. Casca e transições de página
+      3. Tela de entrada
+      4. Cabeçalho da beta
+      5. Início — cartões de utilidade e resumo financeiro
+      6. Leituras
+      7. Relatórios
+      8. Configurações
+      9. Navegação inferior flutuante
+     10. Ação principal (FAB)
+     11. Modais do produto
+     12. Responsividade
+     13. Impressão
+   ========================================================================== */
+
+/* ==========================================================================
+   1. Tela viva — a fonte de luz que o vidro refrata
+   --------------------------------------------------------------------------
+   Duas auroras desfocadas derivam lentamente atrás de todo o conteúdo. É o
+   que dá ao material translúcido algo para amostrar: sem isso, "vidro" vira
+   apenas "fundo claro".
+   ========================================================================== */
+
+html[data-environment="beta"] {
+  background: var(--lm-canvas);
+}
+
+html[data-environment="beta"] body {
+  position: relative;
+  min-height: 100dvh;
+  margin: 0;
+  color: var(--lm-ink);
+  background:
+    radial-gradient(120% 80% at 50% 0%, var(--lm-canvas) 0%, var(--lm-canvas-deep) 100%);
+  overflow-x: hidden;
+}
+
+html[data-environment="beta"] body::before,
+html[data-environment="beta"] body::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+html[data-environment="beta"] body::before {
+  top: -18vmin;
+  left: -12vmin;
+  width: 68vmin;
+  height: 68vmin;
+  background: var(--lm-aurora-a);
+  animation: lm-drift var(--lm-duration-ambient) var(--lm-ease-standard) infinite;
+}
+
+html[data-environment="beta"] body::after {
+  right: -20vmin;
+  bottom: -22vmin;
+  width: 76vmin;
+  height: 76vmin;
+  background: var(--lm-aurora-b);
+  animation: lm-drift calc(var(--lm-duration-ambient) * 1.45) var(--lm-ease-standard) infinite reverse;
+}
+
+/* ==========================================================================
+   2. Casca e transições de página
+   ========================================================================== */
+
+html[data-environment="beta"] .shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 560px);
+  background: transparent;
+}
+
+html[data-environment="beta"] .shell:has(#dashboard:not([hidden])) {
+  width: min(100%, 1240px);
+}
+
+html[data-environment="beta"] #dashboard {
+  display: block;
+  min-height: 100dvh;
+  padding: 0;
+}
+
+/* A experiência beta substitui integralmente o painel legado. */
+html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
+  display: none !important;
+}
+
+html[data-environment="beta"] .beta-v2-shell {
+  min-height: 100dvh;
+  background: transparent;
+}
+
+html[data-environment="beta"] .beta-page {
+  display: grid;
+  gap: var(--lm-space-5);
+  animation: lm-rise-in var(--lm-duration-slow) var(--lm-ease-entrance) both;
+}
+
+/* Entrada escalonada: os blocos sobem em sequência, não em bloco. */
+html[data-environment="beta"] .beta-page > * {
+  animation: lm-rise-in var(--lm-duration-slow) var(--lm-ease-entrance) both;
+}
+
+html[data-environment="beta"] .beta-page > :nth-child(1) { animation-delay: 20ms; }
+html[data-environment="beta"] .beta-page > :nth-child(2) { animation-delay: 55ms; }
+html[data-environment="beta"] .beta-page > :nth-child(3) { animation-delay: 90ms; }
+html[data-environment="beta"] .beta-page > :nth-child(4) { animation-delay: 125ms; }
+html[data-environment="beta"] .beta-page > :nth-child(n + 5) { animation-delay: 160ms; }
+
+/* ==========================================================================
+   3. Tela de entrada
+   ========================================================================== */
+
+html[data-environment="beta"] .auth-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--lm-space-2);
+  padding-inline: var(--lm-space-6);
+  animation: lm-rise-in var(--lm-duration-slow) var(--lm-ease-entrance) both;
+}
+
+html[data-environment="beta"] .welcome-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border: 1px solid var(--lm-glass-border-strong);
+  border-radius: var(--lm-radius-lg);
+  color: var(--lm-accent-contrast);
+  background: linear-gradient(150deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  box-shadow: var(--lm-shadow-accent), inset 0 1px 0 #ffffff59;
+  font-size: 32px;
+  line-height: 1;
+}
+
+html[data-environment="beta"] .auth-screen h1 {
+  margin: var(--lm-space-4) 0 var(--lm-space-4);
+  font-size: clamp(38px, 11vw, 52px);
+  font-weight: var(--lm-weight-black);
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+html[data-environment="beta"] .auth-screen .lead {
+  margin-bottom: var(--lm-space-6);
+  max-width: 34ch;
+}
+
+html[data-environment="beta"] .auth-screen .card {
+  padding: var(--lm-space-6);
+}
+
+html[data-environment="beta"] .auth-screen .card > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-environment="beta"] .remember-option {
+  display: flex;
+  align-items: center;
+  gap: var(--lm-space-3);
+  cursor: pointer;
+}
+
+html[data-environment="beta"] .remember-option > span {
+  margin: 0;
+  color: var(--lm-ink-soft);
+  font-size: var(--lm-text-sm);
+  font-weight: var(--lm-weight-medium);
+  letter-spacing: 0;
+}
+
+html[data-environment="beta"] .remember-option a,
+html[data-environment="beta"] .privacy-policy-link a {
+  color: var(--lm-accent-ink);
+  font-weight: var(--lm-weight-bold);
+}
+
+html[data-environment="beta"] .auth-note {
+  margin-top: var(--lm-space-4);
+  text-align: center;
+}
+
+/* ==========================================================================
+   4. Cabeçalho da beta
+   --------------------------------------------------------------------------
+   Fica colado ao topo e ganha material apenas quando a página rola — antes
+   disso é invisível, para que o conteúdo comece na borda.
+   ========================================================================== */
+
+html[data-environment="beta"] .beta-header {
+  position: sticky;
+  z-index: 15;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lm-space-4);
+  padding:
+    max(var(--lm-space-5), env(safe-area-inset-top))
+    clamp(var(--lm-space-5), 4vw, var(--lm-space-9))
+    var(--lm-space-4);
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  transition:
+    background-color var(--lm-duration-base) var(--lm-ease-standard),
+    border-color var(--lm-duration-base) var(--lm-ease-standard),
+    backdrop-filter var(--lm-duration-base) var(--lm-ease-standard);
+}
+
+html[data-environment="beta"] .beta-header[data-scrolled="true"] {
+  border-bottom-color: var(--lm-glass-border);
+  background: var(--lm-glass-thick);
+  backdrop-filter: var(--lm-glass-thick-filter);
+  -webkit-backdrop-filter: var(--lm-glass-thick-filter);
+}
+
+html[data-environment="beta"] .beta-header .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--lm-space-2);
+  margin: 0 0 var(--lm-space-2);
+}
+
+html[data-environment="beta"] .beta-header h1 {
+  margin: 0;
+  font-size: clamp(25px, 4.4vw, 33px);
+}
+
+html[data-environment="beta"] .beta-content {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100dvh - 104px);
+  padding:
+    var(--lm-space-6)
+    clamp(var(--lm-space-5), 4vw, var(--lm-space-9))
+    calc(148px + env(safe-area-inset-bottom));
+}
+
+/* ==========================================================================
+   5. Início
+   ========================================================================== */
+
+html[data-environment="beta"] .cycle-heading,
+html[data-environment="beta"] .page-heading,
+html[data-environment="beta"] .summary-header,
+html[data-environment="beta"] .settings-row,
+html[data-environment="beta"] .toggle-row,
+html[data-environment="beta"] .field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .cycle-heading .eyebrow,
+html[data-environment="beta"] .page-heading .eyebrow,
+html[data-environment="beta"] .summary-header .eyebrow {
+  margin: 0 0 var(--lm-space-1);
+}
+
+html[data-environment="beta"] .cycle-heading h2,
+html[data-environment="beta"] .page-heading h2,
+html[data-environment="beta"] .summary-header h2 {
+  font-size: clamp(23px, 4vw, 30px);
+}
+
+html[data-environment="beta"] .cycle-chip {
+  padding: var(--lm-space-2) var(--lm-space-4);
+  font-size: var(--lm-text-xs);
+}
+
+/* --- Cartões de utilidade ------------------------------------------------ */
+
+html[data-environment="beta"] .utility-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .utility-card {
+  min-height: 196px;
+  padding: var(--lm-space-5);
+  overflow: hidden;
+}
+
+/* Bloom luminoso no canto: a cor da utilidade sangra através do vidro. */
+html[data-environment="beta"] .utility-card::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  bottom: -54px;
+  z-index: 0;
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentcolor 0%, transparent 68%);
+  opacity: 0.22;
+  pointer-events: none;
+  transition: transform var(--lm-duration-slow) var(--lm-ease-glass), opacity var(--lm-duration-slow) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .utility-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-environment="beta"] .utility-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--lm-shadow-3), inset 0 1px 0 var(--lm-glass-highlight);
+}
+
+html[data-environment="beta"] .utility-card:hover::after {
+  transform: scale(1.16);
+  opacity: 0.3;
+}
+
+html[data-environment="beta"] .utility-card.water { color: var(--lm-water); }
+html[data-environment="beta"] .utility-card.energy { color: var(--lm-energy); }
+
+html[data-environment="beta"] .utility-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in srgb, currentcolor 22%, transparent);
+  border-radius: var(--lm-radius-sm);
+  color: currentcolor;
+  background: color-mix(in srgb, currentcolor 14%, transparent);
+  box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
+  font-size: 22px;
+  font-weight: var(--lm-weight-black);
+  line-height: 1;
+}
+
+html[data-environment="beta"] .utility-card-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--lm-space-3);
+  margin-bottom: var(--lm-space-5);
+}
+
+html[data-environment="beta"] .utility-card-heading h3 {
+  color: var(--lm-ink);
+  font-size: var(--lm-text-md);
+}
+
+html[data-environment="beta"] .utility-card-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .utility-card-content > div { min-width: 0; }
+
+html[data-environment="beta"] .utility-card-content .financial-preview {
+  padding-left: var(--lm-space-4);
+  border-left: 1px solid var(--lm-glass-border-strong);
+  text-align: right;
+}
+
+html[data-environment="beta"] .utility-card p {
+  margin: 0 0 var(--lm-space-2);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  font-weight: var(--lm-weight-bold);
+}
+
+html[data-environment="beta"] .utility-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--lm-ink);
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .cycle-comparison {
+  display: block;
+  margin-top: var(--lm-space-4);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  font-weight: var(--lm-weight-bold);
+  line-height: 1.4;
+}
+
+/* --- Resumo financeiro --------------------------------------------------- */
+
+html[data-environment="beta"] .cycle-summary-card {
+  padding: clamp(var(--lm-space-5), 4vw, var(--lm-space-7));
+}
+
+html[data-environment="beta"] .cycle-summary-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-environment="beta"] .financial-total {
+  color: var(--lm-ink);
+  font-size: clamp(26px, 4.4vw, 38px);
+  font-weight: var(--lm-weight-black);
+  white-space: nowrap;
+}
+
+html[data-environment="beta"] .summary-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+  margin-top: var(--lm-space-6);
+}
+
+html[data-environment="beta"] .financial-summary-card .summary-values {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+html[data-environment="beta"] .summary-values div,
+html[data-environment="beta"] .report-comparison div,
+html[data-environment="beta"] .report-stats div,
+html[data-environment="beta"] .financial-insights p,
+html[data-environment="beta"] .forecast-grid > div {
+  padding: var(--lm-space-4);
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-md);
+  background: color-mix(in srgb, var(--lm-glass-veil) 42%, transparent);
+  box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
+}
+
+html[data-environment="beta"] .summary-values small,
+html[data-environment="beta"] .report-comparison small,
+html[data-environment="beta"] .report-stats small {
+  display: block;
+  margin-bottom: var(--lm-space-2);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  font-weight: var(--lm-weight-bold);
+}
+
+html[data-environment="beta"] .summary-values strong {
+  display: block;
+  font-size: clamp(19px, 3vw, 26px);
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .financial-insights {
+  display: grid;
+  gap: var(--lm-space-2);
+  margin-top: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .financial-insights p {
+  margin: 0;
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  font-weight: var(--lm-weight-bold);
+}
+
+/* ==========================================================================
+   6. Leituras
+   ========================================================================== */
+
+html[data-environment="beta"] .beta-reading-list {
+  display: grid;
+  gap: var(--lm-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-environment="beta"] .beta-reading-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--lm-space-4);
+  padding: var(--lm-space-4);
+  border-radius: var(--lm-radius-md);
+}
+
+html[data-environment="beta"] .beta-reading-item:hover {
+  transform: translateX(2px);
+  border-color: var(--lm-glass-border-strong);
+  box-shadow: var(--lm-shadow-2), inset 0 1px 0 var(--lm-glass-highlight);
+}
+
+html[data-environment="beta"] .reading-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in srgb, currentcolor 24%, transparent);
+  border-radius: var(--lm-radius-sm);
+  box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
+  font-size: 20px;
+  font-weight: var(--lm-weight-black);
+  line-height: 1;
+}
+
+html[data-environment="beta"] .reading-icon.energy {
+  color: var(--lm-energy);
+  background: color-mix(in srgb, var(--lm-energy) 15%, transparent);
+}
+
+html[data-environment="beta"] .reading-icon.water {
+  color: var(--lm-water);
+  background: color-mix(in srgb, var(--lm-water) 15%, transparent);
+}
+
+html[data-environment="beta"] .reading-info { min-width: 0; }
+
+html[data-environment="beta"] .reading-info strong {
+  display: block;
+  font-size: var(--lm-text-lg);
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .reading-info small {
+  display: block;
+  margin-top: var(--lm-space-1);
+  overflow: hidden;
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Menu contextual da leitura ------------------------------------------ */
+
+html[data-environment="beta"] .reading-menu { position: relative; }
+
+html[data-environment="beta"] .reading-menu > summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--lm-radius-full);
+  color: var(--lm-ink-muted);
+  font-size: 22px;
+  cursor: pointer;
+  transition: background-color var(--lm-duration-fast) var(--lm-ease-standard);
+}
+
+html[data-environment="beta"] .reading-menu > summary::after { content: none; }
+
+html[data-environment="beta"] .reading-menu[open] > summary,
+html[data-environment="beta"] .reading-menu > summary:hover {
+  color: var(--lm-ink);
+  background: color-mix(in srgb, var(--lm-glass-veil) 70%, transparent);
+}
+
+html[data-environment="beta"] .reading-menu > div {
+  position: absolute;
+  z-index: 8;
+  top: 48px;
+  right: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 148px;
+  padding: var(--lm-space-2);
+  border: 1px solid var(--lm-glass-border-strong);
+  border-radius: var(--lm-radius-md);
+  background: var(--lm-glass-thick);
+  backdrop-filter: var(--lm-glass-thick-filter);
+  -webkit-backdrop-filter: var(--lm-glass-thick-filter);
+  box-shadow: var(--lm-shadow-3), inset 0 1px 0 var(--lm-glass-highlight);
+  animation: lm-panel-in var(--lm-duration-fast) var(--lm-ease-entrance) both;
+}
+
+html[data-environment="beta"] .reading-menu button {
+  min-height: 40px;
+  padding: var(--lm-space-2) var(--lm-space-3);
+  border: 0;
+  border-radius: var(--lm-radius-xs);
+  color: var(--lm-ink);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--lm-text-sm);
+  font-weight: var(--lm-weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-environment="beta"] .reading-menu button:hover {
+  background: color-mix(in srgb, var(--lm-accent) 12%, transparent);
+}
+
+html[data-environment="beta"] .reading-menu .danger-text {
+  color: var(--lm-danger);
+}
+
+html[data-environment="beta"] .reading-menu .danger-text:hover {
+  background: color-mix(in srgb, var(--lm-danger) 12%, transparent);
+}
+
+/* ==========================================================================
+   7. Relatórios
+   ========================================================================== */
+
+html[data-environment="beta"] .report-card {
+  padding: clamp(var(--lm-space-4), 2.4vw, var(--lm-space-6));
+}
+
+html[data-environment="beta"] .report-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-environment="beta"] .report-card h3 {
+  margin: 0 0 var(--lm-space-2);
+}
+
+html[data-environment="beta"] .bar-chart {
+  display: flex;
+  align-items: end;
+  gap: var(--lm-space-2);
+  min-height: 172px;
+  margin-top: var(--lm-space-3);
+  padding: var(--lm-space-3) var(--lm-space-1) 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--lm-glass-border-strong);
+  scrollbar-width: thin;
+}
+
+html[data-environment="beta"] .bar-column {
+  display: grid;
+  grid-template-rows: auto 112px auto;
+  flex: 1 0 52px;
+  gap: var(--lm-space-1);
+  align-items: end;
+  min-width: 52px;
+  text-align: center;
+}
+
+html[data-environment="beta"] .bar-column small {
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-2xs);
+  font-weight: var(--lm-weight-bold);
+}
+
+html[data-environment="beta"] .bar-column time {
+  padding-bottom: var(--lm-space-1);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-2xs);
+}
+
+html[data-environment="beta"] .bar-track {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 112px;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-xs) var(--lm-radius-xs) 4px 4px;
+  background: color-mix(in srgb, var(--lm-glass-veil) 38%, transparent);
+  box-shadow: inset 0 1px 3px var(--lm-glass-shade);
+}
+
+html[data-environment="beta"] .bar-track > span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lm-energy) 70%, #ffffff), var(--lm-energy));
+  box-shadow: inset 0 1px 0 #ffffff5c;
+  transition: height var(--lm-duration-slow) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .water-chart .bar-track > span {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lm-water) 65%, #ffffff), var(--lm-water));
+}
+
+html[data-environment="beta"] .report-comparison {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+  margin-top: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .report-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lm-space-2);
+  margin-top: var(--lm-space-3);
+}
+
+html[data-environment="beta"] .report-comparison strong,
+html[data-environment="beta"] .report-stats strong {
+  display: block;
+  font-size: var(--lm-text-md);
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .compact-comparison-card {
+  padding-block: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .compact-action {
+  width: auto;
+  min-height: 40px;
+  padding: var(--lm-space-2) var(--lm-space-4);
+  font-size: var(--lm-text-sm);
+}
+
+html[data-environment="beta"] .pdf-action {
+  min-height: 38px;
+  padding: var(--lm-space-2) var(--lm-space-3);
+  font-size: var(--lm-text-xs);
+}
+
+/* ==========================================================================
+   8. Configurações
+   ========================================================================== */
+
+html[data-environment="beta"] .settings-group {
+  padding: clamp(var(--lm-space-5), 3vw, var(--lm-space-6));
+}
+
+html[data-environment="beta"] .settings-group > * {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-environment="beta"] .settings-group h3 {
+  margin: 0 0 var(--lm-space-4);
+  font-size: var(--lm-text-lg);
+}
+
+html[data-environment="beta"] .settings-row h3 { margin: 0; }
+
+html[data-environment="beta"] .settings-group .form { margin-top: 0; }
+
+html[data-environment="beta"] .settings-row small,
+html[data-environment="beta"] .toggle-row small {
+  display: block;
+  margin-top: var(--lm-space-1);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+  font-weight: var(--lm-weight-regular);
+}
+
+html[data-environment="beta"] .toggle-row {
+  min-height: var(--lm-touch-target);
+  cursor: pointer;
+}
+
+html[data-environment="beta"] .toggle-row > span {
+  margin: 0;
+  color: var(--lm-ink);
+  font-size: inherit;
+  letter-spacing: 0;
+}
+
+html[data-environment="beta"] .toggle-row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 28px;
+  min-height: 28px;
+  accent-color: var(--lm-accent);
+}
+
+html[data-environment="beta"] .field-row {
+  margin-top: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .field-row > span {
+  margin: 0;
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-sm);
+  font-weight: var(--lm-weight-bold);
+}
+
+html[data-environment="beta"] .field-row input {
+  width: 152px;
+}
+
+html[data-environment="beta"] .two-column-form,
+html[data-environment="beta"] .compact-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-environment="beta"] .full-row,
+html[data-environment="beta"] .compact-form > button {
+  grid-column: 1 / -1;
+}
+
+html[data-environment="beta"] .stack-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+}
+
+html[data-environment="beta"] .advanced-settings > summary {
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .advanced-content {
+  display: grid;
+  gap: var(--lm-space-4);
+  margin-top: var(--lm-space-5);
+}
+
+html[data-environment="beta"] .advanced-content > .settings-card,
+html[data-environment="beta"] .advanced-content > .settings-section {
+  padding: var(--lm-space-5);
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-md);
+  background: color-mix(in srgb, var(--lm-glass-veil) 40%, transparent);
+  box-shadow: none;
+}
+
+html[data-environment="beta"] .advanced-content > .settings-card::before,
+html[data-environment="beta"] .advanced-content > .settings-section::before {
+  content: none;
+}
+
+html[data-environment="beta"] .danger-zone {
+  border-color: color-mix(in srgb, var(--lm-danger) 42%, var(--lm-glass-border));
+}
+
+html[data-environment="beta"] .engine-list {
+  display: grid;
+  gap: var(--lm-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-environment="beta"] .engine-row {
+  overflow: hidden;
+  border-radius: var(--lm-radius-sm);
+}
+
+html[data-environment="beta"] .engine-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lm-space-3);
+  width: 100%;
+  min-height: var(--lm-touch-target);
+  padding: var(--lm-space-3);
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-environment="beta"] .engine-chevron {
+  font-size: var(--lm-text-xl);
+  line-height: 1;
+  transition: transform var(--lm-duration-base) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .engine-row.expanded .engine-chevron {
+  transform: rotate(180deg);
+}
+
+html[data-environment="beta"] .engine-details {
+  padding: 0 var(--lm-space-3) var(--lm-space-3);
+  border-top: 1px solid var(--lm-glass-border);
+}
+
+/* ==========================================================================
+   9. Navegação inferior flutuante
+   --------------------------------------------------------------------------
+   Barra de vidro fosco descolada da borda. O indicador é uma cápsula única
+   que desliza entre as abas — a troca é um movimento, não um salto.
+   ========================================================================== */
+
+html[data-environment="beta"] .bottom-navigation {
+  position: fixed;
+  z-index: 30;
+  right: 50%;
+  bottom: max(var(--lm-space-3), env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(66px, 116px));
+  width: min(calc(100% - var(--lm-space-6)), 520px);
+  padding: var(--lm-space-2);
+  border: 1px solid var(--lm-glass-border-strong);
+  border-radius: var(--lm-radius-xl);
+  background: var(--lm-glass-thick);
+  backdrop-filter: var(--lm-glass-thick-filter);
+  -webkit-backdrop-filter: var(--lm-glass-thick-filter);
+  box-shadow: var(--lm-shadow-4), inset 0 1px 0 var(--lm-glass-highlight);
+  transform: translateX(50%);
+}
+
+/* Cápsula deslizante. Posição e largura vêm de beta-v3.js. */
+html[data-environment="beta"] .nav-indicator {
+  position: absolute;
+  z-index: 0;
+  top: var(--lm-space-2);
+  left: 0;
+  height: calc(100% - var(--lm-space-4));
+  width: var(--nav-indicator-width, 0);
+  border-radius: var(--lm-radius-md);
+  background: linear-gradient(150deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  box-shadow: var(--lm-shadow-accent), inset 0 1px 0 #ffffff40;
+  transform: translateX(var(--nav-indicator-x, 0));
+  transition:
+    transform var(--lm-duration-slow) var(--lm-ease-glass),
+    width var(--lm-duration-slow) var(--lm-ease-glass);
+  pointer-events: none;
+}
+
+html[data-environment="beta"] .nav-indicator[data-ready="false"] {
+  transition: none;
+}
+
+html[data-environment="beta"] .bottom-navigation button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: var(--lm-space-1);
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--lm-radius-md);
+  color: var(--lm-ink-muted);
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color var(--lm-duration-base) var(--lm-ease-standard),
+    transform var(--lm-duration-fast) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .bottom-navigation button span {
+  font-size: 19px;
+  line-height: 1;
+  transition: transform var(--lm-duration-base) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .bottom-navigation button small {
+  font-size: var(--lm-text-2xs);
+  font-weight: var(--lm-weight-black);
+  letter-spacing: 0.01em;
+}
+
+html[data-environment="beta"] .bottom-navigation button:hover:not(.active) {
+  color: var(--lm-ink);
+}
+
+html[data-environment="beta"] .bottom-navigation button:hover:not(.active) span {
+  transform: translateY(-2px);
+}
+
+html[data-environment="beta"] .bottom-navigation button.active {
+  color: var(--lm-accent-contrast);
+}
+
+html[data-environment="beta"] .bottom-navigation button.active span {
+  transform: scale(1.08);
+}
+
+html[data-environment="beta"] .bottom-navigation button:active {
+  transform: scale(0.94);
+}
+
+/* ==========================================================================
+   10. Ação principal
+   ========================================================================== */
+
+html[data-environment="beta"] .beta-reading-fab {
+  position: fixed;
+  z-index: 29;
+  right: max(var(--lm-space-5), calc((100vw - 1160px) / 2 + var(--lm-space-7)));
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: var(--lm-space-3);
+  padding: var(--lm-space-2) var(--lm-space-5) var(--lm-space-2) var(--lm-space-2);
+  border: 1px solid var(--lm-glass-border-strong);
+  border-radius: var(--lm-radius-full);
+  color: var(--lm-accent-contrast);
+  background: linear-gradient(145deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  box-shadow: var(--lm-shadow-4), var(--lm-shadow-accent), inset 0 1px 0 #ffffff4d;
+  font-family: inherit;
+  font-size: var(--lm-text-sm);
+  font-weight: var(--lm-weight-black);
+  cursor: pointer;
+  transition:
+    transform var(--lm-duration-base) var(--lm-ease-glass),
+    box-shadow var(--lm-duration-base) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .beta-reading-fab img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #ffffff29;
+}
+
+html[data-environment="beta"] .beta-reading-fab:hover {
+  transform: translateY(-3px);
+}
+
+html[data-environment="beta"] .beta-reading-fab:active {
+  transform: scale(0.95);
+}
+
+/* ==========================================================================
+   11. Modais do produto
+   ========================================================================== */
+
+html[data-environment="beta"] body > .reading-dialog,
+html[data-environment="beta"] .beta-dialog,
+html[data-environment="beta"] .privacy-dialog,
+html[data-environment="beta"] #scanner-dialog {
+  width: min(calc(100% - var(--lm-space-6)), 490px);
+  max-width: 490px;
+  max-height: calc(100dvh - var(--lm-space-6));
+  overflow: visible;
+}
+
+html[data-environment="beta"] .privacy-dialog {
+  width: min(calc(100% - var(--lm-space-6)), 540px);
+  max-width: 540px;
+}
+
+html[data-environment="beta"] .beta-dialog .dialog-card,
+html[data-environment="beta"] body > .reading-dialog .dialog-card,
+html[data-environment="beta"] body > .reading-dialog .reading-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-environment="beta"] body > .reading-dialog .reading-card {
+  display: grid;
+  gap: var(--lm-space-4);
+  max-height: calc(100dvh - var(--lm-space-8));
+  padding: var(--lm-space-6);
+  overflow-y: auto;
+  border-radius: var(--lm-radius-xl);
+}
+
+html[data-environment="beta"] .beta-dialog form,
+html[data-environment="beta"] body > .reading-dialog .form {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+html[data-environment="beta"] .beta-dialog label,
+html[data-environment="beta"] body > .reading-dialog label {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* Campos e botões de modal têm altura fixa: nada sai do painel. */
+html[data-environment="beta"] .beta-v2-shell .form :where(input:not([type="hidden"]), select),
+html[data-environment="beta"] body > .reading-dialog .form :where(input:not([type="hidden"]), select),
+html[data-environment="beta"] .beta-dialog .dialog-card :where(input:not([type="hidden"]), select) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 54px;
+  min-height: 54px;
+  margin: 0;
+  padding: 0 var(--lm-space-4);
+  overflow: hidden;
+  border-radius: var(--lm-radius-sm);
+  box-sizing: border-box;
+}
+
+html[data-environment="beta"] body > .reading-dialog .form :where(button),
+html[data-environment="beta"] .beta-dialog .dialog-card
+  :where(button.primary-button, button.secondary-button, button.danger-button) {
+  width: 100%;
+  max-width: 100%;
+  height: 54px;
+  min-height: 54px;
+  margin: 0;
+  padding: 0 var(--lm-space-4);
+  border-radius: var(--lm-radius-sm);
+  box-sizing: border-box;
+}
+
+html[data-environment="beta"] body > .reading-dialog input[type="datetime-local"],
+html[data-environment="beta"] .beta-dialog input[type="datetime-local"] {
+  inline-size: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-environment="beta"] .beta-dialog .dialog-card > label {
+  display: block;
+  margin-top: var(--lm-space-3);
+}
+
+html[data-environment="beta"] .beta-v2-shell input[readonly] {
+  color: var(--lm-ink-muted);
+  cursor: not-allowed;
+}
+
+/* --- Escolha do tipo de leitura ------------------------------------------ */
+
+html[data-environment="beta"] .reading-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+  margin-top: var(--lm-space-5);
+}
+
+html[data-environment="beta"] .utility-choice {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 152px;
+  padding: var(--lm-space-5);
+  border: 1px solid var(--lm-glass-border-strong);
+  border-radius: var(--lm-radius-lg);
+  color: var(--lm-ink);
+  background: color-mix(in srgb, var(--lm-glass-veil) 48%, transparent);
+  backdrop-filter: var(--lm-glass-thin-filter);
+  -webkit-backdrop-filter: var(--lm-glass-thin-filter);
+  box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--lm-duration-base) var(--lm-ease-glass),
+    box-shadow var(--lm-duration-base) var(--lm-ease-glass),
+    border-color var(--lm-duration-base) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] .utility-choice:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--lm-shadow-3), inset 0 1px 0 var(--lm-glass-highlight);
+}
+
+html[data-environment="beta"] .utility-choice:active {
+  transform: scale(0.97);
+}
+
+html[data-environment="beta"] .utility-choice > span {
+  font-size: 34px;
+  line-height: 1;
+}
+
+html[data-environment="beta"] .utility-choice strong {
+  margin-top: var(--lm-space-3);
+  font-size: var(--lm-text-lg);
+  font-weight: var(--lm-weight-black);
+}
+
+html[data-environment="beta"] .utility-choice small {
+  margin-top: var(--lm-space-1);
+  color: var(--lm-ink-muted);
+  font-size: var(--lm-text-xs);
+}
+
+html[data-environment="beta"] .utility-choice.energy > span { color: var(--lm-energy); }
+html[data-environment="beta"] .utility-choice.water > span { color: var(--lm-water); }
+
+html[data-environment="beta"] .utility-choice.energy:hover {
+  border-color: color-mix(in srgb, var(--lm-energy) 50%, transparent);
+}
+
+html[data-environment="beta"] .utility-choice.water:hover {
+  border-color: color-mix(in srgb, var(--lm-water) 50%, transparent);
+}
+
+/* --- Scanner e privacidade ----------------------------------------------- */
+
+html[data-environment="beta"] .scanner-card,
+html[data-environment="beta"] .privacy-card {
+  display: grid;
+  gap: var(--lm-space-4);
+  max-height: calc(100dvh - var(--lm-space-8));
+  padding: var(--lm-space-6);
+  overflow-y: auto;
+}
+
+html[data-environment="beta"] .camera-picker {
+  display: grid;
+  place-items: center;
+  min-height: 84px;
+  border: 1px dashed var(--lm-accent);
+  border-radius: var(--lm-radius-md);
+  color: var(--lm-accent-ink);
+  background: color-mix(in srgb, var(--lm-accent) 8%, transparent);
+  font-weight: var(--lm-weight-black);
+  cursor: pointer;
+  transition: background-color var(--lm-duration-fast) var(--lm-ease-standard);
+}
+
+html[data-environment="beta"] .camera-picker:hover {
+  background: color-mix(in srgb, var(--lm-accent) 14%, transparent);
+}
+
+html[data-environment="beta"] .camera-picker span {
+  margin: 0;
+  color: inherit;
+  font-size: var(--lm-text-md);
+}
+
+html[data-environment="beta"] .camera-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+}
+
+html[data-environment="beta"] #scanner-preview {
+  width: 100%;
+  max-height: 260px;
+  border-radius: var(--lm-radius-md);
+  object-fit: contain;
+  background: var(--lm-navy-900);
+}
+
+html[data-environment="beta"] .scanner-progress {
+  overflow: hidden;
+  height: 8px;
+  border-radius: var(--lm-radius-full);
+  background: color-mix(in srgb, var(--lm-glass-veil) 40%, transparent);
+  box-shadow: inset 0 1px 3px var(--lm-glass-shade);
+}
+
+html[data-environment="beta"] .scanner-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  transition: width var(--lm-duration-base) var(--lm-ease-standard);
+}
+
+html[data-environment="beta"] .privacy-section {
+  display: grid;
+  gap: var(--lm-space-3);
+  padding-top: var(--lm-space-5);
+  border-top: 1px solid var(--lm-glass-border);
+}
+
+html[data-environment="beta"] .privacy-section .form { margin-top: 0; }
+html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; }
+
+/* ==========================================================================
+   12. Responsividade
+   ========================================================================== */
+
+/* --- Tablet e desktop ---------------------------------------------------- */
+@media (min-width: 760px) {
+  html[data-environment="beta"] #beta-home,
+  html[data-environment="beta"] #beta-reports,
+  html[data-environment="beta"] #beta-settings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  html[data-environment="beta"] #beta-home > .cycle-heading,
+  html[data-environment="beta"] #beta-home > .utility-grid,
+  html[data-environment="beta"] #beta-home > .cycle-summary-card,
+  html[data-environment="beta"] #beta-reports > .page-heading,
+  html[data-environment="beta"] #beta-reports > .report-card:nth-of-type(2),
+  html[data-environment="beta"] #beta-settings > .page-heading {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- Desktop largo: navegação deixa de flutuar sobre o conteúdo ---------- */
+@media (min-width: 1100px) {
+  html[data-environment="beta"] .beta-content {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom));
+  }
+
+  html[data-environment="beta"] #beta-home {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  html[data-environment="beta"] #beta-home > .utility-grid {
+    grid-column: 1 / 3;
+  }
+
+  html[data-environment="beta"] #beta-home > .cycle-summary-card {
+    grid-column: 3 / -1;
+    align-self: stretch;
+  }
+
+  html[data-environment="beta"] .financial-summary-card .summary-values {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+/* --- Telefone ------------------------------------------------------------ */
+@media (max-width: 560px) {
+  html[data-environment="beta"] .beta-header {
+    padding-inline: var(--lm-space-4);
+  }
+
+  html[data-environment="beta"] .beta-content {
+    padding-inline: var(--lm-space-4);
+  }
+
+  html[data-environment="beta"] .utility-grid,
+  html[data-environment="beta"] .summary-values,
+  html[data-environment="beta"] .financial-summary-card .summary-values,
+  html[data-environment="beta"] .stack-actions,
+  html[data-environment="beta"] .report-comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-environment="beta"] .utility-card { min-height: 188px; }
+
+  html[data-environment="beta"] .summary-header,
+  html[data-environment="beta"] .cycle-heading,
+  html[data-environment="beta"] .page-heading {
+    align-items: flex-start;
+  }
+
+  html[data-environment="beta"] .summary-header {
+    flex-direction: column;
+  }
+
+  html[data-environment="beta"] .cycle-chip { margin-top: var(--lm-space-1); }
+
+  html[data-environment="beta"] .beta-reading-fab {
+    right: var(--lm-space-4);
+    width: 64px;
+    height: 64px;
+    padding: var(--lm-space-2);
+    border-radius: 50%;
+  }
+
+  html[data-environment="beta"] .beta-reading-fab img {
+    width: 42px;
+    height: 42px;
+  }
+
+  /* O rótulo continua acessível a leitores de tela. */
+  html[data-environment="beta"] .beta-reading-fab span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-environment="beta"] .compact-action { max-width: 140px; }
+
+  html[data-environment="beta"] .report-stats,
+  html[data-environment="beta"] .reading-type-grid,
+  html[data-environment="beta"] .two-column-form,
+  html[data-environment="beta"] .compact-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-environment="beta"] .full-row { grid-column: auto; }
+
+  html[data-environment="beta"] .dialog-card,
+  html[data-environment="beta"] .scanner-card,
+  html[data-environment="beta"] .privacy-card,
+  html[data-environment="beta"] body > .reading-dialog .reading-card {
+    padding: var(--lm-space-5);
+  }
+}
+
+/* --- Telefone pequeno ---------------------------------------------------- */
+@media (max-width: 360px) {
+  html[data-environment="beta"] .bottom-navigation {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  html[data-environment="beta"] .bottom-navigation button small {
+    font-size: 9px;
+  }
+
+  html[data-environment="beta"] .cycle-heading { display: grid; }
+
+  html[data-environment="beta"] .utility-card-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-environment="beta"] .utility-card-content .financial-preview {
+    padding-left: 0;
+    padding-top: var(--lm-space-3);
+    border-left: 0;
+    border-top: 1px solid var(--lm-glass-border-strong);
+    text-align: left;
+  }
+}
+
+/* ==========================================================================
+   13. Impressão — o vidro não sobrevive ao papel
+   ========================================================================== */
+
+@media print {
+  html[data-environment="beta"] body {
+    background: #fff;
+  }
+
+  html[data-environment="beta"] body::before,
+  html[data-environment="beta"] body::after {
+    display: none;
+  }
+
+  html[data-environment="beta"] .beta-header,
+  html[data-environment="beta"] .bottom-navigation,
+  html[data-environment="beta"] .beta-reading-fab,
+  html[data-environment="beta"] #beta-export-pdf {
+    display: none !important;
+  }
+
+  html[data-environment="beta"] .shell,
+  html[data-environment="beta"] .beta-v2-shell,
+  html[data-environment="beta"] .beta-content {
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    background: #fff;
+  }
+
+  html[data-environment="beta"] .beta-page { display: none !important; }
+
+  html[data-environment="beta"] #beta-reports {
+    display: grid !important;
+    color: #12202b;
+  }
+
+  html[data-environment="beta"] .report-card {
+    break-inside: avoid;
+    border-color: #dce4e9;
+    background: #fff;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  html[data-environment="beta"] .report-card::before { content: none; }
+}

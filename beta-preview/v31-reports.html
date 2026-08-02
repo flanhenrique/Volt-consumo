@@ -34,7 +34,7 @@ addEventListener("load", () => {
       }
       parent.postMessage({
         probe: true,
-        id: document.documentElement.dataset.probeId,
+        id: document.documentElement.dataset.probeId + ":" + (new URLSearchParams(location.search).get("d") || "0"),
         scrollOverflow: document.documentElement.scrollWidth > vw + 1,
         bleed: [...new Set(bleed)].slice(0, 4),
         hiddenBehindNav: hidden,

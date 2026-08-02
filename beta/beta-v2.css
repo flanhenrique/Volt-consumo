@@ -80,18 +80,27 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
   background: var(--surface);
   box-shadow: 0 16px 40px var(--shadow);
 }
-.utility-card { position: relative; min-height: 175px; padding: 21px; overflow: hidden; }
+.utility-card { position: relative; min-height: 190px; padding: 21px; overflow: hidden; }
 .utility-card::after { position: absolute; right: -26px; bottom: -44px; width: 112px; height: 112px; border-radius: 50%; background: currentColor; content: ""; opacity: .07; }
 .utility-card.water { color: #167591; }
 .utility-card.energy { color: #a66b00; }
-.utility-icon { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 22px; border-radius: 14px; color: currentColor; background: color-mix(in srgb, currentColor 12%, var(--surface)); font-size: 23px; font-weight: 900; }
+.utility-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; color: currentColor; background: color-mix(in srgb, currentColor 12%, var(--surface)); font-size: 23px; font-weight: 900; }
+.utility-card-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 20px; }
+.utility-card-heading h3 { margin: 0; color: var(--ink); font-size: 16px; }
+.utility-card-content { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.utility-card-content > div { min-width: 0; }
+.utility-card-content .financial-preview { padding-left: 14px; border-left: 1px solid var(--line); text-align: right; }
 .utility-card p { margin-bottom: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
-.utility-card strong { display: block; color: var(--ink); font-size: clamp(22px, 4vw, 31px); }
-.utility-card small { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.utility-card strong { display: block; overflow-wrap: anywhere; color: var(--ink); font-size: clamp(19px, 3vw, 27px); }
+.utility-card .cycle-comparison { display: block; margin-top: 16px; color: var(--muted); font-size: 11px; font-weight: 750; line-height: 1.4; }
+.cycle-comparison.increase { color: #b75c00; }
+.cycle-comparison.decrease { color: var(--green); }
+.cycle-comparison.steady { color: var(--muted); }
 
 .cycle-summary-card { padding: clamp(20px, 4vw, 30px); }
 .segmented { display: flex; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-soft); }
 .segmented button { padding: 8px 11px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font-size: 11px; font-weight: 800; }
+.segmented button { white-space: nowrap; }
 .segmented button.active { color: #fff; background: var(--navy); }
 .summary-values { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 23px; }
 .summary-values div { padding: 18px; border-radius: 17px; background: var(--surface-soft); }
@@ -173,6 +182,7 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
 
 .settings-group { padding: clamp(18px, 3vw, 24px); }
 .settings-group h3 { margin: 0 0 17px; font-size: 16px; }
+.settings-row h3 { margin: 0; }
 .settings-group .form { margin-top: 0; }
 .settings-row small,
 .toggle-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
@@ -216,6 +226,25 @@ body > .reading-dialog label,
 .beta-dialog label { display: block; min-width: 0; }
 body > .reading-dialog :where(input, select, button),
 .beta-dialog :where(input, select, button) { max-width: 100%; }
+.beta-v2-shell .form :where(input:not([type="hidden"]), select),
+body > .reading-dialog .form :where(input:not([type="hidden"]), select),
+.beta-dialog .dialog-card :where(input:not([type="hidden"]), select) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 52px;
+  min-height: 52px;
+  margin: 0;
+  padding: 0 15px;
+  box-sizing: border-box;
+}
+body > .reading-dialog .form :where(button),
+.beta-dialog .dialog-card :where(button.primary-button, button.secondary-button, button.danger-button) {
+  min-height: 52px;
+  box-sizing: border-box;
+}
+.beta-v2-shell input[readonly] { color: var(--muted); cursor: not-allowed; }
 .beta-dialog .dialog-card > label { display: block; margin-top: 14px; }
 
 @media (min-width: 760px) {
@@ -238,8 +267,7 @@ body > .reading-dialog :where(input, select, button),
   .summary-values,
   .stack-actions,
   .report-comparison { grid-template-columns: 1fr; }
-  .utility-card { min-height: 152px; }
-  .utility-icon { margin-bottom: 14px; }
+  .utility-card { min-height: 182px; }
   .summary-header { align-items: flex-start; flex-direction: column; }
   .cycle-heading { align-items: flex-start; }
   .cycle-chip { margin-top: 4px; }

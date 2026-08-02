@@ -26,6 +26,7 @@ function initializeBetaExperience() {
   removeLegacyDestructiveControls();
   bindNavigation(shell);
   bindReadingFlow(shell, energyDialog, waterDialog);
+  bindAccount(shell);
   bindPreferences(shell);
   bindNotifications(shell);
   bindPrivacy(shell);
@@ -53,11 +54,11 @@ function betaShellMarkup() {
       <section class="beta-page active" id="beta-home" data-page="home" aria-labelledby="beta-home-title">
         <div class="cycle-heading"><div><p class="eyebrow">CICLO DE CONTAGEM</p><h2 id="beta-home-title">Ciclo atual</h2></div><span id="beta-cycle-label" class="cycle-chip">—</span></div>
         <div class="utility-grid">
-          <article class="utility-card water"><span class="utility-icon" aria-hidden="true">●</span><p>Consumo de água</p><strong id="beta-water-consumption">—</strong><small id="beta-water-comparison">Sem ciclo anterior</small></article>
-          <article class="utility-card energy"><span class="utility-icon" aria-hidden="true">ϟ</span><p>Consumo de energia</p><strong id="beta-energy-consumption">—</strong><small id="beta-energy-comparison">Sem ciclo anterior</small></article>
+          <article class="utility-card water"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">●</span><h3>Água</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong id="beta-water-consumption">0 m³</strong></div><div class="financial-preview"><p>Estimativa</p><strong id="beta-water-cost">R$ 0,00</strong></div></div><small id="beta-water-comparison" class="cycle-comparison">Aguardando leituras</small></article>
+          <article class="utility-card energy"><div class="utility-card-heading"><span class="utility-icon" aria-hidden="true">ϟ</span><h3>Energia</h3></div><div class="utility-card-content"><div><p>Consumo</p><strong id="beta-energy-consumption">0 kWh</strong></div><div class="financial-preview"><p>Estimativa</p><strong id="beta-energy-cost">R$ 0,00</strong></div></div><small id="beta-energy-comparison" class="cycle-comparison">Aguardando leituras</small></article>
         </div>
         <article class="cycle-summary-card">
-          <div class="summary-header"><div><p class="eyebrow">RESUMO DO CICLO</p><h2 id="beta-summary-title">Consumo total</h2></div><div class="segmented" role="group" aria-label="Exibir resumo por consumo ou valor"><button class="active" type="button" data-summary="consumption" aria-pressed="true">Consumo</button><button type="button" data-summary="cost" aria-pressed="false">Valor</button></div></div>
+          <div class="summary-header"><div><p class="eyebrow">RESUMO DO CICLO</p><h2 id="beta-summary-title">Valor estimado</h2></div><div class="segmented" role="group" aria-label="Exibir resumo por valor ou consumo"><button class="active" type="button" data-summary="cost" aria-pressed="true">Valor</button><button type="button" data-summary="consumption" aria-pressed="false">Consumo total</button></div></div>
           <div class="summary-values" id="beta-summary-values"></div>
         </article>
       </section>
@@ -78,7 +79,7 @@ function betaShellMarkup() {
 
       <section class="beta-page" id="beta-settings" data-page="settings" aria-labelledby="beta-settings-title" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="beta-settings-title">Configurações</h2></div></div>
-        <section class="settings-group"><h3>Conta</h3><div class="settings-row"><div><strong id="beta-account-email">—</strong><small>Conta conectada</small></div><button id="beta-logout" class="text-button" type="button">Sair</button></div></section>
+        <section class="settings-group"><div class="settings-row"><h3>Conta</h3><button id="beta-logout" class="text-button" type="button">Sair</button></div><form id="beta-account-form" class="form compact-form"><label><span>Nome de exibição</span><input id="beta-display-name" type="text" maxlength="40" autocomplete="name" placeholder="Como prefere ser chamado" required></label><label><span>E-mail</span><input id="beta-account-email" type="email" readonly aria-readonly="true"></label><p id="beta-account-status" class="note status-message full-row" role="status" aria-live="polite">Conta conectada</p><button class="secondary-button" type="submit">Salvar alterações</button></form></section>
         <section class="settings-group"><h3>Preferências</h3><form id="beta-preferences-form" class="form compact-form"><label><span>Idioma</span><select id="beta-language"><option value="pt-BR">Português (Brasil)</option><option value="auto">Automático do dispositivo</option></select></label><label><span>Tema</span><select id="beta-theme"><option value="system">Usar padrão do dispositivo</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><label><span>Formato de data</span><select id="beta-date-format"><option value="short">20/07/2026, 18:52</option><option value="long">20 de julho de 2026, 18:52</option></select></label><button class="secondary-button" type="submit">Salvar preferências</button></form></section>
         <section class="settings-group"><h3>Ciclo de Contagem</h3><form id="beta-cycle-form" class="form two-column-form"><label><span>Dia de início</span><input id="beta-cycle-start" type="number" min="1" max="31" inputmode="numeric" required></label><label><span>Dia de encerramento</span><input id="beta-cycle-end" type="number" min="1" max="31" inputmode="numeric" required></label><button class="secondary-button full-row" type="submit">Salvar ciclo</button></form><p class="note">Datas são ajustadas automaticamente ao último dia de cada mês.</p></section>
         <section class="settings-group"><h3>Notificações</h3><label class="toggle-row"><span><strong>Lembrete diário</strong><small>“Faça o registro do seu consumo.”</small></span><input id="beta-reminder-enabled" type="checkbox"></label><label class="field-row"><span>Horário</span><input id="beta-reminder-time" type="time" value="19:00"></label><p class="note">Se já houver uma leitura no dia, nenhum lembrete será exibido.</p></section>
@@ -144,6 +145,17 @@ function bindReadingFlow(shell, energyDialog, waterDialog) {
   shell.querySelector("#beta-close-edit").addEventListener("click", () => shell.querySelector("#beta-edit-dialog").close());
   shell.querySelector("#beta-edit-form").addEventListener("submit", handleEditSubmit);
   shell.querySelector("#beta-confirm-delete").addEventListener("click", handleDeleteConfirm);
+}
+
+function bindAccount(shell) {
+  shell.querySelector("#beta-account-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    button.disabled = true;
+    const result = await api.updateDisplayName(shell.querySelector("#beta-display-name").value);
+    button.disabled = false;
+    setText("#beta-account-status", result.message);
+  });
 }
 
 function bindPreferences(shell) {
@@ -261,7 +273,7 @@ function bindReports(shell) {
       candidate.classList.toggle("active", active);
       candidate.setAttribute("aria-pressed", String(active));
     });
-    renderSummary(api.getSnapshot(), button.dataset.summary);
+    renderBetaExperience();
   }));
 }
 
@@ -272,30 +284,34 @@ function renderBetaExperience() {
   const energyPrevious = cycleConsumption(snapshot.energy.readings, cycle.previous);
   const waterCurrent = cycleConsumption(snapshot.water.readings, cycle.current);
   const waterPrevious = cycleConsumption(snapshot.water.readings, cycle.previous);
-  const displayName = snapshot.account.email?.split("@")[0] || "usuário";
-  setText("#beta-greeting", `Olá, ${capitalize(displayName)}!`);
-  setText("#beta-account-email", snapshot.account.email || "Conta Volt");
+  const displayName = snapshot.account.displayName?.trim();
+  setText("#beta-greeting", displayName ? `Olá, ${displayName}!` : "Olá!");
+  const nameInput = document.querySelector("#beta-display-name");
+  if (document.activeElement !== nameInput) nameInput.value = displayName || "";
+  document.querySelector("#beta-account-email").value = snapshot.account.email || "";
   setText("#beta-cycle-label", `${formatShortDate(cycle.current.start)} – ${formatShortDate(cycle.current.end)}`);
-  setText("#beta-energy-consumption", `${formatNumber(energyCurrent)} kWh`);
-  setText("#beta-water-consumption", `${formatNumber(waterCurrent, 3)} m³`);
-  setText("#beta-energy-comparison", comparisonLabel(energyCurrent, energyPrevious));
-  setText("#beta-water-comparison", comparisonLabel(waterCurrent, waterPrevious));
-  const summaryMode = document.querySelector("[data-summary].active")?.dataset.summary || "consumption";
-  renderSummary(snapshot, summaryMode, energyCurrent, waterCurrent);
+  setText("#beta-energy-consumption", `${formatNumber(energyCurrent.consumption)} kWh`);
+  setText("#beta-water-consumption", `${formatNumber(waterCurrent.consumption, 3)} m³`);
+  setText("#beta-energy-cost", currency(api.estimateEnergy(energyCurrent.consumption).totalCost));
+  setText("#beta-water-cost", currency(api.estimateWater(waterCurrent.consumption).totalCost));
+  renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
+  renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
+  const summaryMode = document.querySelector("[data-summary].active")?.dataset.summary || "cost";
+  renderSummary(summaryMode, energyCurrent.consumption, waterCurrent.consumption);
   renderReadingHistory(snapshot);
   renderReports(snapshot);
 }
 
-function renderSummary(snapshot, mode, energyConsumption, waterConsumption) {
-  const energy = energyConsumption ?? snapshot.energy.summary.consumption ?? 0;
-  const water = waterConsumption ?? snapshot.water.summary.consumption ?? 0;
+function renderSummary(mode, energyConsumption, waterConsumption) {
+  const energy = energyConsumption || 0;
+  const water = waterConsumption || 0;
   const title = mode === "cost" ? "Valor estimado" : "Consumo total";
   setText("#beta-summary-title", title);
   const container = document.querySelector("#beta-summary-values");
   if (mode === "cost") {
     renderStatGrid(container, [
-      ["Energia", currency(snapshot.energy.estimate.totalCost || 0)],
-      ["Água", currency(snapshot.water.estimate.totalCost || 0)]
+      ["Energia", currency(api.estimateEnergy(energy).totalCost)],
+      ["Água", currency(api.estimateWater(water).totalCost)]
     ]);
   } else {
     renderStatGrid(container, [
@@ -473,14 +489,28 @@ function cycleConsumption(items, range) {
     const date = new Date(item.date);
     return date >= range.start && date <= range.end;
   });
-  return selected.length > 1 ? Math.max(0, selected.at(-1).value - selected[0].value) : 0;
+  return {
+    consumption: selected.length > 1 ? Math.max(0, selected.at(-1).value - selected[0].value) : 0,
+    count: selected.length
+  };
 }
 
-function comparisonLabel(current, previous) {
-  if (!previous) return "Sem ciclo anterior";
-  const difference = ((current - previous) / previous) * 100;
-  if (Math.abs(difference) < 0.1) return "Igual ao ciclo anterior";
-  return `${Math.abs(difference).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% ${difference > 0 ? "acima" : "abaixo"} do ciclo anterior`;
+function renderComparison(selector, current, previous) {
+  const element = document.querySelector(selector);
+  element.classList.remove("increase", "decrease", "steady");
+  if (current.count < 2 || previous.count < 2 || previous.consumption <= 0) {
+    element.textContent = "Aguardando leituras";
+    return;
+  }
+  const difference = ((current.consumption - previous.consumption) / previous.consumption) * 100;
+  if (Math.abs(difference) < 0.1) {
+    element.textContent = "• 0% em relação ao ciclo anterior";
+    element.classList.add("steady");
+    return;
+  }
+  const increased = difference > 0;
+  element.textContent = `${increased ? "▲ +" : "▼ -"}${Math.abs(difference).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs. ciclo anterior`;
+  element.classList.add(increased ? "increase" : "decrease");
 }
 
 function formatReadingDate(date) {
@@ -501,10 +531,6 @@ function formatNumber(value, digits = 1) {
 
 function currency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function capitalize(value) {
-  return value.charAt(0).toLocaleUpperCase("pt-BR") + value.slice(1);
 }
 
 function toLocalInputValue(value) {

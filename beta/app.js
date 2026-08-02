@@ -52,6 +52,7 @@ let waterSettings = { ...DEFAULT_WATER_SETTINGS };
 let supabaseClient = null;
 let currentUserId = null;
 let currentUserEmail = "";
+let currentDisplayName = "";
 let scannerTarget = null;
 
 initializeEnvironment();
@@ -531,6 +532,7 @@ async function updateAuthScreen(user) {
   if (!signedIn) {
     currentUserId = null;
     currentUserEmail = "";
+    currentDisplayName = "";
     readings = [];
     waterReadings = [];
     settings = { ...DEFAULT_SETTINGS };
@@ -539,6 +541,7 @@ async function updateAuthScreen(user) {
   }
   const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
   currentUserEmail = user.email || "";
+  currentDisplayName = user.user_metadata?.display_name || "";
   $("#user-name").textContent = displayName;
   await recordPrivacyAcceptance(user);
   await loadUserData(user.id);
@@ -704,10 +707,13 @@ function exposeBetaApi() {
   if (APP_ENVIRONMENT.id !== "beta") return;
   window.VOLT_BETA_API = Object.freeze({
     deleteReading: deleteBetaReading,
+    estimateEnergy: estimateBetaEnergy,
+    estimateWater: estimateBetaWater,
     exportData: exportCurrentUserData,
     getSnapshot: getBetaSnapshot,
     resetApplication: resetBetaApplication,
     setTheme: applyTheme,
+    updateDisplayName: updateBetaDisplayName,
     updateReading: updateBetaReading
   });
 }
@@ -719,7 +725,7 @@ function getBetaSnapshot() {
   const energyConsumption = energySummary.valid ? energySummary.consumption : 0;
   const waterConsumption = waterSummary.valid ? waterSummary.consumption : 0;
   return structuredClone({
-    account: { email: currentUserEmail },
+    account: { displayName: currentDisplayName, email: currentUserEmail },
     energy: {
       readings,
       settings,
@@ -737,6 +743,31 @@ function getBetaSnapshot() {
       estimate: calculateWaterEstimate(waterConsumption, waterSettings)
     }
   });
+}
+
+function estimateBetaEnergy(consumption) {
+  const flag = FLAGS[settings.flag] || FLAGS.yellow;
+  return calculateEnergyEstimate(Number(consumption) || 0, {
+    rate: settings.rate,
+    flagRate: flag.rate,
+    lightingFee: settings.lightingFee
+  });
+}
+
+function estimateBetaWater(consumption) {
+  return calculateWaterEstimate(Number(consumption) || 0, waterSettings);
+}
+
+async function updateBetaDisplayName(value) {
+  const displayName = String(value || "").trim();
+  if (!displayName || displayName.length > 40) {
+    return { ok: false, message: "Informe um nome de exibição com até 40 caracteres." };
+  }
+  const { error } = await supabaseClient.auth.updateUser({ data: { display_name: displayName } });
+  if (error) return { ok: false, message: "Não foi possível salvar o nome agora." };
+  currentDisplayName = displayName;
+  notifyBetaDataUpdate();
+  return { ok: true, message: "Nome de exibição atualizado." };
 }
 
 function betaReadingCollection(type) {

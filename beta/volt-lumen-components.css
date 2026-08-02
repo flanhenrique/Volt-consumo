@@ -18,7 +18,69 @@
     11. Acessibilidade e preferências do sistema
    ========================================================================== */
 
-@layer volt-material, volt-typography, volt-component, volt-state;
+/* Sem @layer: estilos fora de camada vencem estilos em camada, e a folha
+   legada do produto não está em camada alguma. O sistema se impõe por
+   especificidade — `html:is([data-environment="beta"], .volt-lumen)` — e não
+   pela ordem de camadas. Os blocos abaixo usam `@media all` apenas para
+   agrupar; esse at-rule não altera cascata. */
+
+/* ==========================================================================
+   0. Layout
+   --------------------------------------------------------------------------
+   O sistema de layout vem antes de qualquer decisão visual. Ele define três
+   coisas e apenas três:
+
+     1. a superfície ocupa a viewport inteira, sem moldura e sem borda branca;
+     2. o conteúdo respeita os recortes do dispositivo;
+     3. o conteúdo reserva a faixa da navegação flutuante.
+
+   Nenhuma tela repete essas regras. Todas herdam.
+   ========================================================================== */
+
+@media all {
+  html:is([data-environment="beta"], .volt-lumen) {
+    box-sizing: border-box;
+    min-height: 100%;
+    /* Sem salto de layout quando a barra de rolagem aparece. */
+    scrollbar-gutter: stable;
+    /* O elástico de rolagem mostra o fundo do app, nunca o do navegador. */
+    overscroll-behavior-y: none;
+
+    & *,
+    & *::before,
+    & *::after {
+      box-sizing: inherit;
+    }
+
+    & body {
+      min-height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* Container único. Largura, recuo lateral e recortes num lugar só. */
+    & .lm-container,
+    & .shell {
+      width: 100%;
+      max-width: var(--lm-container);
+      margin-inline: auto;
+      padding-left: max(var(--lm-gutter), var(--lm-safe-left));
+      padding-right: max(var(--lm-gutter), var(--lm-safe-right));
+    }
+
+    /* A faixa reservada ao rodapé flutuante e o recuo do recorte superior são
+       aplicados pela camada de aplicação diretamente nos elementos reais, a
+       partir de `--lm-content-bottom` e `--lm-safe-top`. O token é a fonte
+       única; repetir a regra aqui criaria uma segunda. */
+
+    /* Mensagens de status sem texto não devem reservar altura. Sem esta
+       regra, cada uma custa cerca de 30px de espaço vazio permanente. */
+    & .status-message:empty {
+      display: none;
+    }
+  }
+}
 
 /* ==========================================================================
    1. Escopo
@@ -27,7 +89,7 @@
    ou da classe `volt-lumen` na raiz do documento. Um único ponto de entrada.
    ========================================================================== */
 
-@layer volt-material {
+@media all {
   html:is([data-environment="beta"], .volt-lumen) {
     /* ------------------------------------------------------------------
        2. Primitivas de material
@@ -122,7 +184,7 @@
    3. Tipografia
    ========================================================================== */
 
-@layer volt-typography {
+@media all {
   html:is([data-environment="beta"], .volt-lumen) {
     & h1,
     & h2,
@@ -179,7 +241,7 @@
    Estados cobertos: normal, hover, pressed, focus, disabled e loading.
    ========================================================================== */
 
-@layer volt-component {
+@media all {
   html:is([data-environment="beta"], .volt-lumen) {
     & .lm-button,
     & .primary-button,
@@ -653,7 +715,7 @@
    11. Acessibilidade e preferências do sistema
    ========================================================================== */
 
-@layer volt-state {
+@media all {
   html:is([data-environment="beta"], .volt-lumen) {
     & :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
       outline: var(--lm-focus-width) solid var(--lm-accent-ink);

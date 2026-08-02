@@ -1,36 +1,98 @@
 /**
- * Volt Consumo — Beta v3 · camada de microinterações
+ * Volt Consumo — Beta v3.1 · camada de microinterações e layout dinâmico
  * ---------------------------------------------------------------------------
  * Estritamente visual. Este módulo não lê, calcula, valida nem persiste dado
  * algum: apenas observa o que a aplicação já faz e ajusta a apresentação.
  *
  * Responsabilidades:
- *   1. Material do cabeçalho conforme a rolagem
- *   2. Cápsula deslizante da navegação inferior
- *   3. Estado de carregamento dos botões de envio
+ *   1. Cor da barra de status acompanhando o tema
+ *   2. Altura real da navegação devolvida ao sistema de layout
+ *   3. Material do cabeçalho conforme a rolagem
+ *   4. Cápsula deslizante da navegação inferior
+ *   5. Estado de carregamento dos botões de envio
  *
  * Se qualquer elemento esperado não existir, o módulo simplesmente não age —
  * nenhuma funcionalidade do produto depende dele.
  */
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
+const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
 
 start();
 
 function start() {
+  syncStatusBarColor();
+
   const shell = document.querySelector(".beta-v2-shell");
   if (!shell) return;
 
+  measureNavigationHeight(shell);
   enhanceHeader(shell);
   enhanceNavigation(shell);
   enhanceSubmitFeedback();
 }
 
 /* ==========================================================================
-   1. Cabeçalho
+   1. Barra de status
+   --------------------------------------------------------------------------
+   Sem isto o navegador pinta a faixa da barra de status com a cor declarada
+   estaticamente no HTML, e aparece uma faixa clara acima do aplicativo. A cor
+   passa a ser lida do próprio tema em vigor, então barra de status, cabeçalho
+   e conteúdo formam uma superfície contínua nos dois temas.
+   ========================================================================== */
+
+function syncStatusBarColor() {
+  const apply = () => {
+    const canvas = getComputedStyle(document.documentElement)
+      .getPropertyValue("--lm-canvas")
+      .trim();
+    if (!canvas) return;
+    for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+      meta.removeAttribute("media");
+      meta.setAttribute("content", canvas);
+    }
+  };
+
+  apply();
+
+  // O tema muda por atributo na raiz (botão de tema) ou por preferência do
+  // sistema quando nenhum tema foi fixado.
+  new MutationObserver(apply).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"]
+  });
+  DARK_SCHEME.addEventListener("change", apply);
+}
+
+/* ==========================================================================
+   2. Altura da navegação
+   --------------------------------------------------------------------------
+   `--lm-content-bottom` reserva a faixa do rodapé flutuante para que nenhum
+   cartão termine escondido atrás dele. Essa reserva depende da altura real da
+   barra, que muda com o tamanho de fonte do sistema e com o comprimento dos
+   rótulos. Medir é mais confiável do que estimar.
+   ========================================================================== */
+
+function measureNavigationHeight(shell) {
+  const navigation = shell.querySelector(".bottom-navigation");
+  if (!navigation || typeof ResizeObserver === "undefined") return;
+
+  const publish = () => {
+    const height = Math.round(navigation.getBoundingClientRect().height);
+    if (height > 0) {
+      document.documentElement.style.setProperty("--lm-nav-height", `${height}px`);
+    }
+  };
+
+  new ResizeObserver(publish).observe(navigation);
+  publish();
+}
+
+/* ==========================================================================
+   3. Cabeçalho
    --------------------------------------------------------------------------
    O cabeçalho nasce transparente e só ganha vidro quando há conteúdo por
-   baixo dele. Evita uma barra sólida flutuando sobre uma página no topo.
+   baixo dele. É o que permite que a primeira tela seja uma superfície só.
    ========================================================================== */
 
 function enhanceHeader(shell) {
@@ -48,7 +110,7 @@ function enhanceHeader(shell) {
 }
 
 /* ==========================================================================
-   2. Navegação inferior
+   4. Navegação inferior
    --------------------------------------------------------------------------
    Uma única cápsula percorre a barra em vez de quatro fundos acendendo e
    apagando. A posição é medida do próprio botão ativo, então acompanha
@@ -100,7 +162,7 @@ function enhanceNavigation(shell) {
 }
 
 /* ==========================================================================
-   3. Estado de carregamento
+   5. Estado de carregamento
    --------------------------------------------------------------------------
    Marca o botão que disparou um envio enquanto a operação corre. O ouvinte é
    passivo: não cancela, não altera dados e não interfere no envio.

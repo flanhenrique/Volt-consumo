@@ -1,50 +1,73 @@
 /* ==========================================================================
-   Volt Consumo — Beta v3
+   Volt Consumo — Beta v3.1
    Aplicação do Volt Lumen à marcação do produto
    --------------------------------------------------------------------------
-   Camada exclusivamente visual. Não altera marcação, identificadores, textos,
-   ordem de foco nem comportamento — apenas apresenta.
+   Camada exclusivamente visual. Não altera marcação semântica, identificadores,
+   textos, ordem de foco nem comportamento — apenas apresenta.
+
+   O que mudou no v3.1
+   -------------------
+   O layout deixou de ser resolvido tela a tela. Três medidas passam a governar
+   toda a aplicação, e vêm dos tokens:
+
+     --lm-safe-*          recortes do dispositivo
+     --lm-nav-block       faixa ocupada pela navegação flutuante
+     --lm-content-bottom  reserva de rolagem: navegação + botão de ação + folga
+
+   Nenhuma tela declara recuo inferior próprio. Nenhuma tela repete safe area.
+   Quando a altura da navegação muda — fonte maior, idioma mais longo — o valor
+   é remedido em tempo de execução e todas as telas acompanham.
 
    Depende de:
-     volt-lumen-tokens.css   (gerado por @volt/design-system)
-     volt-lumen-components.css (primitivas compartilhadas)
+     volt-lumen-tokens.css      (gerado por @volt/design-system)
+     volt-lumen-components.css  (primitivas e sistema de layout)
 
    Índice:
-      1. Tela viva (aurora)
-      2. Casca e transições de página
+      1. Superfície viva
+      2. Casca, container e transições
       3. Tela de entrada
-      4. Cabeçalho da beta
-      5. Início — cartões de utilidade e resumo financeiro
+      4. Cabeçalho e barra de status
+      5. Início
       6. Leituras
       7. Relatórios
       8. Configurações
       9. Navegação inferior flutuante
-     10. Ação principal (FAB)
-     11. Modais do produto
+     10. Ação principal
+     11. Modais
      12. Responsividade
      13. Impressão
    ========================================================================== */
 
+html[data-environment="beta"] {
+  /* Altura da faixa do gráfico. Único lugar que a define. */
+  --beta-chart-track: clamp(88px, 24vw, 116px);
+}
+
 /* ==========================================================================
-   1. Tela viva — a fonte de luz que o vidro refrata
+   1. Superfície viva
    --------------------------------------------------------------------------
-   Duas auroras desfocadas derivam lentamente atrás de todo o conteúdo. É o
-   que dá ao material translúcido algo para amostrar: sem isso, "vidro" vira
-   apenas "fundo claro".
+   A cor fica no elemento raiz, não no body: assim o elástico de rolagem do
+   iOS e o espaço acima da dobra mostram o fundo do aplicativo, nunca o branco
+   do navegador. Duas auroras desfocadas derivam por trás de tudo — é o que dá
+   ao material translúcido algo para amostrar.
    ========================================================================== */
 
 html[data-environment="beta"] {
-  background: var(--lm-canvas);
+  background: var(--lm-canvas-deep);
 }
 
 html[data-environment="beta"] body {
   position: relative;
   min-height: 100dvh;
   margin: 0;
+  padding: 0;
   color: var(--lm-ink);
-  background:
-    radial-gradient(120% 80% at 50% 0%, var(--lm-canvas) 0%, var(--lm-canvas-deep) 100%);
-  overflow-x: hidden;
+  background: radial-gradient(
+    140% 90% at 50% 0%,
+    var(--lm-canvas) 0%,
+    var(--lm-canvas-deep) 100%
+  );
+  background-attachment: fixed;
 }
 
 html[data-environment="beta"] body::before,
@@ -77,18 +100,25 @@ html[data-environment="beta"] body::after {
 }
 
 /* ==========================================================================
-   2. Casca e transições de página
+   2. Casca, container e transições
+   --------------------------------------------------------------------------
+   A casca é o container único: largura máxima, recuo lateral e recortes do
+   dispositivo resolvidos num lugar só. Cabeçalho e conteúdo não declaram
+   recuo horizontal — herdam daqui.
    ========================================================================== */
 
 html[data-environment="beta"] .shell {
   position: relative;
   z-index: 1;
-  width: min(100%, 560px);
+  min-height: 100dvh;
+  max-width: var(--lm-container-narrow);
+  border-radius: 0;
+  overflow: visible;
   background: transparent;
 }
 
 html[data-environment="beta"] .shell:has(#dashboard:not([hidden])) {
-  width: min(100%, 1240px);
+  max-width: var(--lm-container);
 }
 
 html[data-environment="beta"] #dashboard {
@@ -103,13 +133,16 @@ html[data-environment="beta"] #dashboard > :not(.beta-v2-shell) {
 }
 
 html[data-environment="beta"] .beta-v2-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh;
   background: transparent;
 }
 
 html[data-environment="beta"] .beta-page {
   display: grid;
-  gap: var(--lm-space-5);
+  align-content: start;
+  gap: var(--lm-space-4);
   animation: lm-rise-in var(--lm-duration-slow) var(--lm-ease-entrance) both;
 }
 
@@ -133,7 +166,11 @@ html[data-environment="beta"] .auth-screen {
   flex-direction: column;
   justify-content: center;
   gap: var(--lm-space-2);
-  padding-inline: var(--lm-space-6);
+  min-height: 100dvh;
+  padding-block:
+    max(var(--lm-space-7), var(--lm-safe-top))
+    max(var(--lm-space-7), var(--lm-safe-bottom));
+  padding-inline: 0;
   animation: lm-rise-in var(--lm-duration-slow) var(--lm-ease-entrance) both;
 }
 
@@ -159,15 +196,15 @@ html[data-environment="beta"] .brand-mark {
 }
 
 html[data-environment="beta"] .auth-screen h1 {
-  margin: var(--lm-space-4) 0 var(--lm-space-4);
-  font-size: clamp(38px, 11vw, 52px);
+  margin: var(--lm-space-4) 0;
+  font-size: clamp(34px, 10vw, 50px);
   font-weight: var(--lm-weight-black);
   letter-spacing: -0.045em;
   line-height: 1.02;
 }
 
 html[data-environment="beta"] .auth-screen .lead {
-  margin-bottom: var(--lm-space-6);
+  margin-bottom: var(--lm-space-5);
   max-width: 34ch;
 }
 
@@ -207,10 +244,19 @@ html[data-environment="beta"] .auth-note {
 }
 
 /* ==========================================================================
-   4. Cabeçalho da beta
+   4. Cabeçalho e barra de status
    --------------------------------------------------------------------------
-   Fica colado ao topo e ganha material apenas quando a página rola — antes
-   disso é invisível, para que o conteúdo comece na borda.
+   O cabeçalho sangra até as bordas para que seu material cubra a faixa da
+   barra de status. O recuo horizontal do container é devolvido como padding,
+   então o texto continua alinhado ao resto da tela.
+
+   Em repouso o cabeçalho é transparente e o conteúdo começa colado ao topo —
+   é o estado em que barra de status, cabeçalho e conteúdo formam uma
+   superfície só. Ao rolar, ganha material para o texto não competir com o
+   conteúdo que passa por baixo.
+
+   A cor da barra de status acompanha por `theme-color`, ajustada em
+   beta-v3.js conforme o tema.
    ========================================================================== */
 
 html[data-environment="beta"] .beta-header {
@@ -221,16 +267,14 @@ html[data-environment="beta"] .beta-header {
   align-items: center;
   justify-content: space-between;
   gap: var(--lm-space-4);
-  padding:
-    max(var(--lm-space-5), env(safe-area-inset-top))
-    clamp(var(--lm-space-5), 4vw, var(--lm-space-9))
-    var(--lm-space-4);
+  margin-inline: calc(-1 * max(var(--lm-gutter), var(--lm-safe-left)));
+  padding-block: max(var(--lm-space-4), var(--lm-safe-top)) var(--lm-space-3);
+  padding-inline: max(var(--lm-gutter), var(--lm-safe-left));
   border-bottom: 1px solid transparent;
   background: transparent;
   transition:
     background-color var(--lm-duration-base) var(--lm-ease-standard),
-    border-color var(--lm-duration-base) var(--lm-ease-standard),
-    backdrop-filter var(--lm-duration-base) var(--lm-ease-standard);
+    border-color var(--lm-duration-base) var(--lm-ease-standard);
 }
 
 html[data-environment="beta"] .beta-header[data-scrolled="true"] {
@@ -244,22 +288,22 @@ html[data-environment="beta"] .beta-header .eyebrow {
   display: flex;
   align-items: center;
   gap: var(--lm-space-2);
-  margin: 0 0 var(--lm-space-2);
+  margin: 0 0 var(--lm-space-1);
 }
 
 html[data-environment="beta"] .beta-header h1 {
   margin: 0;
-  font-size: clamp(25px, 4.4vw, 33px);
+  font-size: clamp(23px, 4.4vw, 31px);
 }
 
+/* O conteúdo reserva a faixa do rodapé flutuante através do token — nunca
+   por um número escrito à mão. */
 html[data-environment="beta"] .beta-content {
   position: relative;
   z-index: 1;
-  min-height: calc(100dvh - 104px);
-  padding:
-    var(--lm-space-6)
-    clamp(var(--lm-space-5), 4vw, var(--lm-space-9))
-    calc(148px + env(safe-area-inset-bottom));
+  flex: 1;
+  padding-block: var(--lm-space-4) var(--lm-content-bottom);
+  padding-inline: 0;
 }
 
 /* ==========================================================================
@@ -287,11 +331,11 @@ html[data-environment="beta"] .summary-header .eyebrow {
 html[data-environment="beta"] .cycle-heading h2,
 html[data-environment="beta"] .page-heading h2,
 html[data-environment="beta"] .summary-header h2 {
-  font-size: clamp(23px, 4vw, 30px);
+  font-size: clamp(22px, 3.8vw, 28px);
 }
 
 html[data-environment="beta"] .cycle-chip {
-  padding: var(--lm-space-2) var(--lm-space-4);
+  padding: var(--lm-space-2) var(--lm-space-3);
   font-size: var(--lm-text-xs);
 }
 
@@ -300,12 +344,12 @@ html[data-environment="beta"] .cycle-chip {
 html[data-environment="beta"] .utility-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--lm-space-4);
+  gap: var(--lm-space-3);
 }
 
 html[data-environment="beta"] .utility-card {
-  min-height: 196px;
-  padding: var(--lm-space-5);
+  min-height: 0;
+  padding: var(--lm-space-4);
   overflow: hidden;
 }
 
@@ -322,7 +366,9 @@ html[data-environment="beta"] .utility-card::after {
   background: radial-gradient(circle, currentcolor 0%, transparent 68%);
   opacity: 0.22;
   pointer-events: none;
-  transition: transform var(--lm-duration-slow) var(--lm-ease-glass), opacity var(--lm-duration-slow) var(--lm-ease-glass);
+  transition:
+    transform var(--lm-duration-slow) var(--lm-ease-glass),
+    opacity var(--lm-duration-slow) var(--lm-ease-glass);
 }
 
 html[data-environment="beta"] .utility-card > * {
@@ -346,14 +392,14 @@ html[data-environment="beta"] .utility-card.energy { color: var(--lm-energy); }
 html[data-environment="beta"] .utility-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border: 1px solid color-mix(in srgb, currentcolor 22%, transparent);
   border-radius: var(--lm-radius-sm);
   color: currentcolor;
   background: color-mix(in srgb, currentcolor 14%, transparent);
   box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: var(--lm-weight-black);
   line-height: 1;
 }
@@ -362,7 +408,7 @@ html[data-environment="beta"] .utility-card-heading {
   display: flex;
   align-items: center;
   gap: var(--lm-space-3);
-  margin-bottom: var(--lm-space-5);
+  margin-bottom: var(--lm-space-4);
 }
 
 html[data-environment="beta"] .utility-card-heading h3 {
@@ -373,19 +419,19 @@ html[data-environment="beta"] .utility-card-heading h3 {
 html[data-environment="beta"] .utility-card-content {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--lm-space-4);
+  gap: var(--lm-space-3);
 }
 
 html[data-environment="beta"] .utility-card-content > div { min-width: 0; }
 
 html[data-environment="beta"] .utility-card-content .financial-preview {
-  padding-left: var(--lm-space-4);
+  padding-left: var(--lm-space-3);
   border-left: 1px solid var(--lm-glass-border-strong);
   text-align: right;
 }
 
 html[data-environment="beta"] .utility-card p {
-  margin: 0 0 var(--lm-space-2);
+  margin: 0 0 var(--lm-space-1);
   color: var(--lm-ink-muted);
   font-size: var(--lm-text-xs);
   font-weight: var(--lm-weight-bold);
@@ -395,13 +441,13 @@ html[data-environment="beta"] .utility-card strong {
   display: block;
   overflow-wrap: anywhere;
   color: var(--lm-ink);
-  font-size: clamp(20px, 3vw, 28px);
+  font-size: clamp(18px, 2.8vw, 26px);
   font-weight: var(--lm-weight-black);
 }
 
 html[data-environment="beta"] .cycle-comparison {
   display: block;
-  margin-top: var(--lm-space-4);
+  margin-top: var(--lm-space-3);
   color: var(--lm-ink-muted);
   font-size: var(--lm-text-xs);
   font-weight: var(--lm-weight-bold);
@@ -411,7 +457,7 @@ html[data-environment="beta"] .cycle-comparison {
 /* --- Resumo financeiro --------------------------------------------------- */
 
 html[data-environment="beta"] .cycle-summary-card {
-  padding: clamp(var(--lm-space-5), 4vw, var(--lm-space-7));
+  padding: clamp(var(--lm-space-4), 3.4vw, var(--lm-space-6));
 }
 
 html[data-environment="beta"] .cycle-summary-card > * {
@@ -421,7 +467,7 @@ html[data-environment="beta"] .cycle-summary-card > * {
 
 html[data-environment="beta"] .financial-total {
   color: var(--lm-ink);
-  font-size: clamp(26px, 4.4vw, 38px);
+  font-size: clamp(24px, 4.2vw, 36px);
   font-weight: var(--lm-weight-black);
   white-space: nowrap;
 }
@@ -429,20 +475,22 @@ html[data-environment="beta"] .financial-total {
 html[data-environment="beta"] .summary-values {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--lm-space-3);
-  margin-top: var(--lm-space-6);
+  gap: var(--lm-space-2);
+  margin-top: var(--lm-space-4);
 }
 
 html[data-environment="beta"] .financial-summary-card .summary-values {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* Bloco de dado: rótulo curto acima, número abaixo. Uma definição para os
+   quatro lugares em que esse par aparece. */
 html[data-environment="beta"] .summary-values div,
 html[data-environment="beta"] .report-comparison div,
 html[data-environment="beta"] .report-stats div,
 html[data-environment="beta"] .financial-insights p,
 html[data-environment="beta"] .forecast-grid > div {
-  padding: var(--lm-space-4);
+  padding: var(--lm-space-3);
   border: 1px solid var(--lm-glass-border);
   border-radius: var(--lm-radius-md);
   background: color-mix(in srgb, var(--lm-glass-veil) 42%, transparent);
@@ -453,22 +501,26 @@ html[data-environment="beta"] .summary-values small,
 html[data-environment="beta"] .report-comparison small,
 html[data-environment="beta"] .report-stats small {
   display: block;
-  margin-bottom: var(--lm-space-2);
+  margin-bottom: var(--lm-space-1);
+  overflow: hidden;
   color: var(--lm-ink-muted);
-  font-size: var(--lm-text-xs);
+  font-size: var(--lm-text-2xs);
   font-weight: var(--lm-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 html[data-environment="beta"] .summary-values strong {
   display: block;
-  font-size: clamp(19px, 3vw, 26px);
+  overflow-wrap: anywhere;
+  font-size: clamp(16px, 2.6vw, 24px);
   font-weight: var(--lm-weight-black);
 }
 
 html[data-environment="beta"] .financial-insights {
   display: grid;
   gap: var(--lm-space-2);
-  margin-top: var(--lm-space-4);
+  margin-top: var(--lm-space-3);
 }
 
 html[data-environment="beta"] .financial-insights p {
@@ -480,11 +532,24 @@ html[data-environment="beta"] .financial-insights p {
 
 /* ==========================================================================
    6. Leituras
+   --------------------------------------------------------------------------
+   Densidade é o requisito desta tela: quanto mais leituras couberem antes da
+   primeira rolagem, melhor. O cabeçalho encosta na lista, a mensagem de
+   status só ocupa altura quando tem texto, e cada item perde recuo vertical
+   sem perder o alvo de toque de 44px.
    ========================================================================== */
+
+html[data-environment="beta"] #beta-readings {
+  gap: var(--lm-space-3);
+}
+
+html[data-environment="beta"] #beta-readings .page-heading {
+  margin-bottom: 0;
+}
 
 html[data-environment="beta"] .beta-reading-list {
   display: grid;
-  gap: var(--lm-space-3);
+  gap: var(--lm-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -494,8 +559,8 @@ html[data-environment="beta"] .beta-reading-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--lm-space-4);
-  padding: var(--lm-space-4);
+  gap: var(--lm-space-3);
+  padding: var(--lm-space-2) var(--lm-space-3);
   border-radius: var(--lm-radius-md);
 }
 
@@ -508,12 +573,12 @@ html[data-environment="beta"] .beta-reading-item:hover {
 html[data-environment="beta"] .reading-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border: 1px solid color-mix(in srgb, currentcolor 24%, transparent);
   border-radius: var(--lm-radius-sm);
   box-shadow: inset 0 1px 0 var(--lm-glass-highlight);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: var(--lm-weight-black);
   line-height: 1;
 }
@@ -532,13 +597,14 @@ html[data-environment="beta"] .reading-info { min-width: 0; }
 
 html[data-environment="beta"] .reading-info strong {
   display: block;
-  font-size: var(--lm-text-lg);
+  font-size: var(--lm-text-md);
   font-weight: var(--lm-weight-black);
+  line-height: 1.25;
 }
 
 html[data-environment="beta"] .reading-info small {
   display: block;
-  margin-top: var(--lm-space-1);
+  margin-top: 2px;
   overflow: hidden;
   color: var(--lm-ink-muted);
   font-size: var(--lm-text-xs);
@@ -553,8 +619,8 @@ html[data-environment="beta"] .reading-menu { position: relative; }
 html[data-environment="beta"] .reading-menu > summary {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--lm-touch-target);
+  height: var(--lm-touch-target);
   border-radius: var(--lm-radius-full);
   color: var(--lm-ink-muted);
   font-size: 22px;
@@ -573,7 +639,7 @@ html[data-environment="beta"] .reading-menu > summary:hover {
 html[data-environment="beta"] .reading-menu > div {
   position: absolute;
   z-index: 8;
-  top: 48px;
+  top: 46px;
   right: 0;
   display: grid;
   gap: 2px;
@@ -616,10 +682,14 @@ html[data-environment="beta"] .reading-menu .danger-text:hover {
 
 /* ==========================================================================
    7. Relatórios
+   --------------------------------------------------------------------------
+   A altura do gráfico é uma variável, não um número solto: a coluna, a trilha
+   e o espaço reservado saem todos de `--beta-chart-track`. Em telas estreitas
+   ela encolhe junto com a viewport, e o cartão inteiro acompanha.
    ========================================================================== */
 
 html[data-environment="beta"] .report-card {
-  padding: clamp(var(--lm-space-4), 2.4vw, var(--lm-space-6));
+  padding: clamp(var(--lm-space-4), 2.2vw, var(--lm-space-5));
 }
 
 html[data-environment="beta"] .report-card > * {
@@ -628,16 +698,21 @@ html[data-environment="beta"] .report-card > * {
 }
 
 html[data-environment="beta"] .report-card h3 {
-  margin: 0 0 var(--lm-space-2);
+  margin: 0 0 var(--lm-space-1);
+  font-size: var(--lm-text-md);
+}
+
+html[data-environment="beta"] .report-card .note {
+  margin: 0;
 }
 
 html[data-environment="beta"] .bar-chart {
   display: flex;
   align-items: end;
   gap: var(--lm-space-2);
-  min-height: 172px;
+  min-height: 0;
   margin-top: var(--lm-space-3);
-  padding: var(--lm-space-3) var(--lm-space-1) 0;
+  padding: var(--lm-space-2) var(--lm-space-1) 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--lm-glass-border-strong);
   scrollbar-width: thin;
@@ -645,11 +720,11 @@ html[data-environment="beta"] .bar-chart {
 
 html[data-environment="beta"] .bar-column {
   display: grid;
-  grid-template-rows: auto 112px auto;
-  flex: 1 0 52px;
+  grid-template-rows: auto var(--beta-chart-track) auto;
+  flex: 1 0 46px;
   gap: var(--lm-space-1);
   align-items: end;
-  min-width: 52px;
+  min-width: 46px;
   text-align: center;
 }
 
@@ -668,8 +743,8 @@ html[data-environment="beta"] .bar-column time {
 html[data-environment="beta"] .bar-track {
   position: relative;
   display: block;
-  width: 28px;
-  height: 112px;
+  width: 24px;
+  height: var(--beta-chart-track);
   margin: auto;
   overflow: hidden;
   border: 1px solid var(--lm-glass-border);
@@ -684,22 +759,26 @@ html[data-environment="beta"] .bar-track > span {
   bottom: 0;
   left: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lm-energy) 70%, #ffffff), var(--lm-energy));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lm-energy) 70%, #ffffff),
+    var(--lm-energy)
+  );
   box-shadow: inset 0 1px 0 #ffffff5c;
   transition: height var(--lm-duration-slow) var(--lm-ease-glass);
 }
 
 html[data-environment="beta"] .water-chart .bar-track > span {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lm-water) 65%, #ffffff), var(--lm-water));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lm-water) 65%, #ffffff),
+    var(--lm-water)
+  );
 }
 
-html[data-environment="beta"] .report-comparison {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--lm-space-3);
-  margin-top: var(--lm-space-4);
-}
-
+/* Três colunas em qualquer largura. São rótulo curto e número — empilhar
+   triplicaria a altura da tela sem ganho de leitura. */
+html[data-environment="beta"] .report-comparison,
 html[data-environment="beta"] .report-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -710,25 +789,14 @@ html[data-environment="beta"] .report-stats {
 html[data-environment="beta"] .report-comparison strong,
 html[data-environment="beta"] .report-stats strong {
   display: block;
-  font-size: var(--lm-text-md);
+  overflow-wrap: anywhere;
+  font-size: var(--lm-text-sm);
   font-weight: var(--lm-weight-black);
+  line-height: 1.25;
 }
 
 html[data-environment="beta"] .compact-comparison-card {
   padding-block: var(--lm-space-4);
-}
-
-html[data-environment="beta"] .compact-action {
-  width: auto;
-  min-height: 40px;
-  padding: var(--lm-space-2) var(--lm-space-4);
-  font-size: var(--lm-text-sm);
-}
-
-html[data-environment="beta"] .pdf-action {
-  min-height: 38px;
-  padding: var(--lm-space-2) var(--lm-space-3);
-  font-size: var(--lm-text-xs);
 }
 
 /* ==========================================================================
@@ -736,7 +804,7 @@ html[data-environment="beta"] .pdf-action {
    ========================================================================== */
 
 html[data-environment="beta"] .settings-group {
-  padding: clamp(var(--lm-space-5), 3vw, var(--lm-space-6));
+  padding: clamp(var(--lm-space-4), 2.6vw, var(--lm-space-6));
 }
 
 html[data-environment="beta"] .settings-group > * {
@@ -745,8 +813,8 @@ html[data-environment="beta"] .settings-group > * {
 }
 
 html[data-environment="beta"] .settings-group h3 {
-  margin: 0 0 var(--lm-space-4);
-  font-size: var(--lm-text-lg);
+  margin: 0 0 var(--lm-space-3);
+  font-size: var(--lm-text-md);
 }
 
 html[data-environment="beta"] .settings-row h3 { margin: 0; }
@@ -783,7 +851,7 @@ html[data-environment="beta"] .toggle-row input[type="checkbox"] {
 }
 
 html[data-environment="beta"] .field-row {
-  margin-top: var(--lm-space-4);
+  margin-top: var(--lm-space-3);
 }
 
 html[data-environment="beta"] .field-row > span {
@@ -819,13 +887,13 @@ html[data-environment="beta"] .advanced-settings > summary {
 
 html[data-environment="beta"] .advanced-content {
   display: grid;
-  gap: var(--lm-space-4);
-  margin-top: var(--lm-space-5);
+  gap: var(--lm-space-3);
+  margin-top: var(--lm-space-4);
 }
 
 html[data-environment="beta"] .advanced-content > .settings-card,
 html[data-environment="beta"] .advanced-content > .settings-section {
-  padding: var(--lm-space-5);
+  padding: var(--lm-space-4);
   border: 1px solid var(--lm-glass-border);
   border-radius: var(--lm-radius-md);
   background: color-mix(in srgb, var(--lm-glass-veil) 40%, transparent);
@@ -888,18 +956,22 @@ html[data-environment="beta"] .engine-details {
 /* ==========================================================================
    9. Navegação inferior flutuante
    --------------------------------------------------------------------------
-   Barra de vidro fosco descolada da borda. O indicador é uma cápsula única
-   que desliza entre as abas — a troca é um movimento, não um salto.
+   Barra de vidro fosco descolada da borda, acima da barra de gestos. O
+   indicador é uma cápsula única que desliza entre as abas — a troca é um
+   movimento, não um salto.
+
+   A altura real desta barra é medida em tempo de execução e devolvida a
+   `--lm-nav-height`; é dela que sai a reserva de rolagem do conteúdo.
    ========================================================================== */
 
 html[data-environment="beta"] .bottom-navigation {
   position: fixed;
   z-index: 30;
-  right: 50%;
-  bottom: max(var(--lm-space-3), env(safe-area-inset-bottom));
+  bottom: calc(var(--lm-safe-bottom) + var(--lm-nav-gap));
+  left: 50%;
   display: grid;
   grid-template-columns: repeat(4, minmax(66px, 116px));
-  width: min(calc(100% - var(--lm-space-6)), 520px);
+  width: min(calc(100% - 2 * var(--lm-gutter)), 520px);
   padding: var(--lm-space-2);
   border: 1px solid var(--lm-glass-border-strong);
   border-radius: var(--lm-radius-xl);
@@ -907,7 +979,7 @@ html[data-environment="beta"] .bottom-navigation {
   backdrop-filter: var(--lm-glass-thick-filter);
   -webkit-backdrop-filter: var(--lm-glass-thick-filter);
   box-shadow: var(--lm-shadow-4), inset 0 1px 0 var(--lm-glass-highlight);
-  transform: translateX(50%);
+  transform: translateX(-50%);
 }
 
 /* Cápsula deslizante. Posição e largura vêm de beta-v3.js. */
@@ -916,8 +988,8 @@ html[data-environment="beta"] .nav-indicator {
   z-index: 0;
   top: var(--lm-space-2);
   left: 0;
-  height: calc(100% - var(--lm-space-4));
   width: var(--nav-indicator-width, 0);
+  height: calc(100% - var(--lm-space-4));
   border-radius: var(--lm-radius-md);
   background: linear-gradient(150deg, var(--lm-accent-solid), var(--lm-accent-strong));
   box-shadow: var(--lm-shadow-accent), inset 0 1px 0 #ffffff40;
@@ -937,8 +1009,8 @@ html[data-environment="beta"] .bottom-navigation button {
   z-index: 1;
   display: grid;
   place-items: center;
-  gap: var(--lm-space-1);
-  min-height: 56px;
+  gap: 2px;
+  min-height: 52px;
   border: 0;
   border-radius: var(--lm-radius-md);
   color: var(--lm-ink-muted);
@@ -951,7 +1023,7 @@ html[data-environment="beta"] .bottom-navigation button {
 }
 
 html[data-environment="beta"] .bottom-navigation button span {
-  font-size: 19px;
+  font-size: 18px;
   line-height: 1;
   transition: transform var(--lm-duration-base) var(--lm-ease-glass);
 }
@@ -984,62 +1056,137 @@ html[data-environment="beta"] .bottom-navigation button:active {
 
 /* ==========================================================================
    10. Ação principal
+   --------------------------------------------------------------------------
+   Duas superfícies levam à mesma ação: o botão flutuante e o botão "Nova
+   leitura" no cabeçalho da tela de leituras. Ambos são de ênfase máxima e
+   compartilham tratamento — mesma cor, mesmo realce, mesma microanimação.
    ========================================================================== */
 
-html[data-environment="beta"] .beta-reading-fab {
-  position: fixed;
-  z-index: 29;
-  right: max(var(--lm-space-5), calc((100vw - 1160px) / 2 + var(--lm-space-7)));
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  display: flex;
-  align-items: center;
-  gap: var(--lm-space-3);
-  padding: var(--lm-space-2) var(--lm-space-5) var(--lm-space-2) var(--lm-space-2);
-  border: 1px solid var(--lm-glass-border-strong);
-  border-radius: var(--lm-radius-full);
+html[data-environment="beta"] .beta-reading-fab,
+html[data-environment="beta"] [data-new-reading] {
   color: var(--lm-accent-contrast);
   background: linear-gradient(145deg, var(--lm-accent-solid), var(--lm-accent-strong));
-  box-shadow: var(--lm-shadow-4), var(--lm-shadow-accent), inset 0 1px 0 #ffffff4d;
+  border: 1px solid transparent;
+  box-shadow: var(--lm-shadow-accent), inset 0 1px 0 #ffffff45;
   font-family: inherit;
-  font-size: var(--lm-text-sm);
   font-weight: var(--lm-weight-black);
   cursor: pointer;
   transition:
     transform var(--lm-duration-base) var(--lm-ease-glass),
-    box-shadow var(--lm-duration-base) var(--lm-ease-glass);
+    box-shadow var(--lm-duration-base) var(--lm-ease-glass),
+    filter var(--lm-duration-fast) var(--lm-ease-standard);
+}
+
+html[data-environment="beta"] .beta-reading-fab:hover,
+html[data-environment="beta"] [data-new-reading]:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(145deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  box-shadow: var(--lm-shadow-4), var(--lm-shadow-accent), inset 0 1px 0 #ffffff59;
+  filter: brightness(1.06);
+}
+
+html[data-environment="beta"] .beta-reading-fab:active,
+html[data-environment="beta"] [data-new-reading]:active {
+  transform: scale(0.95);
+  box-shadow: var(--lm-shadow-1), inset 0 1px 0 #ffffff33;
+  transition-duration: var(--lm-duration-instant);
+}
+
+/* --- Botão flutuante ------------------------------------------------------
+   Fica acima da navegação, nunca sobre ela, e o conteúdo reserva a altura de
+   ambos. `--lm-fab-offset` deriva de `--lm-nav-block`. */
+
+html[data-environment="beta"] .beta-reading-fab {
+  position: fixed;
+  z-index: 29;
+  right: max(
+    calc(var(--lm-gutter) + var(--lm-safe-right)),
+    calc((100vw - var(--lm-container)) / 2 + var(--lm-gutter))
+  );
+  bottom: var(--lm-fab-offset);
+  display: flex;
+  align-items: center;
+  gap: var(--lm-space-3);
+  height: var(--lm-fab-size);
+  padding: 0 var(--lm-space-5) 0 var(--lm-space-2);
+  border-radius: var(--lm-radius-full);
+  font-size: var(--lm-text-sm);
 }
 
 html[data-environment="beta"] .beta-reading-fab img {
-  width: 42px;
-  height: 42px;
+  width: calc(var(--lm-fab-size) - 16px);
+  height: calc(var(--lm-fab-size) - 16px);
   border-radius: 50%;
   background: #ffffff29;
 }
 
-html[data-environment="beta"] .beta-reading-fab:hover {
-  transform: translateY(-3px);
+/* --- Botão "Nova leitura" -------------------------------------------------
+   O ícone é decorativo e nasce de um pseudo-elemento: a marcação, o rótulo e
+   o nome acessível do botão continuam exatamente os mesmos. */
+
+html[data-environment="beta"] [data-new-reading] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lm-space-2);
+  width: auto;
+  height: var(--lm-touch-target);
+  min-height: var(--lm-touch-target);
+  padding: 0 var(--lm-space-4) 0 var(--lm-space-2);
+  border-radius: var(--lm-radius-full);
+  font-size: var(--lm-text-sm);
+  white-space: nowrap;
 }
 
-html[data-environment="beta"] .beta-reading-fab:active {
-  transform: scale(0.95);
+html[data-environment="beta"] [data-new-reading]::before {
+  content: "+";
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff2e;
+  box-shadow: inset 0 1px 0 #ffffff40;
+  font-size: 18px;
+  font-weight: var(--lm-weight-bold);
+  line-height: 1;
+  transition: transform var(--lm-duration-base) var(--lm-ease-glass);
+}
+
+html[data-environment="beta"] [data-new-reading]:hover::before {
+  transform: rotate(90deg);
+}
+
+/* Ações secundárias do cabeçalho de página seguem discretas. */
+html[data-environment="beta"] .compact-action {
+  width: auto;
+  min-height: 40px;
+  padding: var(--lm-space-2) var(--lm-space-4);
+  font-size: var(--lm-text-sm);
+}
+
+html[data-environment="beta"] .pdf-action {
+  min-height: 38px;
+  padding: var(--lm-space-2) var(--lm-space-3);
+  font-size: var(--lm-text-xs);
 }
 
 /* ==========================================================================
-   11. Modais do produto
+   11. Modais
    ========================================================================== */
 
 html[data-environment="beta"] body > .reading-dialog,
 html[data-environment="beta"] .beta-dialog,
 html[data-environment="beta"] .privacy-dialog,
 html[data-environment="beta"] #scanner-dialog {
-  width: min(calc(100% - var(--lm-space-6)), 490px);
+  width: min(calc(100% - 2 * var(--lm-space-4)), 490px);
   max-width: 490px;
-  max-height: calc(100dvh - var(--lm-space-6));
+  max-height: calc(100dvh - var(--lm-safe-top) - var(--lm-safe-bottom) - var(--lm-space-6));
   overflow: visible;
 }
 
 html[data-environment="beta"] .privacy-dialog {
-  width: min(calc(100% - var(--lm-space-6)), 540px);
+  width: min(calc(100% - 2 * var(--lm-space-4)), 540px);
   max-width: 540px;
 }
 
@@ -1048,13 +1195,14 @@ html[data-environment="beta"] body > .reading-dialog .dialog-card,
 html[data-environment="beta"] body > .reading-dialog .reading-card {
   width: 100%;
   max-width: 100%;
-  box-sizing: border-box;
 }
 
-html[data-environment="beta"] body > .reading-dialog .reading-card {
+html[data-environment="beta"] body > .reading-dialog .reading-card,
+html[data-environment="beta"] .scanner-card,
+html[data-environment="beta"] .privacy-card {
   display: grid;
   gap: var(--lm-space-4);
-  max-height: calc(100dvh - var(--lm-space-8));
+  max-height: calc(100dvh - var(--lm-safe-top) - var(--lm-safe-bottom) - var(--lm-space-8));
   padding: var(--lm-space-6);
   overflow-y: auto;
   border-radius: var(--lm-radius-xl);
@@ -1064,7 +1212,6 @@ html[data-environment="beta"] .beta-dialog form,
 html[data-environment="beta"] body > .reading-dialog .form {
   width: 100%;
   min-width: 0;
-  box-sizing: border-box;
 }
 
 html[data-environment="beta"] .beta-dialog label,
@@ -1073,7 +1220,6 @@ html[data-environment="beta"] body > .reading-dialog label {
   width: 100%;
   min-width: 0;
   margin: 0;
-  box-sizing: border-box;
 }
 
 /* Campos e botões de modal têm altura fixa: nada sai do painel. */
@@ -1084,13 +1230,12 @@ html[data-environment="beta"] .beta-dialog .dialog-card :where(input:not([type="
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  height: 54px;
-  min-height: 54px;
+  height: 52px;
+  min-height: 52px;
   margin: 0;
   padding: 0 var(--lm-space-4);
   overflow: hidden;
   border-radius: var(--lm-radius-sm);
-  box-sizing: border-box;
 }
 
 html[data-environment="beta"] body > .reading-dialog .form :where(button),
@@ -1098,12 +1243,11 @@ html[data-environment="beta"] .beta-dialog .dialog-card
   :where(button.primary-button, button.secondary-button, button.danger-button) {
   width: 100%;
   max-width: 100%;
-  height: 54px;
-  min-height: 54px;
+  height: 52px;
+  min-height: 52px;
   margin: 0;
   padding: 0 var(--lm-space-4);
   border-radius: var(--lm-radius-sm);
-  box-sizing: border-box;
 }
 
 html[data-environment="beta"] body > .reading-dialog input[type="datetime-local"],
@@ -1129,15 +1273,15 @@ html[data-environment="beta"] .reading-type-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--lm-space-3);
-  margin-top: var(--lm-space-5);
+  margin-top: var(--lm-space-4);
 }
 
 html[data-environment="beta"] .utility-choice {
   display: grid;
   place-items: center;
   align-content: center;
-  min-height: 152px;
-  padding: var(--lm-space-5);
+  min-height: 140px;
+  padding: var(--lm-space-4);
   border: 1px solid var(--lm-glass-border-strong);
   border-radius: var(--lm-radius-lg);
   color: var(--lm-ink);
@@ -1163,13 +1307,13 @@ html[data-environment="beta"] .utility-choice:active {
 }
 
 html[data-environment="beta"] .utility-choice > span {
-  font-size: 34px;
+  font-size: 32px;
   line-height: 1;
 }
 
 html[data-environment="beta"] .utility-choice strong {
-  margin-top: var(--lm-space-3);
-  font-size: var(--lm-text-lg);
+  margin-top: var(--lm-space-2);
+  font-size: var(--lm-text-md);
   font-weight: var(--lm-weight-black);
 }
 
@@ -1192,19 +1336,10 @@ html[data-environment="beta"] .utility-choice.water:hover {
 
 /* --- Scanner e privacidade ----------------------------------------------- */
 
-html[data-environment="beta"] .scanner-card,
-html[data-environment="beta"] .privacy-card {
-  display: grid;
-  gap: var(--lm-space-4);
-  max-height: calc(100dvh - var(--lm-space-8));
-  padding: var(--lm-space-6);
-  overflow-y: auto;
-}
-
 html[data-environment="beta"] .camera-picker {
   display: grid;
   place-items: center;
-  min-height: 84px;
+  min-height: 80px;
   border: 1px dashed var(--lm-accent);
   border-radius: var(--lm-radius-md);
   color: var(--lm-accent-ink);
@@ -1234,7 +1369,7 @@ html[data-environment="beta"] .camera-picker input {
 
 html[data-environment="beta"] #scanner-preview {
   width: 100%;
-  max-height: 260px;
+  max-height: 240px;
   border-radius: var(--lm-radius-md);
   object-fit: contain;
   background: var(--lm-navy-900);
@@ -1260,7 +1395,7 @@ html[data-environment="beta"] .scanner-progress span {
 html[data-environment="beta"] .privacy-section {
   display: grid;
   gap: var(--lm-space-3);
-  padding-top: var(--lm-space-5);
+  padding-top: var(--lm-space-4);
   border-top: 1px solid var(--lm-glass-border);
 }
 
@@ -1269,6 +1404,9 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
 
 /* ==========================================================================
    12. Responsividade
+   --------------------------------------------------------------------------
+   Os pontos de quebra alteram apenas contagem de colunas. Altura, recuo e
+   safe area já vêm resolvidos dos tokens e não são redeclarados aqui.
    ========================================================================== */
 
 /* --- Tablet e desktop ---------------------------------------------------- */
@@ -1290,12 +1428,8 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
   }
 }
 
-/* --- Desktop largo: navegação deixa de flutuar sobre o conteúdo ---------- */
+/* --- Desktop largo ------------------------------------------------------- */
 @media (min-width: 1100px) {
-  html[data-environment="beta"] .beta-content {
-    padding-bottom: calc(160px + env(safe-area-inset-bottom));
-  }
-
   html[data-environment="beta"] #beta-home {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1310,56 +1444,50 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
   }
 
   html[data-environment="beta"] .financial-summary-card .summary-values {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* --- Telefone ------------------------------------------------------------ */
+/* --- Telefone ------------------------------------------------------------
+   Uma coluna nas grades largas. As grades de três colunas de relatório
+   permanecem: são rótulo e número curtos. */
 @media (max-width: 560px) {
-  html[data-environment="beta"] .beta-header {
-    padding-inline: var(--lm-space-4);
-  }
-
-  html[data-environment="beta"] .beta-content {
-    padding-inline: var(--lm-space-4);
-  }
-
   html[data-environment="beta"] .utility-grid,
   html[data-environment="beta"] .summary-values,
   html[data-environment="beta"] .financial-summary-card .summary-values,
-  html[data-environment="beta"] .stack-actions,
-  html[data-environment="beta"] .report-comparison {
+  html[data-environment="beta"] .stack-actions {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  html[data-environment="beta"] .utility-card { min-height: 188px; }
 
   html[data-environment="beta"] .summary-header,
   html[data-environment="beta"] .cycle-heading,
   html[data-environment="beta"] .page-heading {
-    align-items: flex-start;
+    align-items: center;
   }
 
   html[data-environment="beta"] .summary-header {
+    align-items: flex-start;
     flex-direction: column;
+    gap: var(--lm-space-2);
   }
 
-  html[data-environment="beta"] .cycle-chip { margin-top: var(--lm-space-1); }
+  html[data-environment="beta"] .cycle-chip {
+    flex: 0 0 auto;
+  }
 
+  /* Círculo: o rótulo continua acessível a leitores de tela. */
   html[data-environment="beta"] .beta-reading-fab {
-    right: var(--lm-space-4);
-    width: 64px;
-    height: 64px;
-    padding: var(--lm-space-2);
-    border-radius: 50%;
+    right: calc(var(--lm-gutter) + var(--lm-safe-right));
+    width: var(--lm-fab-size);
+    padding: 0;
+    justify-content: center;
   }
 
   html[data-environment="beta"] .beta-reading-fab img {
-    width: 42px;
-    height: 42px;
+    width: calc(var(--lm-fab-size) - 20px);
+    height: calc(var(--lm-fab-size) - 20px);
   }
 
-  /* O rótulo continua acessível a leitores de tela. */
   html[data-environment="beta"] .beta-reading-fab span {
     position: absolute;
     width: 1px;
@@ -1369,9 +1497,10 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
     white-space: nowrap;
   }
 
-  html[data-environment="beta"] .compact-action { max-width: 140px; }
+  html[data-environment="beta"] .compact-action {
+    max-width: 152px;
+  }
 
-  html[data-environment="beta"] .report-stats,
   html[data-environment="beta"] .reading-type-grid,
   html[data-environment="beta"] .two-column-form,
   html[data-environment="beta"] .compact-form {
@@ -1384,12 +1513,12 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
   html[data-environment="beta"] .scanner-card,
   html[data-environment="beta"] .privacy-card,
   html[data-environment="beta"] body > .reading-dialog .reading-card {
-    padding: var(--lm-space-5);
+    padding: var(--lm-space-4);
   }
 }
 
-/* --- Telefone pequeno ---------------------------------------------------- */
-@media (max-width: 360px) {
+/* --- Telefone pequeno (iPhone SE, Android compacto) ---------------------- */
+@media (max-width: 380px) {
   html[data-environment="beta"] .bottom-navigation {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -1398,18 +1527,43 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
     font-size: 9px;
   }
 
-  html[data-environment="beta"] .cycle-heading { display: grid; }
-
   html[data-environment="beta"] .utility-card-content {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--lm-space-2);
   }
 
   html[data-environment="beta"] .utility-card-content .financial-preview {
+    padding-top: var(--lm-space-2);
     padding-left: 0;
-    padding-top: var(--lm-space-3);
-    border-left: 0;
     border-top: 1px solid var(--lm-glass-border-strong);
+    border-left: 0;
     text-align: left;
+  }
+
+  html[data-environment="beta"] .report-comparison,
+  html[data-environment="beta"] .report-stats {
+    gap: var(--lm-space-1);
+  }
+
+  html[data-environment="beta"] .report-comparison div,
+  html[data-environment="beta"] .report-stats div {
+    padding: var(--lm-space-2);
+  }
+
+  html[data-environment="beta"] .report-comparison strong,
+  html[data-environment="beta"] .report-stats strong {
+    font-size: var(--lm-text-xs);
+  }
+}
+
+/* --- Telas baixas em paisagem -------------------------------------------- */
+@media (max-height: 480px) and (orientation: landscape) {
+  html[data-environment="beta"] .auth-screen {
+    justify-content: flex-start;
+  }
+
+  html[data-environment="beta"] .auth-screen h1 {
+    font-size: clamp(26px, 5vw, 34px);
   }
 }
 
@@ -1438,6 +1592,7 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
   html[data-environment="beta"] .beta-v2-shell,
   html[data-environment="beta"] .beta-content {
     width: 100%;
+    max-width: none;
     min-height: auto;
     padding: 0;
     background: #fff;

@@ -62,6 +62,7 @@ populateSettings();
 populateWaterSettings();
 renderEngineSettings();
 restoreRememberPreference();
+exposeBetaApi();
 initializeAuth();
 
 function initializeEnvironment() {
@@ -699,6 +700,127 @@ function exportCurrentUserData() {
   $("#privacy-message").textContent = "Arquivo preparado com os dados disponíveis nesta conta.";
 }
 
+function exposeBetaApi() {
+  if (APP_ENVIRONMENT.id !== "beta") return;
+  window.VOLT_BETA_API = Object.freeze({
+    deleteReading: deleteBetaReading,
+    exportData: exportCurrentUserData,
+    getSnapshot: getBetaSnapshot,
+    resetApplication: resetBetaApplication,
+    setTheme: applyTheme,
+    updateReading: updateBetaReading
+  });
+}
+
+function getBetaSnapshot() {
+  const energySummary = calculateConsumptionSummary(readings);
+  const waterSummary = calculateConsumptionSummary(waterReadings);
+  const flag = FLAGS[settings.flag] || FLAGS.yellow;
+  const energyConsumption = energySummary.valid ? energySummary.consumption : 0;
+  const waterConsumption = waterSummary.valid ? waterSummary.consumption : 0;
+  return structuredClone({
+    account: { email: currentUserEmail },
+    energy: {
+      readings,
+      settings,
+      summary: energySummary,
+      estimate: calculateEnergyEstimate(energyConsumption, {
+        rate: settings.rate,
+        flagRate: flag.rate,
+        lightingFee: settings.lightingFee
+      })
+    },
+    water: {
+      readings: waterReadings,
+      settings: waterSettings,
+      summary: waterSummary,
+      estimate: calculateWaterEstimate(waterConsumption, waterSettings)
+    }
+  });
+}
+
+function betaReadingCollection(type) {
+  if (type === "energy") return { items: readings, table: "meter_readings" };
+  if (type === "water") return { items: waterReadings, table: "water_readings" };
+  throw new TypeError("Tipo de leitura desconhecido.");
+}
+
+function validateBetaReading(type, originalDate, value, date) {
+  if (!currentUserId || !supabaseClient) return "Entre novamente para alterar a leitura.";
+  if (!Number.isFinite(value) || value < 0 || Number.isNaN(new Date(date).getTime())) {
+    return "Informe uma leitura, data e hora válidas.";
+  }
+  const { items } = betaReadingCollection(type);
+  const candidate = items
+    .map((item) => item.date === originalDate ? { value, date: new Date(date).toISOString() } : item)
+    .sort((left, right) => new Date(left.date) - new Date(right.date));
+  if (new Set(candidate.map((item) => item.date)).size !== candidate.length) {
+    return "Já existe uma leitura neste horário.";
+  }
+  if (!calculateConsumptionSummary(candidate).valid) {
+    return "A alteração quebraria a sequência crescente das leituras.";
+  }
+  return "";
+}
+
+async function updateBetaReading({ type, originalDate, value, date }) {
+  const numericValue = Number(value);
+  const parsedDate = new Date(date);
+  const isoDate = Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString();
+  const validationMessage = validateBetaReading(type, originalDate, numericValue, isoDate);
+  if (validationMessage) return { ok: false, message: validationMessage };
+  const { items, table } = betaReadingCollection(type);
+  const original = items.find((item) => item.date === originalDate);
+  if (!original) return { ok: false, message: "A leitura não foi encontrada." };
+  const { error } = await supabaseClient
+    .from(dataTable(table))
+    .update({ value: numericValue, measured_at: isoDate })
+    .eq("user_id", currentUserId)
+    .eq("value", original.value)
+    .eq("measured_at", original.date);
+  if (error) return { ok: false, message: "Não foi possível editar a leitura." };
+  original.value = numericValue;
+  original.date = isoDate;
+  items.sort((left, right) => new Date(left.date) - new Date(right.date));
+  cacheUserData();
+  render();
+  return { ok: true, message: "Leitura atualizada." };
+}
+
+async function deleteBetaReading({ type, date }) {
+  if (!currentUserId || !supabaseClient) return { ok: false, message: "Entre novamente para excluir a leitura." };
+  const { items, table } = betaReadingCollection(type);
+  const reading = items.find((item) => item.date === date);
+  if (!reading) return { ok: false, message: "A leitura não foi encontrada." };
+  const { error } = await supabaseClient
+    .from(dataTable(table))
+    .delete()
+    .eq("user_id", currentUserId)
+    .eq("value", reading.value)
+    .eq("measured_at", reading.date);
+  if (error) return { ok: false, message: "Não foi possível excluir a leitura." };
+  items.splice(items.indexOf(reading), 1);
+  cacheUserData();
+  render();
+  return { ok: true, message: "Leitura excluída." };
+}
+
+async function resetBetaApplication() {
+  const keys = Object.keys(localStorage).filter((key) => key.startsWith(`${APP_ENVIRONMENT.storagePrefix}-`));
+  keys.forEach((key) => localStorage.removeItem(key));
+  sessionStorage.removeItem(SESSION_MARKER_KEY);
+  if ("caches" in window) {
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys.filter((key) => key.startsWith(`volt-${APP_ENVIRONMENT.id}-`)).map((key) => caches.delete(key)));
+  }
+  await supabaseClient?.auth.signOut();
+  location.reload();
+}
+
+function notifyBetaDataUpdate() {
+  if (APP_ENVIRONMENT.id === "beta") window.dispatchEvent(new CustomEvent("volt:beta-data"));
+}
+
 function renderEngineSettings() {
   const rows = listEngineDefinitions().map((engine) => {
     const row = document.createElement("li");
@@ -968,6 +1090,7 @@ function renderWater() {
     return buildReadingItem(label, item.date, delta);
   }));
   $("#water-empty-state").hidden = waterReadings.length > 0;
+  notifyBetaDataUpdate();
 }
 
 async function scanMeterPhoto(event) {

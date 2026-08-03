@@ -631,10 +631,10 @@ async function updateAuthScreen(user) {
   currentDisplayName = user.user_metadata?.display_name || "";
   $("#user-name").textContent = displayName;
   await recordPrivacyAcceptance(user);
+  await refreshBetaAdmin();
   await loadUserData(user.id);
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
   void checkOperationalHealth();
-  await refreshBetaAdmin();
   render();
 }
 
@@ -920,6 +920,7 @@ async function cancelMfaEnrollment() {
   await refreshMfa();
   renderMfaStatus();
   await refreshBetaAdmin();
+  await refreshBetaData();
 }
 
 async function verifyMfaEnrollment(event) {
@@ -943,6 +944,7 @@ async function verifyMfaEnrollment(event) {
   await refreshMfa();
   renderMfaStatus();
   await refreshBetaAdmin();
+  await refreshBetaData();
 }
 
 async function disableMfa() {
@@ -988,18 +990,27 @@ async function enforceMfaForSession() {
 
 async function refreshBetaAdmin() {
   if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaAdminSnapshot;
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
-    notifyBetaDataUpdate();
-    return betaAdminSnapshot;
-  }
-  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Administrador";
+  const isConsoleOwner = currentUserEmail.trim().toLowerCase() === BETA_ADMIN_EMAIL;
+  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Usuário";
   const bootstrap = await supabaseClient.rpc("beta_admin_bootstrap", {
     p_organization_name: "Minha organização",
     p_display_name: displayName
   });
   if (bootstrap.error) {
-    betaAdminSnapshot = { ...betaAdminSnapshot, message: "Administração indisponível até a atualização do banco da Beta." };
+    betaAdminSnapshot = {
+      available: true,
+      authorized: false,
+      organization: null,
+      membership: null,
+      members: [],
+      invitations: [],
+      message: isConsoleOwner ? "Administração indisponível até a atualização do banco da Beta." : ""
+    };
+    notifyBetaDataUpdate();
+    return betaAdminSnapshot;
+  }
+  if (!isConsoleOwner || mfaSnapshot.currentLevel !== "aal2") {
+    betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
     notifyBetaDataUpdate();
     return betaAdminSnapshot;
   }

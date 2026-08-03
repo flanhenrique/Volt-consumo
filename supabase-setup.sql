@@ -365,11 +365,131 @@ create table if not exists public.beta_admin_audit (
   created_at timestamptz not null default now()
 );
 
+-- Contexto ativo separa o tenant da identidade e permite evoluir para múltiplas
+-- organizações sem confiar em organization_id enviado pelo navegador.
+create table if not exists public.beta_user_context (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  organization_id uuid not null references public.beta_organizations(id),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.beta_organizations enable row level security;
 alter table public.beta_memberships enable row level security;
 alter table public.beta_invitations enable row level security;
 alter table public.beta_admin_audit enable row level security;
-revoke all on public.beta_organizations, public.beta_memberships, public.beta_invitations, public.beta_admin_audit from anon, authenticated;
+alter table public.beta_user_context enable row level security;
+revoke all on public.beta_organizations, public.beta_memberships, public.beta_invitations, public.beta_admin_audit, public.beta_user_context from anon, authenticated;
+
+-- Expand/contract: cria uma organização determinística para cada usuário
+-- legado que ainda não possua membership e preserva todas as linhas existentes.
+alter table public.beta_meter_readings add column if not exists organization_id uuid references public.beta_organizations(id);
+alter table public.beta_water_readings add column if not exists organization_id uuid references public.beta_organizations(id);
+alter table public.beta_user_settings add column if not exists organization_id uuid references public.beta_organizations(id);
+alter table public.beta_water_settings add column if not exists organization_id uuid references public.beta_organizations(id);
+
+do $$
+declare legacy_user uuid; legacy_organization uuid;
+begin
+  for legacy_user in
+    select distinct user_id from (
+      select user_id from public.beta_meter_readings
+      union select user_id from public.beta_water_readings
+      union select user_id from public.beta_user_settings
+      union select user_id from public.beta_water_settings
+    ) legacy
+    where user_id is not null
+  loop
+    select organization_id into legacy_organization
+    from public.beta_memberships
+    where user_id = legacy_user and status = 'active'
+    order by created_at limit 1;
+    if legacy_organization is null then
+      insert into public.beta_organizations (name, owner_user_id)
+      values ('Organização migrada', legacy_user) returning id into legacy_organization;
+      insert into public.beta_memberships (organization_id, user_id, email, display_name, role)
+      values (legacy_organization, legacy_user, legacy_user::text || '@legacy.volt', 'Usuário migrado', 'owner');
+    end if;
+    insert into public.beta_user_context (user_id, organization_id)
+    values (legacy_user, legacy_organization)
+    on conflict (user_id) do nothing;
+  end loop;
+end $$;
+
+insert into public.beta_user_context (user_id, organization_id)
+select distinct on (user_id) user_id, organization_id
+from public.beta_memberships where status = 'active'
+order by user_id, created_at
+on conflict (user_id) do nothing;
+
+update public.beta_meter_readings r set organization_id = c.organization_id from public.beta_user_context c where r.user_id = c.user_id and r.organization_id is null;
+update public.beta_water_readings r set organization_id = c.organization_id from public.beta_user_context c where r.user_id = c.user_id and r.organization_id is null;
+update public.beta_user_settings r set organization_id = c.organization_id from public.beta_user_context c where r.user_id = c.user_id and r.organization_id is null;
+update public.beta_water_settings r set organization_id = c.organization_id from public.beta_user_context c where r.user_id = c.user_id and r.organization_id is null;
+
+alter table public.beta_meter_readings alter column organization_id set not null;
+alter table public.beta_water_readings alter column organization_id set not null;
+alter table public.beta_user_settings alter column organization_id set not null;
+alter table public.beta_water_settings alter column organization_id set not null;
+
+create index if not exists beta_meter_readings_organization_idx on public.beta_meter_readings (organization_id, measured_at desc);
+create index if not exists beta_water_readings_organization_idx on public.beta_water_readings (organization_id, measured_at desc);
+create index if not exists beta_user_settings_organization_idx on public.beta_user_settings (organization_id);
+create index if not exists beta_water_settings_organization_idx on public.beta_water_settings (organization_id);
+create index if not exists beta_memberships_user_status_idx on public.beta_memberships (user_id, status);
+
+create or replace function public.beta_current_organization()
+returns uuid language sql stable security definer set search_path = '' as $$
+  select c.organization_id
+  from public.beta_user_context c
+  join public.beta_memberships m on m.organization_id = c.organization_id and m.user_id = c.user_id
+  join public.beta_organizations o on o.id = c.organization_id
+  where c.user_id = auth.uid() and m.status = 'active' and o.status = 'active'
+$$;
+
+create or replace function public.beta_current_role()
+returns text language sql stable security definer set search_path = '' as $$
+  select m.role
+  from public.beta_user_context c
+  join public.beta_memberships m on m.organization_id = c.organization_id and m.user_id = c.user_id
+  where c.user_id = auth.uid() and m.status = 'active'
+$$;
+
+create or replace function public.beta_assign_organization()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare current_organization uuid := public.beta_current_organization();
+begin
+  if current_organization is null then raise exception 'organization_context_required'; end if;
+  if new.organization_id is not null and new.organization_id <> current_organization then raise exception 'organization_context_mismatch'; end if;
+  new.organization_id := current_organization;
+  new.user_id := auth.uid();
+  return new;
+end $$;
+
+do $$ declare beta_table text;
+begin
+  foreach beta_table in array array['beta_meter_readings', 'beta_water_readings', 'beta_user_settings', 'beta_water_settings'] loop
+    execute format('drop trigger if exists beta_assign_organization on public.%I', beta_table);
+    execute format('create trigger beta_assign_organization before insert on public.%I for each row execute function public.beta_assign_organization()', beta_table);
+  end loop;
+end $$;
+
+do $$ declare beta_table text; policy_name text;
+begin
+  foreach beta_table in array array['beta_meter_readings', 'beta_water_readings', 'beta_user_settings', 'beta_water_settings'] loop
+    foreach policy_name in array array['select_own', 'insert_own', 'update_own', 'delete_own'] loop
+      execute format('drop policy if exists %I on public.%I', beta_table || '_' || policy_name, beta_table);
+    end loop;
+    execute format('create policy %I on public.%I for select to authenticated using (organization_id = public.beta_current_organization())', beta_table || '_select_tenant', beta_table);
+    execute format('create policy %I on public.%I for insert to authenticated with check (organization_id = public.beta_current_organization() and user_id = auth.uid() and public.beta_current_role() in (''owner'', ''admin'', ''member''))', beta_table || '_insert_tenant', beta_table);
+    execute format('create policy %I on public.%I for update to authenticated using (organization_id = public.beta_current_organization() and user_id = auth.uid() and public.beta_current_role() in (''owner'', ''admin'', ''member'')) with check (organization_id = public.beta_current_organization() and user_id = auth.uid())', beta_table || '_update_tenant', beta_table);
+    if beta_table in ('beta_meter_readings', 'beta_water_readings') then
+      execute format('create policy %I on public.%I for delete to authenticated using (organization_id = public.beta_current_organization() and user_id = auth.uid() and public.beta_current_role() in (''owner'', ''admin'', ''member''))', beta_table || '_delete_tenant', beta_table);
+    end if;
+  end loop;
+end $$;
+
+revoke all on function public.beta_current_organization(), public.beta_current_role(), public.beta_assign_organization() from public, anon;
+grant execute on function public.beta_current_organization(), public.beta_current_role() to authenticated;
 
 create or replace function public.beta_admin_bootstrap(p_organization_name text, p_display_name text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -382,7 +502,15 @@ declare
 begin
   if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
   select * into existing from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
-  if found then return jsonb_build_object('membership_id', existing.id); end if;
+  if found then
+    update public.beta_memberships
+    set email = caller_email, display_name = left(trim(p_display_name), 80), updated_at = now()
+    where id = existing.id;
+    insert into public.beta_user_context (user_id, organization_id)
+    values (caller, existing.organization_id)
+    on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
+    return jsonb_build_object('membership_id', existing.id, 'organization_id', existing.organization_id);
+  end if;
 
   select * into invitation from public.beta_invitations
   where lower(email) = caller_email and status = 'pending' and expires_at > now()
@@ -392,20 +520,25 @@ begin
     values (invitation.organization_id, caller, caller_email, left(trim(p_display_name), 80), invitation.role)
     returning id into existing.id;
     update public.beta_invitations set status = 'accepted' where id = invitation.id;
+    insert into public.beta_user_context (user_id, organization_id)
+    values (caller, invitation.organization_id)
+    on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
     insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
     values (invitation.organization_id, caller, 'invitation.accepted', existing.id, 'Aceite pelo usuário autenticado');
-    return jsonb_build_object('membership_id', existing.id);
+    return jsonb_build_object('membership_id', existing.id, 'organization_id', invitation.organization_id);
   end if;
 
-  if caller_email <> 'flanhenriquee@icloud.com' or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
+  if caller_email <> 'flanhenriquee@icloud.com' then raise exception 'permission_denied'; end if;
 
   insert into public.beta_organizations (name, owner_user_id)
   values (left(trim(p_organization_name), 80), caller) returning id into organization_id;
   insert into public.beta_memberships (organization_id, user_id, email, display_name, role)
   values (organization_id, caller, caller_email, left(trim(p_display_name), 80), 'owner') returning id into existing.id;
+  insert into public.beta_user_context (user_id, organization_id) values (caller, organization_id)
+  on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
   insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
   values (organization_id, caller, 'organization.created', organization_id, 'Bootstrap seguro da organização Beta');
-  return jsonb_build_object('membership_id', existing.id);
+  return jsonb_build_object('membership_id', existing.id, 'organization_id', organization_id);
 end $$;
 
 create or replace function public.beta_admin_snapshot()
@@ -419,7 +552,9 @@ begin
      or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then
     return jsonb_build_object('authorized', false);
   end if;
-  select * into actor from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = caller and m.status = 'active';
   if not found then return jsonb_build_object('authorized', false); end if;
   select * into organization from public.beta_organizations where id = actor.organization_id;
   return jsonb_build_object(
@@ -443,7 +578,9 @@ declare actor public.beta_memberships; invitation_id uuid; normalized_email text
 begin
   if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
      or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
-  select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active';
   if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
   if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid_email'; end if;
   if p_role not in ('admin', 'member', 'viewer') then raise exception 'invalid_role'; end if;
@@ -461,7 +598,9 @@ declare actor public.beta_memberships; target public.beta_memberships; active_ad
 begin
   if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
      or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
-  select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active';
   if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
   select * into target from public.beta_memberships where id = p_membership_id and organization_id = actor.organization_id for update;
   if not found then raise exception 'permission_denied'; end if;

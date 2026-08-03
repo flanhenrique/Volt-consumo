@@ -82,6 +82,15 @@
   }
 }
 
+/* Navegadores móveis usam uma barra de rolagem sobreposta. Reservar um
+   gutter nessa faixa estreita reduz apenas o conteúdo, mas não os elementos
+   fixos posicionados pela viewport, deslocando os dois eixos entre si. */
+@media (max-width: 759px) {
+  html:is([data-environment="beta"], .volt-lumen) {
+    scrollbar-gutter: auto;
+  }
+}
+
 /* ==========================================================================
    1. Escopo
    --------------------------------------------------------------------------

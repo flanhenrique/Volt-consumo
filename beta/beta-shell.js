@@ -102,6 +102,7 @@ function betaShellMarkup() {
           <article class="admin-summary-card"><div><small>Organização</small><strong id="beta-organization-name">—</strong></div><div><small>Seu papel</small><strong id="beta-current-role">—</strong></div><div><small>Usuários ativos</small><strong id="beta-member-count">0</strong></div></article>
           <section class="settings-group" aria-labelledby="beta-operational-title"><div class="settings-row"><div><h3 id="beta-operational-title">Operação nas últimas 24 horas</h3><small>Métricas agregadas, sem conteúdo pessoal.</small></div><div class="inline-actions"><button id="beta-export-prometheus" class="secondary-button compact-action" type="button">Exportar Prometheus</button><button id="beta-refresh-operational" class="secondary-button compact-action" type="button">Atualizar métricas</button></div></div><div id="beta-operational-unavailable" class="admin-notice" hidden></div><div id="beta-operational-metrics" class="operational-metric-grid"><div><small>Eventos</small><strong id="beta-metric-events">0</strong></div><div><small>Erros</small><strong id="beta-metric-errors">0</strong></div><div><small>Taxa de erro</small><strong id="beta-metric-error-rate">0%</strong></div><div><small>Latência p95</small><strong id="beta-metric-latency">0 ms</strong></div></div><div id="beta-operational-components" class="operational-component-list"></div><details class="trace-timeline"><summary>Traces recentes (W3C/OpenTelemetry)</summary><div id="beta-trace-list" class="trace-list"></div></details><small id="beta-operational-refreshed">—</small></section>
           <section class="settings-group"><div class="settings-row"><div><h3>Usuários</h3><small>Gerencie papéis e acesso apenas desta organização.</small></div><label class="admin-search"><span class="sr-only">Buscar usuário</span><input id="beta-user-search" type="search" placeholder="Buscar por nome ou e-mail"></label></div><div id="beta-member-list" class="admin-member-list"></div></section>
+          <section class="settings-group operational-alert-section" aria-labelledby="beta-alerts-title"><div class="settings-row"><div><h3 id="beta-alerts-title">Alertas operacionais</h3><small>Erros e lat&ecirc;ncia alta disparam automaticamente em menos de um minuto.</small></div><strong id="beta-firing-alert-count" class="alert-count">0 ativos</strong></div><div id="beta-operational-alerts" class="operational-alert-list"></div></section>
           <section class="settings-group"><h3>Convites pendentes</h3><div id="beta-invitation-list" class="admin-invitation-list"></div></section>
           <section class="settings-group" aria-labelledby="beta-feature-flags-title"><div class="settings-row"><div><h3 id="beta-feature-flags-title">Feature flags</h3><small>Rollout determinístico e kill switch com propagação automática.</small></div><small id="beta-feature-flags-refreshed">—</small></div><div id="beta-feature-flag-list" class="feature-flag-list"></div></section>
           <p id="beta-admin-status" class="note status-message" role="status" aria-live="polite"></p>
@@ -446,6 +447,17 @@ function bindAdministration(shell) {
     event.currentTarget.disabled = false;
     setText("#beta-admin-status", result.message);
   });
+  shell.querySelector("#beta-operational-alerts").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target.closest("form[data-alert-id]");
+    if (!form) return;
+    const button = event.submitter;
+    button.disabled = true;
+    const result = await api.acknowledgeOperationalAlert({ alertId: form.dataset.alertId, reason: form.elements.reason.value.trim() });
+    button.disabled = false;
+    setText("#beta-admin-status", result.message);
+    if (result.ok) renderOperationalMetrics();
+  });
   shell.querySelector("#beta-invite-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const result = await api.inviteMember({ email: shell.querySelector("#beta-invite-email").value.trim(), role: shell.querySelector("#beta-invite-role").value });
@@ -543,11 +555,13 @@ function renderOperationalMetrics() {
   const metrics = document.querySelector("#beta-operational-metrics");
   const components = document.querySelector("#beta-operational-components");
   const traces = document.querySelector("#beta-trace-list");
-  if (!unavailable || !metrics || !components || !traces) return;
+  const alerts = document.querySelector("#beta-operational-alerts");
+  if (!unavailable || !metrics || !components || !traces || !alerts) return;
   unavailable.hidden = snapshot.available;
   metrics.hidden = !snapshot.available;
   components.hidden = !snapshot.available;
   traces.closest("details").hidden = !snapshot.available;
+  alerts.closest("section").hidden = !snapshot.available;
   if (!snapshot.available) {
     unavailable.textContent = snapshot.message || "Métricas operacionais indisponíveis.";
     setText("#beta-operational-refreshed", "—");
@@ -557,6 +571,10 @@ function renderOperationalMetrics() {
   setText("#beta-metric-errors", String(snapshot.errors));
   setText("#beta-metric-error-rate", `${snapshot.errorRate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`);
   setText("#beta-metric-latency", `${snapshot.latencyP95Ms} ms`);
+  const firingAlerts = snapshot.alerts.filter((alert) => alert.status === "firing");
+  setText("#beta-firing-alert-count", `${firingAlerts.length} ${firingAlerts.length === 1 ? "ativo" : "ativos"}`);
+  alerts.replaceChildren(...snapshot.alerts.map(createOperationalAlertRow));
+  if (!snapshot.alerts.length) alerts.append(createEmptyMessage("Nenhum alerta operacional no per\u00edodo."));
   components.replaceChildren(...snapshot.components.map((item) => {
     const row = document.createElement("div");
     const name = document.createElement("span"); name.textContent = item.component;
@@ -575,6 +593,43 @@ function renderOperationalMetrics() {
   }));
   if (!snapshot.recentSpans.length) traces.append(createEmptyMessage("Nenhum span instrumentado no período."));
   setText("#beta-operational-refreshed", snapshot.generatedAt ? `Atualizado ${new Date(snapshot.generatedAt).toLocaleString("pt-BR")}` : "Atualizado");
+}
+
+function createOperationalAlertRow(alert) {
+  const row = document.createElement(alert.status === "firing" ? "form" : "article");
+  row.className = `operational-alert-row ${alert.severity} ${alert.status}`;
+  if (alert.status === "firing") row.dataset.alertId = String(alert.id);
+  const heading = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = `${alert.severity === "critical" ? "Cr\u00edtico" : "Aviso"} \u00b7 ${alert.component}`;
+  const rule = document.createElement("small");
+  rule.textContent = `${operationalRuleLabel(alert.rule_key)} \u00b7 ${new Date(alert.fired_at).toLocaleString("pt-BR")}`;
+  heading.append(title, rule);
+  row.append(heading);
+  if (alert.status === "firing") {
+    const reason = document.createElement("input");
+    reason.name = "reason";
+    reason.required = true;
+    reason.minLength = 10;
+    reason.maxLength = 500;
+    reason.placeholder = "A\u00e7\u00e3o tomada (m\u00ednimo 10 caracteres)";
+    reason.setAttribute("aria-label", `A\u00e7\u00e3o tomada para alerta ${alert.id}`);
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.className = "secondary-button compact-action";
+    button.textContent = "Reconhecer";
+    row.append(reason, button);
+  } else {
+    const state = document.createElement("span");
+    state.className = "alert-acknowledged";
+    state.textContent = `Reconhecido ${new Date(alert.acknowledged_at).toLocaleString("pt-BR")}`;
+    row.append(state);
+  }
+  return row;
+}
+
+function operationalRuleLabel(rule) {
+  return ({ "runtime-error": "Erro de execu\u00e7\u00e3o", "operation-failed": "Opera\u00e7\u00e3o falhou", "high-latency": "Lat\u00eancia acima de 2 s" })[rule] || "Regra operacional";
 }
 
 function renderFeatureFlags() {

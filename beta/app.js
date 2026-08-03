@@ -67,7 +67,7 @@ let betaAdminSnapshot = { available: false, authorized: false, organization: nul
 let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
 let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
 let betaFeatureFlagsSnapshot = { available: false, canManage: false, flags: [], refreshedAt: null, message: "" };
-let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], recentSpans: [], generatedAt: null, message: "" };
+let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], recentSpans: [], alerts: [], generatedAt: null, message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -814,6 +814,7 @@ function exportCurrentUserData() {
 function exposeBetaApi() {
   if (APP_ENVIRONMENT.id !== "beta") return;
   window.VOLT_BETA_API = Object.freeze({
+    acknowledgeOperationalAlert: acknowledgeBetaOperationalAlert,
     deleteReading: deleteBetaReading,
     estimateEnergy: estimateBetaEnergy,
     estimateWater: estimateBetaWater,
@@ -1251,6 +1252,7 @@ async function refreshBetaOperationalMetrics() {
       latencyP95Ms: Number(data.latency_p95_ms || 0),
       components: Array.isArray(data.components) ? data.components : [],
       recentSpans: Array.isArray(data.recent_spans) ? data.recent_spans : [],
+      alerts: Array.isArray(data.alerts) ? data.alerts : [],
       generatedAt: data.generated_at || new Date().toISOString(),
       message: ""
     };
@@ -1277,6 +1279,19 @@ async function exportBetaOperationalMetrics() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 0);
   return { ok: true, message: "Métricas Prometheus exportadas sem dados pessoais." };
+}
+
+async function acknowledgeBetaOperationalAlert({ alertId, reason }) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
+    return { ok: false, message: "O reconhecimento exige o console autorizado e MFA AAL2." };
+  }
+  const { error } = await supabaseClient.rpc("beta_admin_acknowledge_operational_alert", {
+    p_alert_id: Number(alertId),
+    p_reason: reason
+  });
+  if (error) return { ok: false, message: adminErrorMessage(error) };
+  await refreshBetaOperationalMetrics();
+  return { ok: true, message: "Alerta reconhecido e registrado na auditoria." };
 }
 
 function adminErrorMessage(error) {

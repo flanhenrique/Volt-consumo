@@ -24,6 +24,7 @@ const OFFLINE_DATA_KEY = environmentStorageKey(APP_ENVIRONMENT, "offline-data");
 const USER_DATA_PREFIX = environmentStorageKey(APP_ENVIRONMENT, "user-data-");
 const dataTable = (name) => environmentTableName(APP_ENVIRONMENT, name);
 const PRIVACY_NOTICE_VERSION = "1.0";
+const BETA_ADMIN_EMAIL = "flanhenriquee@icloud.com";
 const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
 const DEFAULT_WATER_SETTINGS = { rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 };
 const FLAGS = {
@@ -730,6 +731,11 @@ function exposeBetaApi() {
 
 async function refreshBetaAdmin() {
   if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaAdminSnapshot;
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) {
+    betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
+    notifyBetaDataUpdate();
+    return betaAdminSnapshot;
+  }
   const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Administrador";
   const bootstrap = await supabaseClient.rpc("beta_admin_bootstrap", {
     p_organization_name: "Minha organização",
@@ -751,6 +757,7 @@ async function refreshBetaAdmin() {
 }
 
 async function inviteBetaMember({ email, role }) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) return { ok: false, message: "Acesso administrativo não autorizado." };
   if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
   const { error } = await supabaseClient.rpc("beta_admin_invite_member", { p_email: email, p_role: role });
   if (error) return { ok: false, message: adminErrorMessage(error) };
@@ -759,6 +766,7 @@ async function inviteBetaMember({ email, role }) {
 }
 
 async function updateBetaMember({ membershipId, role, status, reason }) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) return { ok: false, message: "Acesso administrativo não autorizado." };
   if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
   const { error } = await supabaseClient.rpc("beta_admin_update_member", {
     p_membership_id: membershipId,

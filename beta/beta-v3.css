@@ -1140,12 +1140,13 @@ html[data-environment="beta"] .engine-details {
    ========================================================================== */
 
 html[data-environment="beta"] .bottom-navigation {
+  --lm-nav-columns: 4;
   position: fixed;
   z-index: 30;
   bottom: calc(var(--lm-safe-bottom) + var(--lm-nav-gap));
   left: 50%;
   display: grid;
-  grid-template-columns: repeat(4, minmax(66px, 116px));
+  grid-template-columns: repeat(var(--lm-nav-columns), minmax(0, 1fr));
   width: min(calc(100% - 2 * var(--lm-gutter)), 520px);
   padding: var(--lm-space-2);
   border: 1px solid var(--lm-glass-border-strong);
@@ -1155,6 +1156,11 @@ html[data-environment="beta"] .bottom-navigation {
   -webkit-backdrop-filter: var(--lm-glass-thick-filter);
   box-shadow: var(--lm-shadow-4), inset 0 1px 0 var(--lm-glass-highlight);
   transform: translateX(-50%);
+}
+
+/* A navegação administrativa ganha "Usuários" sem criar uma segunda linha. */
+html[data-environment="beta"] .bottom-navigation:has(#beta-users-nav:not([hidden])) {
+  --lm-nav-columns: 5;
 }
 
 /* Cápsula deslizante. Posição e largura vêm de beta-v3.js. */
@@ -1759,10 +1765,6 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
 
 /* --- Telefone pequeno (iPhone SE, Android compacto) ---------------------- */
 @media (max-width: 380px) {
-  html[data-environment="beta"] .bottom-navigation {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   html[data-environment="beta"] .bottom-navigation button small {
     font-size: 9px;
   }

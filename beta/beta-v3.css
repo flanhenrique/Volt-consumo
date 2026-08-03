@@ -687,6 +687,65 @@ html[data-environment="beta"] .reading-menu .danger-text:hover {
   background: color-mix(in srgb, var(--lm-danger) 12%, transparent);
 }
 
+/* --- Administração da organização --------------------------------------- */
+html[data-environment="beta"] .admin-summary-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+  padding: var(--lm-space-4);
+}
+
+html[data-environment="beta"] .admin-summary-card > div,
+html[data-environment="beta"] .admin-member-row,
+html[data-environment="beta"] .admin-invitation-row,
+html[data-environment="beta"] .admin-notice {
+  padding: var(--lm-space-3);
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-sm);
+  background: color-mix(in srgb, var(--lm-glass-veil) 72%, transparent);
+}
+
+html[data-environment="beta"] .admin-summary-card small,
+html[data-environment="beta"] .admin-member-row small,
+html[data-environment="beta"] .admin-invitation-row small {
+  display: block;
+  color: var(--lm-ink-muted);
+}
+
+html[data-environment="beta"] .admin-summary-card strong { display: block; margin-top: 4px; }
+html[data-environment="beta"] #beta-admin-workspace { display: grid; gap: var(--lm-space-4); }
+html[data-environment="beta"] #beta-admin-workspace[hidden] { display: none; }
+html[data-environment="beta"] .admin-member-list,
+html[data-environment="beta"] .admin-invitation-list { display: grid; gap: var(--lm-space-2); margin-top: var(--lm-space-3); }
+
+html[data-environment="beta"] .admin-member-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--lm-space-3);
+}
+
+html[data-environment="beta"] .admin-invitation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lm-space-3);
+}
+
+html[data-environment="beta"] .admin-member-meta { display: flex; align-items: center; gap: var(--lm-space-2); }
+html[data-environment="beta"] .status-chip { padding: 4px 8px; border-radius: var(--lm-radius-full); font-size: var(--lm-text-xs); }
+html[data-environment="beta"] .status-chip.active { color: var(--lm-success); background: color-mix(in srgb, var(--lm-success) 13%, transparent); }
+html[data-environment="beta"] .status-chip.suspended { color: var(--lm-warning); background: color-mix(in srgb, var(--lm-warning) 13%, transparent); }
+html[data-environment="beta"] .admin-search input { min-width: min(280px, 42vw); }
+
+@media (max-width: 640px) {
+  html[data-environment="beta"] .admin-summary-card { grid-template-columns: 1fr; }
+  html[data-environment="beta"] .admin-member-row { grid-template-columns: minmax(0, 1fr) auto; }
+  html[data-environment="beta"] .admin-member-meta { grid-column: 1 / -1; grid-row: 2; }
+  html[data-environment="beta"] .admin-search { width: 100%; }
+  html[data-environment="beta"] .admin-search input { min-width: 0; width: 100%; }
+}
+
 /* ==========================================================================
    7. Relatórios
    --------------------------------------------------------------------------

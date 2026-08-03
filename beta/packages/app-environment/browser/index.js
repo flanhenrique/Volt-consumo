@@ -12,7 +12,8 @@ export const OFFICIAL_ENVIRONMENT = deepFreeze({
         "experimental.ocr": false,
         "experimental.ai": false,
         "experimental.dashboard": false,
-        "experimental.integrations": false
+        "experimental.integrations": false,
+        "admin.console_v1": false
     }
 });
 export const BETA_ENVIRONMENT = deepFreeze({
@@ -29,7 +30,8 @@ export const BETA_ENVIRONMENT = deepFreeze({
         "experimental.ocr": false,
         "experimental.ai": false,
         "experimental.dashboard": false,
-        "experimental.integrations": false
+        "experimental.integrations": false,
+        "admin.console_v1": true
     }
 });
 export function resolveAppEnvironment(candidate) {

@@ -91,3 +91,324 @@ create policy "Usuários alteram as próprias preferências"
 on public.user_settings for update to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
+
+-- LGPD-002: aceite versionado do aviso de privacidade.
+-- Append-only para o usuário; correções administrativas devem gerar novo registro.
+create table if not exists public.privacy_acceptances (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  notice_version text not null,
+  accepted_at timestamptz not null,
+  channel text not null check (channel in ('web_signup', 'migration')),
+  recorded_at timestamptz not null default now(),
+  unique (user_id, notice_version)
+);
+
+alter table public.privacy_acceptances enable row level security;
+grant select, insert on public.privacy_acceptances to authenticated;
+
+drop policy if exists "privacy_acceptances_select_own" on public.privacy_acceptances;
+create policy "privacy_acceptances_select_own"
+on public.privacy_acceptances for select to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "privacy_acceptances_insert_own" on public.privacy_acceptances;
+create policy "privacy_acceptances_insert_own"
+on public.privacy_acceptances for insert to authenticated
+with check ((select auth.uid()) = user_id);
+
+-- LGPD-002 / PRD-016-RF-041: protocolo mínimo de solicitações do titular.
+-- O titular cria e consulta; somente operação privilegiada altera o status.
+create table if not exists public.data_subject_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  request_type text not null check (request_type in (
+    'confirmation', 'access', 'correction', 'portability',
+    'anonymization', 'deletion', 'opposition'
+  )),
+  status text not null default 'requested' check (status in (
+    'requested', 'identity_verified', 'in_progress', 'completed', 'partially_denied', 'denied', 'cancelled'
+  )),
+  privacy_notice_version text not null,
+  requested_at timestamptz not null default now(),
+  completed_at timestamptz,
+  check (completed_at is null or completed_at >= requested_at)
+);
+
+alter table public.data_subject_requests enable row level security;
+grant select, insert on public.data_subject_requests to authenticated;
+
+drop policy if exists "data_subject_requests_select_own" on public.data_subject_requests;
+create policy "data_subject_requests_select_own"
+on public.data_subject_requests for select to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "data_subject_requests_insert_own" on public.data_subject_requests;
+create policy "data_subject_requests_insert_own"
+on public.data_subject_requests for insert to authenticated
+with check ((select auth.uid()) = user_id and status = 'requested');
+
+create index if not exists data_subject_requests_user_requested_idx
+on public.data_subject_requests (user_id, requested_at desc);
+
+-- VOLT BETA: compartilha auth.users, mas mantém dados operacionais isolados.
+create table if not exists public.beta_meter_readings
+(like public.meter_readings including all);
+create table if not exists public.beta_water_readings
+(like public.water_readings including all);
+create table if not exists public.beta_user_settings
+(like public.user_settings including all);
+create table if not exists public.beta_water_settings
+(like public.water_settings including all);
+create table if not exists public.beta_privacy_acceptances
+(like public.privacy_acceptances including all);
+create table if not exists public.beta_data_subject_requests
+(like public.data_subject_requests including all);
+
+do $$
+declare
+  beta_table text;
+begin
+  foreach beta_table in array array[
+    'beta_meter_readings', 'beta_water_readings', 'beta_user_settings',
+    'beta_water_settings', 'beta_privacy_acceptances', 'beta_data_subject_requests'
+  ] loop
+    if not exists (
+      select 1 from pg_constraint
+      where conname = beta_table || '_user_id_fkey'
+        and conrelid = ('public.' || beta_table)::regclass
+    ) then
+      execute format(
+        'alter table public.%I add constraint %I foreign key (user_id) references auth.users(id) on delete cascade',
+        beta_table,
+        beta_table || '_user_id_fkey'
+      );
+    end if;
+  end loop;
+end $$;
+
+alter table public.beta_meter_readings enable row level security;
+alter table public.beta_water_readings enable row level security;
+alter table public.beta_user_settings enable row level security;
+alter table public.beta_water_settings enable row level security;
+alter table public.beta_privacy_acceptances enable row level security;
+alter table public.beta_data_subject_requests enable row level security;
+
+grant select, insert, update, delete on public.beta_meter_readings, public.beta_water_readings to authenticated;
+grant select, insert, update on public.beta_user_settings, public.beta_water_settings to authenticated;
+grant select, insert on public.beta_privacy_acceptances, public.beta_data_subject_requests to authenticated;
+grant usage, select on sequence public.beta_meter_readings_id_seq, public.beta_water_readings_id_seq to authenticated;
+
+drop policy if exists "beta_meter_readings_select_own" on public.beta_meter_readings;
+create policy "beta_meter_readings_select_own" on public.beta_meter_readings
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_meter_readings_insert_own" on public.beta_meter_readings;
+create policy "beta_meter_readings_insert_own" on public.beta_meter_readings
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_meter_readings_update_own" on public.beta_meter_readings;
+create policy "beta_meter_readings_update_own" on public.beta_meter_readings
+for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_meter_readings_delete_own" on public.beta_meter_readings;
+create policy "beta_meter_readings_delete_own" on public.beta_meter_readings
+for delete to authenticated using ((select auth.uid()) = user_id);
+
+drop policy if exists "beta_water_readings_select_own" on public.beta_water_readings;
+create policy "beta_water_readings_select_own" on public.beta_water_readings
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_water_readings_insert_own" on public.beta_water_readings;
+create policy "beta_water_readings_insert_own" on public.beta_water_readings
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_water_readings_update_own" on public.beta_water_readings;
+create policy "beta_water_readings_update_own" on public.beta_water_readings
+for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_water_readings_delete_own" on public.beta_water_readings;
+create policy "beta_water_readings_delete_own" on public.beta_water_readings
+for delete to authenticated using ((select auth.uid()) = user_id);
+
+drop policy if exists "beta_user_settings_select_own" on public.beta_user_settings;
+create policy "beta_user_settings_select_own" on public.beta_user_settings
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_user_settings_insert_own" on public.beta_user_settings;
+create policy "beta_user_settings_insert_own" on public.beta_user_settings
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_user_settings_update_own" on public.beta_user_settings;
+create policy "beta_user_settings_update_own" on public.beta_user_settings
+for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+drop policy if exists "beta_water_settings_select_own" on public.beta_water_settings;
+create policy "beta_water_settings_select_own" on public.beta_water_settings
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_water_settings_insert_own" on public.beta_water_settings;
+create policy "beta_water_settings_insert_own" on public.beta_water_settings
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "beta_water_settings_update_own" on public.beta_water_settings;
+create policy "beta_water_settings_update_own" on public.beta_water_settings
+for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+drop policy if exists "beta_privacy_acceptances_select_own" on public.beta_privacy_acceptances;
+create policy "beta_privacy_acceptances_select_own" on public.beta_privacy_acceptances
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_privacy_acceptances_insert_own" on public.beta_privacy_acceptances;
+create policy "beta_privacy_acceptances_insert_own" on public.beta_privacy_acceptances
+for insert to authenticated with check ((select auth.uid()) = user_id);
+
+drop policy if exists "beta_data_subject_requests_select_own" on public.beta_data_subject_requests;
+create policy "beta_data_subject_requests_select_own" on public.beta_data_subject_requests
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_data_subject_requests_insert_own" on public.beta_data_subject_requests;
+create policy "beta_data_subject_requests_insert_own" on public.beta_data_subject_requests
+for insert to authenticated with check ((select auth.uid()) = user_id and status = 'requested');
+
+create index if not exists beta_meter_readings_user_id_idx
+on public.beta_meter_readings (user_id);
+create index if not exists beta_data_subject_requests_user_requested_idx
+on public.beta_data_subject_requests (user_id, requested_at desc);
+
+-- Administração segura da organização na Beta (PRD-003/004/005).
+create table if not exists public.beta_organizations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 2 and 80),
+  owner_user_id uuid not null references auth.users(id),
+  status text not null default 'active' check (status in ('active', 'suspended', 'archived')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.beta_memberships (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.beta_organizations(id),
+  user_id uuid not null references auth.users(id),
+  email text not null,
+  display_name text not null,
+  role text not null check (role in ('owner', 'admin', 'member', 'viewer')),
+  status text not null default 'active' check (status in ('active', 'suspended', 'removed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id, user_id)
+);
+
+create table if not exists public.beta_invitations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.beta_organizations(id),
+  email text not null,
+  role text not null check (role in ('admin', 'member', 'viewer')),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked', 'expired')),
+  invited_by uuid not null references auth.users(id),
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.beta_admin_audit (
+  id bigint generated always as identity primary key,
+  organization_id uuid not null references public.beta_organizations(id),
+  actor_user_id uuid not null references auth.users(id),
+  action text not null,
+  target_id uuid,
+  reason text not null,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.beta_organizations enable row level security;
+alter table public.beta_memberships enable row level security;
+alter table public.beta_invitations enable row level security;
+alter table public.beta_admin_audit enable row level security;
+revoke all on public.beta_organizations, public.beta_memberships, public.beta_invitations, public.beta_admin_audit from anon, authenticated;
+
+create or replace function public.beta_admin_bootstrap(p_organization_name text, p_display_name text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  caller_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  existing public.beta_memberships;
+  invitation public.beta_invitations;
+  organization_id uuid;
+begin
+  if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
+  select * into existing from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
+  if found then return jsonb_build_object('membership_id', existing.id); end if;
+
+  select * into invitation from public.beta_invitations
+  where lower(email) = caller_email and status = 'pending' and expires_at > now()
+  order by created_at limit 1 for update;
+  if found then
+    insert into public.beta_memberships (organization_id, user_id, email, display_name, role)
+    values (invitation.organization_id, caller, caller_email, left(trim(p_display_name), 80), invitation.role)
+    returning id into existing.id;
+    update public.beta_invitations set status = 'accepted' where id = invitation.id;
+    insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
+    values (invitation.organization_id, caller, 'invitation.accepted', existing.id, 'Aceite pelo usuário autenticado');
+    return jsonb_build_object('membership_id', existing.id);
+  end if;
+
+  insert into public.beta_organizations (name, owner_user_id)
+  values (left(trim(p_organization_name), 80), caller) returning id into organization_id;
+  insert into public.beta_memberships (organization_id, user_id, email, display_name, role)
+  values (organization_id, caller, caller_email, left(trim(p_display_name), 80), 'owner') returning id into existing.id;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
+  values (organization_id, caller, 'organization.created', organization_id, 'Bootstrap seguro da organização Beta');
+  return jsonb_build_object('membership_id', existing.id);
+end $$;
+
+create or replace function public.beta_admin_snapshot()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  actor public.beta_memberships;
+  organization public.beta_organizations;
+begin
+  select * into actor from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
+  if not found then return jsonb_build_object('authorized', false); end if;
+  select * into organization from public.beta_organizations where id = actor.organization_id;
+  return jsonb_build_object(
+    'authorized', actor.role in ('owner', 'admin'),
+    'organization', jsonb_build_object('id', organization.id, 'name', organization.name, 'status', organization.status),
+    'membership', jsonb_build_object('id', actor.id, 'role', actor.role, 'status', actor.status),
+    'members', case when actor.role in ('owner', 'admin') then (
+      select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'email', m.email, 'display_name', m.display_name, 'role', m.role, 'status', m.status) order by m.created_at), '[]'::jsonb)
+      from public.beta_memberships m where m.organization_id = actor.organization_id and m.status <> 'removed'
+    ) else '[]'::jsonb end,
+    'invitations', case when actor.role in ('owner', 'admin') then (
+      select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'email', i.email, 'role', i.role, 'status', i.status, 'expires_at', i.expires_at) order by i.created_at desc), '[]'::jsonb)
+      from public.beta_invitations i where i.organization_id = actor.organization_id and i.status = 'pending' and i.expires_at > now()
+    ) else '[]'::jsonb end
+  );
+end $$;
+
+create or replace function public.beta_admin_invite_member(p_email text, p_role text)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare actor public.beta_memberships; invitation_id uuid; normalized_email text := lower(trim(p_email));
+begin
+  select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
+  if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
+  if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid_email'; end if;
+  if p_role not in ('admin', 'member', 'viewer') then raise exception 'invalid_role'; end if;
+  update public.beta_invitations set status = 'revoked' where organization_id = actor.organization_id and lower(email) = normalized_email and status = 'pending';
+  insert into public.beta_invitations (organization_id, email, role, invited_by, expires_at)
+  values (actor.organization_id, normalized_email, p_role, auth.uid(), now() + interval '48 hours') returning id into invitation_id;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
+  values (actor.organization_id, auth.uid(), 'member.invited', invitation_id, 'Convite administrativo', jsonb_build_object('role', p_role));
+  return invitation_id;
+end $$;
+
+create or replace function public.beta_admin_update_member(p_membership_id uuid, p_role text, p_status text, p_reason text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare actor public.beta_memberships; target public.beta_memberships; active_admins integer;
+begin
+  select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
+  if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
+  select * into target from public.beta_memberships where id = p_membership_id and organization_id = actor.organization_id for update;
+  if not found then raise exception 'permission_denied'; end if;
+  if p_role not in ('owner', 'admin', 'member', 'viewer') or p_status not in ('active', 'suspended', 'removed') then raise exception 'invalid_state'; end if;
+  if char_length(trim(p_reason)) < 5 then raise exception 'invalid_reason'; end if;
+  if actor.role <> 'owner' and (target.role = 'owner' or p_role in ('owner', 'admin')) then raise exception 'permission_denied'; end if;
+  if target.role in ('owner', 'admin') and (p_role not in ('owner', 'admin') or p_status <> 'active') then
+    select count(*) into active_admins from public.beta_memberships where organization_id = actor.organization_id and role in ('owner', 'admin') and status = 'active' and id <> target.id;
+    if active_admins = 0 then raise exception 'last_admin'; end if;
+  end if;
+  update public.beta_memberships set role = p_role, status = p_status, updated_at = now() where id = target.id;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
+  values (actor.organization_id, auth.uid(), 'member.access_updated', target.id, trim(p_reason), jsonb_build_object('before_role', target.role, 'before_status', target.status, 'after_role', p_role, 'after_status', p_status));
+end $$;
+
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_admin_update_member(uuid, text, text, text) from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_admin_update_member(uuid, text, text, text) to authenticated;

@@ -56,6 +56,7 @@ let currentDisplayName = "";
 let scannerTarget = null;
 let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
+let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
 
 initializeEnvironment();
 enforceOfflineDataPreference();
@@ -539,6 +540,7 @@ async function updateAuthScreen(user) {
     waterReadings = [];
     settings = { ...DEFAULT_SETTINGS };
     waterSettings = { ...DEFAULT_WATER_SETTINGS };
+    betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
     return;
   }
   const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
@@ -547,6 +549,7 @@ async function updateAuthScreen(user) {
   $("#user-name").textContent = displayName;
   await recordPrivacyAcceptance(user);
   await loadUserData(user.id);
+  await refreshBetaAdmin();
   render();
 }
 
@@ -713,12 +716,67 @@ function exposeBetaApi() {
     estimateWater: estimateBetaWater,
     exportData: exportCurrentUserData,
     getSnapshot: getBetaSnapshot,
+    getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
+    inviteMember: inviteBetaMember,
     refreshData: refreshBetaData,
+    refreshAdmin: refreshBetaAdmin,
     resetApplication: resetBetaApplication,
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
+    updateMember: updateBetaMember,
     updateReading: updateBetaReading
   });
+}
+
+async function refreshBetaAdmin() {
+  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaAdminSnapshot;
+  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Administrador";
+  const bootstrap = await supabaseClient.rpc("beta_admin_bootstrap", {
+    p_organization_name: "Minha organização",
+    p_display_name: displayName
+  });
+  if (bootstrap.error) {
+    betaAdminSnapshot = { ...betaAdminSnapshot, message: "Administração indisponível até a atualização do banco da Beta." };
+    notifyBetaDataUpdate();
+    return betaAdminSnapshot;
+  }
+  const response = await supabaseClient.rpc("beta_admin_snapshot");
+  if (response.error || !response.data) {
+    betaAdminSnapshot = { ...betaAdminSnapshot, message: "Não foi possível carregar a organização agora." };
+  } else {
+    betaAdminSnapshot = { available: true, message: "", ...response.data };
+  }
+  notifyBetaDataUpdate();
+  return betaAdminSnapshot;
+}
+
+async function inviteBetaMember({ email, role }) {
+  if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
+  const { error } = await supabaseClient.rpc("beta_admin_invite_member", { p_email: email, p_role: role });
+  if (error) return { ok: false, message: adminErrorMessage(error) };
+  await refreshBetaAdmin();
+  return { ok: true, message: "Convite registrado por 48 horas." };
+}
+
+async function updateBetaMember({ membershipId, role, status, reason }) {
+  if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
+  const { error } = await supabaseClient.rpc("beta_admin_update_member", {
+    p_membership_id: membershipId,
+    p_role: role,
+    p_status: status,
+    p_reason: reason
+  });
+  if (error) return { ok: false, message: adminErrorMessage(error) };
+  await refreshBetaAdmin();
+  return { ok: true, message: "Acesso atualizado e registrado na auditoria." };
+}
+
+function adminErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (message.includes("last_admin")) return "A organização não pode ficar sem administrador.";
+  if (message.includes("permission_denied")) return "Você não possui permissão para esta ação.";
+  if (message.includes("invalid_")) return "Revise os dados informados.";
+  return "Não foi possível concluir a ação administrativa.";
 }
 
 function getBetaSnapshot() {

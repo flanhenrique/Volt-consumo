@@ -32,6 +32,7 @@ function initializeBetaExperience() {
   bindPrivacy(shell);
   bindRestore(shell);
   bindReports(shell);
+  bindAdministration(shell);
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
@@ -82,6 +83,17 @@ function betaShellMarkup() {
         <article class="report-card"><h3>Evolução da água</h3><p class="note">Variação entre leituras do hidrômetro.</p><div id="beta-water-chart" class="bar-chart water-chart" aria-label="Gráfico de consumo de água"></div></article>
       </section>
 
+      <section class="beta-page" id="beta-users" data-page="users" aria-labelledby="beta-users-title" hidden>
+        <div class="page-heading"><div><p class="eyebrow">ORGANIZAÇÃO</p><h2 id="beta-users-title">Controle de usuários</h2></div><button id="beta-invite-user" class="primary-button compact-action" type="button">Convidar usuário</button></div>
+        <div id="beta-admin-unavailable" class="admin-notice" hidden><strong>Administração indisponível</strong><p id="beta-admin-message">A atualização do banco precisa ser aplicada antes de usar este módulo.</p></div>
+        <div id="beta-admin-workspace" hidden>
+          <article class="admin-summary-card"><div><small>Organização</small><strong id="beta-organization-name">—</strong></div><div><small>Seu papel</small><strong id="beta-current-role">—</strong></div><div><small>Usuários ativos</small><strong id="beta-member-count">0</strong></div></article>
+          <section class="settings-group"><div class="settings-row"><div><h3>Usuários</h3><small>Gerencie papéis e acesso apenas desta organização.</small></div><label class="admin-search"><span class="sr-only">Buscar usuário</span><input id="beta-user-search" type="search" placeholder="Buscar por nome ou e-mail"></label></div><div id="beta-member-list" class="admin-member-list"></div></section>
+          <section class="settings-group"><h3>Convites pendentes</h3><div id="beta-invitation-list" class="admin-invitation-list"></div></section>
+          <p id="beta-admin-status" class="note status-message" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+
       <section class="beta-page" id="beta-settings" data-page="settings" aria-labelledby="beta-settings-title" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="beta-settings-title">Configurações</h2></div></div>
         <section class="settings-group"><div class="settings-row"><h3>Conta</h3><button id="beta-logout" class="text-button" type="button">Sair</button></div><form id="beta-account-form" class="form compact-form"><label><span>Nome de exibição</span><input id="beta-display-name" type="text" maxlength="40" autocomplete="name" placeholder="Como prefere ser chamado" required></label><label><span>E-mail</span><input id="beta-account-email" type="email" readonly aria-readonly="true"></label><p id="beta-account-status" class="note status-message full-row" role="status" aria-live="polite">Conta conectada</p><button class="secondary-button" type="submit">Salvar alterações</button></form></section>
@@ -99,6 +111,7 @@ function betaShellMarkup() {
       <button class="active" type="button" data-nav="home" aria-current="page"><span aria-hidden="true">⌂</span><small>Início</small></button>
       <button type="button" data-nav="readings"><span aria-hidden="true">≡</span><small>Leituras</small></button>
       <button type="button" data-nav="reports"><span aria-hidden="true">▥</span><small>Relatórios</small></button>
+      <button id="beta-users-nav" type="button" data-nav="users" hidden><span aria-hidden="true">♙</span><small>Usuários</small></button>
       <button type="button" data-nav="settings"><span aria-hidden="true">⚙</span><small>Configurações</small></button>
     </nav>
 
@@ -106,6 +119,8 @@ function betaShellMarkup() {
     <dialog id="beta-edit-dialog" class="beta-dialog"><form id="beta-edit-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">EDITAR LEITURA</p><h2 id="beta-edit-title">Leitura</h2></div><button id="beta-close-edit" class="icon-button" type="button" aria-label="Fechar">×</button></div><input id="beta-edit-original-date" type="hidden"><input id="beta-edit-type" type="hidden"><label><span>Leitura</span><input id="beta-edit-value" type="number" min="0" step="0.001" required></label><label><span>Data e hora</span><input id="beta-edit-date" type="datetime-local" required></label><p id="beta-edit-message" class="note status-message" role="status"></p><button class="primary-button" type="submit">Salvar alteração</button></form></dialog>
     <dialog id="beta-delete-dialog" class="beta-dialog"><form method="dialog" class="dialog-card"><h2>Excluir esta leitura?</h2><p>Somente o registro selecionado será removido.</p><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button id="beta-confirm-delete" class="danger-button" value="confirm">Excluir leitura</button></div></form></dialog>
     <dialog id="beta-reset-dialog" class="beta-dialog"><div class="dialog-card"><div id="beta-reset-step-one"><h2>Restaurar o aplicativo?</h2><p>Preferências e cópias locais deste dispositivo serão removidas. As leituras da sua conta não serão apagadas.</p><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-continue" class="danger-button" type="button">Continuar</button></div></div><div id="beta-reset-step-two" hidden><h2>Confirmação final</h2><label><span>Digite RESTAURAR para confirmar</span><input id="beta-reset-confirmation" autocomplete="off"></label><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-confirm" class="danger-button" type="button" disabled>Restaurar agora</button></div></div></div></dialog>
+    <dialog id="beta-invite-dialog" class="beta-dialog"><form id="beta-invite-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">NOVO ACESSO</p><h2>Convidar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><label><span>E-mail</span><input id="beta-invite-email" type="email" autocomplete="email" required></label><label><span>Papel</span><select id="beta-invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><p class="note">O convite expira em 48 horas e fica restrito a esta organização.</p><button class="primary-button" type="submit">Registrar convite</button></form></dialog>
+    <dialog id="beta-member-dialog" class="beta-dialog"><form id="beta-member-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">ACESSO</p><h2 id="beta-member-dialog-title">Editar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><input id="beta-member-id" type="hidden"><label><span>Papel</span><select id="beta-member-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option><option value="owner">Proprietário</option></select></label><label><span>Status</span><select id="beta-member-status"><option value="active">Ativo</option><option value="suspended">Suspenso</option><option value="removed">Removido</option></select></label><label><span>Justificativa</span><textarea id="beta-member-reason" minlength="5" maxlength="240" required></textarea></label><label id="beta-destructive-confirmation-row" hidden><span>Digite o e-mail para confirmar</span><input id="beta-member-confirmation" autocomplete="off"></label><button id="beta-save-member" class="primary-button" type="submit">Salvar acesso</button></form></dialog>
   `;
 }
 
@@ -136,7 +151,7 @@ function showPage(pageName) {
     button.classList.toggle("active", active);
     active ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
   });
-  document.querySelector("#beta-reading-fab").hidden = pageName === "settings";
+  document.querySelector("#beta-reading-fab").hidden = pageName === "settings" || pageName === "users";
   document.querySelector("#beta-content").scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -274,6 +289,108 @@ function bindReports(shell) {
   shell.querySelector("#beta-export-pdf").addEventListener("click", () => window.print());
 }
 
+function bindAdministration(shell) {
+  const inviteDialog = shell.querySelector("#beta-invite-dialog");
+  const memberDialog = shell.querySelector("#beta-member-dialog");
+  shell.querySelectorAll("[data-close-admin-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
+  shell.querySelector("#beta-invite-user").addEventListener("click", () => inviteDialog.showModal());
+  shell.querySelector("#beta-user-search").addEventListener("input", renderAdministration);
+  shell.querySelector("#beta-invite-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const result = await api.inviteMember({ email: shell.querySelector("#beta-invite-email").value.trim(), role: shell.querySelector("#beta-invite-role").value });
+    setText("#beta-admin-status", result.message);
+    if (result.ok) { event.target.reset(); inviteDialog.close(); renderAdministration(); }
+  });
+  shell.querySelector("#beta-member-status").addEventListener("change", syncDestructiveConfirmation);
+  shell.querySelector("#beta-member-confirmation").addEventListener("input", syncDestructiveConfirmation);
+  shell.querySelector("#beta-member-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = shell.querySelector("#beta-member-status").value;
+    const expected = event.target.dataset.email || "";
+    if (status !== "active" && shell.querySelector("#beta-member-confirmation").value !== expected) {
+      setText("#beta-admin-status", "Digite o e-mail do usuário para confirmar a ação.");
+      return;
+    }
+    const result = await api.updateMember({ membershipId: shell.querySelector("#beta-member-id").value, role: shell.querySelector("#beta-member-role").value, status, reason: shell.querySelector("#beta-member-reason").value.trim() });
+    setText("#beta-admin-status", result.message);
+    if (result.ok) { memberDialog.close(); renderAdministration(); }
+  });
+  Promise.resolve(api.refreshAdmin()).then(renderAdministration).catch(renderAdministration);
+}
+
+function syncDestructiveConfirmation() {
+  const destructive = document.querySelector("#beta-member-status").value !== "active";
+  const row = document.querySelector("#beta-destructive-confirmation-row");
+  row.hidden = !destructive;
+  document.querySelector("#beta-member-confirmation").required = destructive;
+}
+
+function renderAdministration() {
+  const snapshot = api.getAdminSnapshot();
+  const nav = document.querySelector("#beta-users-nav");
+  nav.hidden = !snapshot.authorized;
+  document.querySelector("#beta-admin-unavailable").hidden = snapshot.available;
+  document.querySelector("#beta-admin-workspace").hidden = !snapshot.available || !snapshot.authorized;
+  if (!snapshot.available) { setText("#beta-admin-message", snapshot.message || "Administração indisponível."); return; }
+  if (!snapshot.authorized) return;
+  setText("#beta-organization-name", snapshot.organization?.name || "Organização");
+  setText("#beta-current-role", roleLabel(snapshot.membership?.role));
+  setText("#beta-member-count", String(snapshot.members.filter((member) => member.status === "active").length));
+  const query = document.querySelector("#beta-user-search").value.trim().toLocaleLowerCase("pt-BR");
+  const members = snapshot.members.filter((member) => `${member.display_name} ${member.email}`.toLocaleLowerCase("pt-BR").includes(query));
+  const memberList = document.querySelector("#beta-member-list");
+  memberList.replaceChildren(...members.map(createMemberRow));
+  if (!members.length) memberList.append(createEmptyMessage("Nenhum usuário encontrado."));
+  const invitationList = document.querySelector("#beta-invitation-list");
+  invitationList.replaceChildren(...snapshot.invitations.map(createInvitationRow));
+  if (!snapshot.invitations.length) invitationList.append(createEmptyMessage("Nenhum convite pendente."));
+}
+
+function createMemberRow(member) {
+  const row = document.createElement("article");
+  row.className = "admin-member-row";
+  const identity = document.createElement("div");
+  const name = document.createElement("strong"); name.textContent = member.display_name || member.email;
+  const email = document.createElement("small"); email.textContent = member.email;
+  identity.append(name, email);
+  const meta = document.createElement("div"); meta.className = "admin-member-meta";
+  const role = document.createElement("span"); role.textContent = roleLabel(member.role);
+  const status = document.createElement("span"); status.className = `status-chip ${member.status}`; status.textContent = statusLabel(member.status);
+  meta.append(role, status);
+  const edit = document.createElement("button"); edit.type = "button"; edit.className = "text-button"; edit.textContent = "Gerenciar";
+  edit.addEventListener("click", () => openMemberDialog(member));
+  row.append(identity, meta, edit);
+  return row;
+}
+
+function createInvitationRow(invitation) {
+  const row = document.createElement("article"); row.className = "admin-invitation-row";
+  const identity = document.createElement("div");
+  const email = document.createElement("strong"); email.textContent = invitation.email;
+  const expiry = document.createElement("small"); expiry.textContent = `Expira em ${new Date(invitation.expires_at).toLocaleString("pt-BR")}`;
+  identity.append(email, expiry);
+  const role = document.createElement("span"); role.textContent = roleLabel(invitation.role);
+  row.append(identity, role);
+  return row;
+}
+
+function openMemberDialog(member) {
+  const form = document.querySelector("#beta-member-form");
+  form.dataset.email = member.email;
+  document.querySelector("#beta-member-id").value = member.id;
+  document.querySelector("#beta-member-role").value = member.role;
+  document.querySelector("#beta-member-status").value = member.status;
+  document.querySelector("#beta-member-reason").value = "";
+  document.querySelector("#beta-member-confirmation").value = "";
+  setText("#beta-member-dialog-title", member.display_name || member.email);
+  syncDestructiveConfirmation();
+  document.querySelector("#beta-member-dialog").showModal();
+}
+
+function createEmptyMessage(text) { const message = document.createElement("p"); message.className = "empty"; message.textContent = text; return message; }
+function roleLabel(role) { return ({ owner: "Proprietário", admin: "Administrador", member: "Membro", viewer: "Visualizador" })[role] || role; }
+function statusLabel(status) { return ({ active: "Ativo", suspended: "Suspenso", removed: "Removido" })[status] || status; }
+
 function refreshBetaData() {
   Promise.resolve(api.refreshData()).catch(() => undefined);
 }
@@ -300,6 +417,7 @@ function renderBetaExperience() {
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
   renderReadingHistory(snapshot);
   renderReports(snapshot, energyCurrent, waterCurrent);
+  renderAdministration();
 }
 
 function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {

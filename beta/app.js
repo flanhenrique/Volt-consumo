@@ -364,7 +364,7 @@ $("#reading-form").addEventListener("submit", async (event) => {
   readings.push(reading);
   readings.sort((a, b) => new Date(a.date) - new Date(b.date));
   readings = readings.slice(-100);
-  saveReadings();
+  cacheUserData();
   $("#reading").value = "";
   setDefaultDate();
   message.textContent = "Leitura salva com segurança na sua conta.";
@@ -397,7 +397,7 @@ $("#water-reading-form").addEventListener("submit", async (event) => {
   waterReadings.sort((a, b) => new Date(a.date) - new Date(b.date));
   cacheUserData();
   $("#water-reading").value = "";
-  setDefaultDates();
+  setDefaultDate();
   message.textContent = "Leitura de água salva com segurança.";
   renderWater();
   $("#water-reading-dialog").close();
@@ -470,7 +470,7 @@ $("#clear-dialog").addEventListener("close", async () => {
     return;
   }
   readings = [];
-  saveReadings();
+  cacheUserData();
   render();
 });
 
@@ -560,10 +560,6 @@ function loadLegacySettings() {
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
-}
-
-function saveReadings() {
-  cacheUserData();
 }
 
 async function loadUserData(userId) {
@@ -1061,8 +1057,6 @@ function setDefaultDate() {
   $("#reading-date").value = now.toISOString().slice(0, 16);
   if ($("#water-reading-date")) $("#water-reading-date").value = now.toISOString().slice(0, 16);
 }
-
-function setDefaultDates() { setDefaultDate(); }
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;

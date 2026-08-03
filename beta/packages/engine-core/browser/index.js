@@ -150,14 +150,65 @@ export class MemoryEngineTelemetry {
 export class InMemoryFeatureFlags {
     #flags = new Map();
     constructor(flags = {}) {
-        Object.entries(flags).forEach(([flag, enabled]) => this.#flags.set(flag, enabled));
+        Object.entries(flags).forEach(([flag, definition]) => this.define(flag, definition));
     }
-    isEnabled(flag, _context) {
-        return this.#flags.get(flag) ?? false;
+    isEnabled(flag, context) {
+        return this.evaluate(flag, context).enabled;
     }
     set(flag, enabled) {
-        this.#flags.set(flag, enabled);
+        this.define(flag, { ...(this.#flags.get(flag) ?? {}), enabled });
     }
+    define(flag, definition) {
+        if (!flag.trim())
+            throw new Error("Nome da feature flag obrigatÃ³rio.");
+        const normalized = typeof definition === "boolean" ? { enabled: definition } : definition;
+        const rolloutPercentage = normalized.rolloutPercentage ?? 100;
+        if (!Number.isFinite(rolloutPercentage) || rolloutPercentage < 0 || rolloutPercentage > 100) {
+            throw new Error("Percentual de rollout deve estar entre 0 e 100.");
+        }
+        this.#flags.set(flag, Object.freeze({
+            enabled: normalized.enabled,
+            rolloutPercentage,
+            userIds: Object.freeze([...(normalized.userIds ?? [])]),
+            tenantIds: Object.freeze([...(normalized.tenantIds ?? [])]),
+            killSwitch: normalized.killSwitch ?? false
+        }));
+    }
+    setKillSwitch(flag, active) {
+        const current = this.#flags.get(flag);
+        if (!current)
+            throw new Error(`Feature flag ${flag} nÃ£o registrada.`);
+        this.define(flag, { ...current, killSwitch: active });
+    }
+    evaluate(flag, context) {
+        const definition = this.#flags.get(flag);
+        if (!definition)
+            return { flag, enabled: false, reason: "default", bucket: null };
+        if (definition.killSwitch)
+            return { flag, enabled: false, reason: "kill-switch", bucket: null };
+        if (!definition.enabled)
+            return { flag, enabled: false, reason: "disabled", bucket: null };
+        if (definition.userIds?.includes(context.userId)) {
+            return { flag, enabled: true, reason: "user-target", bucket: null };
+        }
+        if (definition.tenantIds?.includes(context.tenantId)) {
+            return { flag, enabled: true, reason: "tenant-target", bucket: null };
+        }
+        const percentage = definition.rolloutPercentage ?? 100;
+        const bucket = deterministicBucket(`${flag}:${context.userId}`);
+        return { flag, enabled: bucket < percentage * 100, reason: "rollout", bucket };
+    }
+}
+/** Produz um bucket estÃ¡vel de 0 a 9.999 sem expor ou persistir o identificador. */
+export function deterministicBucket(subject) {
+    if (!subject.trim())
+        throw new Error("Sujeito do rollout obrigatÃ³rio.");
+    let hash = 2166136261;
+    for (let index = 0; index < subject.length; index += 1) {
+        hash ^= subject.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % 10000;
 }
 export class DependencyContainer {
     #dependencies = new Map();

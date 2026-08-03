@@ -570,6 +570,13 @@ html[data-environment="beta"] .beta-reading-item:hover {
   box-shadow: var(--lm-shadow-2), inset 0 1px 0 var(--lm-glass-highlight);
 }
 
+/* O menu ultrapassa o cartÃ£o; o cartÃ£o aberto precisa ficar acima dos irmÃ£os. */
+html[data-environment="beta"] .beta-reading-item:has(.reading-menu[open]) {
+  position: relative;
+  z-index: 9;
+  transform: none;
+}
+
 html[data-environment="beta"] .reading-icon {
   display: grid;
   place-items: center;

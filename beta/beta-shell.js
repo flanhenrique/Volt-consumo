@@ -38,6 +38,10 @@ function initializeBetaExperience() {
   bindReports(shell);
   bindAdministration(shell);
 
+  window.setInterval(() => {
+    if (!document.hidden) Promise.resolve(api.refreshFeatureFlags()).catch(() => undefined);
+  }, 25_000);
+
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
   new MutationObserver(() => {
@@ -98,6 +102,7 @@ function betaShellMarkup() {
           <article class="admin-summary-card"><div><small>Organização</small><strong id="beta-organization-name">—</strong></div><div><small>Seu papel</small><strong id="beta-current-role">—</strong></div><div><small>Usuários ativos</small><strong id="beta-member-count">0</strong></div></article>
           <section class="settings-group"><div class="settings-row"><div><h3>Usuários</h3><small>Gerencie papéis e acesso apenas desta organização.</small></div><label class="admin-search"><span class="sr-only">Buscar usuário</span><input id="beta-user-search" type="search" placeholder="Buscar por nome ou e-mail"></label></div><div id="beta-member-list" class="admin-member-list"></div></section>
           <section class="settings-group"><h3>Convites pendentes</h3><div id="beta-invitation-list" class="admin-invitation-list"></div></section>
+          <section class="settings-group" aria-labelledby="beta-feature-flags-title"><div class="settings-row"><div><h3 id="beta-feature-flags-title">Feature flags</h3><small>Rollout determinístico e kill switch com propagação automática.</small></div><small id="beta-feature-flags-refreshed">—</small></div><div id="beta-feature-flag-list" class="feature-flag-list"></div></section>
           <p id="beta-admin-status" class="note status-message" role="status" aria-live="polite"></p>
         </div>
       </section>
@@ -486,7 +491,7 @@ function bindAdministration(shell) {
     button.disabled = false;
     renderAdministration();
   });
-  Promise.resolve(api.refreshAdmin()).then(renderAdministration).catch(renderAdministration);
+  Promise.all([api.refreshAdmin(), api.refreshFeatureFlags()]).then(renderAdministration).catch(renderAdministration);
 }
 
 function syncDestructiveConfirmation() {
@@ -515,6 +520,54 @@ function renderAdministration() {
   const invitationList = document.querySelector("#beta-invitation-list");
   invitationList.replaceChildren(...snapshot.invitations.map(createInvitationRow));
   if (!snapshot.invitations.length) invitationList.append(createEmptyMessage("Nenhum convite pendente."));
+  renderFeatureFlags();
+}
+
+function renderFeatureFlags() {
+  const snapshot = api.getFeatureFlagsSnapshot();
+  const list = document.querySelector("#beta-feature-flag-list");
+  if (!list) return;
+  if (!snapshot.available) {
+    list.replaceChildren(createEmptyMessage(snapshot.message || "Feature flags indisponíveis até a atualização do banco."));
+    setText("#beta-feature-flags-refreshed", "Indisponível");
+    return;
+  }
+  setText("#beta-feature-flags-refreshed", snapshot.refreshedAt ? `Atualizado ${new Date(snapshot.refreshedAt).toLocaleTimeString("pt-BR")}` : "Atualizado");
+  list.replaceChildren(...snapshot.flags.map(createFeatureFlagRow));
+}
+
+function createFeatureFlagRow(flag) {
+  const form = document.createElement("form");
+  form.className = "feature-flag-row";
+  form.dataset.key = flag.key;
+  const heading = document.createElement("div");
+  const key = document.createElement("strong"); key.textContent = flag.key;
+  const description = document.createElement("small"); description.textContent = flag.description;
+  heading.append(key, description);
+  const enabledLabel = document.createElement("label"); enabledLabel.className = "compact-toggle";
+  const enabledText = document.createElement("span"); enabledText.textContent = "Ativa";
+  const enabled = document.createElement("input"); enabled.type = "checkbox"; enabled.name = "enabled"; enabled.checked = flag.enabled;
+  enabledLabel.append(enabledText, enabled);
+  const rolloutLabel = document.createElement("label"); rolloutLabel.className = "flag-rollout";
+  const rolloutText = document.createElement("span"); rolloutText.textContent = "Rollout %";
+  const rollout = document.createElement("input"); rollout.type = "number"; rollout.name = "rollout"; rollout.min = "0"; rollout.max = "100"; rollout.value = String(flag.rollout_percentage); rollout.required = true;
+  rolloutLabel.append(rolloutText, rollout);
+  const killLabel = document.createElement("label"); killLabel.className = "compact-toggle danger-text";
+  const killText = document.createElement("span"); killText.textContent = "Kill switch";
+  const kill = document.createElement("input"); kill.type = "checkbox"; kill.name = "killSwitch"; kill.checked = flag.kill_switch;
+  killLabel.append(killText, kill);
+  const reason = document.createElement("input"); reason.name = "reason"; reason.placeholder = "Justificativa da alteração"; reason.minLength = 5; reason.maxLength = 240; reason.required = true;
+  const save = document.createElement("button"); save.type = "submit"; save.className = "secondary-button compact-action"; save.textContent = "Salvar flag";
+  form.append(heading, enabledLabel, rolloutLabel, killLabel, reason, save);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    const result = await api.updateFeatureFlag({ key: flag.key, enabled: enabled.checked, rolloutPercentage: Number(rollout.value), killSwitch: kill.checked, reason: reason.value.trim() });
+    setText("#beta-admin-status", result.message);
+    save.disabled = false;
+    if (result.ok) renderFeatureFlags();
+  });
+  return form;
 }
 
 function createMemberRow(member) {

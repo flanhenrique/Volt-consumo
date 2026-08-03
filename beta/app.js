@@ -64,6 +64,7 @@ let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
 let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
 let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
+let betaFeatureFlagsSnapshot = { available: false, canManage: false, flags: [], refreshedAt: null, message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -640,6 +641,7 @@ async function updateAuthScreen(user) {
   await recordPrivacyAcceptance(user);
   await refreshBetaInvitation();
   await refreshBetaAdmin();
+  await refreshBetaFeatureFlags();
   await loadUserData(user.id);
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
   void checkOperationalHealth();
@@ -815,6 +817,7 @@ function exposeBetaApi() {
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
     getOrganizationSnapshot: () => structuredClone(betaOrganizationSnapshot),
     getInvitationSnapshot: () => structuredClone(betaInvitationSnapshot),
+    getFeatureFlagsSnapshot: () => structuredClone(betaFeatureFlagsSnapshot),
     getMfaSnapshot: () => structuredClone(mfaSnapshot),
     getOperationalHealth: () => structuredClone(operationalHealth),
     enableMfa: startMfaEnrollment,
@@ -824,6 +827,7 @@ function exposeBetaApi() {
     declineInvitation: declineBetaInvitation,
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
+    refreshFeatureFlags: refreshBetaFeatureFlags,
     refreshOrganizations: refreshBetaOrganizationContext,
     refreshMfa,
     checkOperationalHealth,
@@ -833,6 +837,7 @@ function exposeBetaApi() {
     updateDisplayName: updateBetaDisplayName,
     updateMember: updateBetaMember,
     transferOwner: transferBetaOwner,
+    updateFeatureFlag: updateBetaFeatureFlag,
     updateReading: updateBetaReading
   });
 }
@@ -1085,6 +1090,7 @@ async function switchBetaOrganization(organizationId) {
   await refreshBetaOrganizationContext();
   await loadUserData(currentUserId);
   await refreshBetaAdmin();
+  await refreshBetaFeatureFlags();
   render();
   return { ok: true, message: "Organização alterada com segurança." };
 }
@@ -1165,6 +1171,40 @@ async function transferBetaOwner({ membershipId, reason }) {
   if (error) return { ok: false, message: adminErrorMessage(error) };
   await refreshBetaAdmin();
   return { ok: true, message: "Propriedade transferida atomicamente e registrada na auditoria." };
+}
+
+async function refreshBetaFeatureFlags() {
+  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaFeatureFlagsSnapshot;
+  const { data, error } = await supabaseClient.rpc("beta_feature_flags_snapshot");
+  if (error || !data) {
+    betaFeatureFlagsSnapshot = { ...betaFeatureFlagsSnapshot, available: false, message: "Configuração dinâmica indisponível." };
+  } else {
+    betaFeatureFlagsSnapshot = {
+      available: true,
+      canManage: Boolean(data.can_manage),
+      flags: Array.isArray(data.flags) ? data.flags : [],
+      refreshedAt: data.refreshed_at || new Date().toISOString(),
+      message: ""
+    };
+  }
+  notifyBetaDataUpdate();
+  return betaFeatureFlagsSnapshot;
+}
+
+async function updateBetaFeatureFlag({ key, enabled, rolloutPercentage, killSwitch, reason }) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
+    return { ok: false, message: "A gestão de flags exige o console autorizado e MFA AAL2." };
+  }
+  const { error } = await supabaseClient.rpc("beta_admin_update_feature_flag", {
+    p_key: key,
+    p_enabled: enabled,
+    p_rollout_percentage: rolloutPercentage,
+    p_kill_switch: killSwitch,
+    p_reason: reason
+  });
+  if (error) return { ok: false, message: adminErrorMessage(error) };
+  await refreshBetaFeatureFlags();
+  return { ok: true, message: "Feature flag atualizada e registrada na auditoria." };
 }
 
 function adminErrorMessage(error) {

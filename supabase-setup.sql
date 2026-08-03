@@ -379,6 +379,28 @@ create table if not exists public.beta_admin_audit (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.beta_feature_flags (
+  key text primary key check (key ~ '^[a-z][a-z0-9._-]{2,79}$'),
+  description text not null check (char_length(description) between 3 and 160),
+  enabled boolean not null default false,
+  rollout_percentage smallint not null default 0 check (rollout_percentage between 0 and 100),
+  kill_switch boolean not null default false,
+  user_ids uuid[] not null default '{}',
+  tenant_ids uuid[] not null default '{}',
+  updated_by uuid references auth.users(id),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.beta_feature_flags (key, description, enabled, rollout_percentage)
+values
+  ('engines.rule', 'Motor de regras do consumo', true, 100),
+  ('engines.calculation', 'Motor de cálculo do consumo', true, 100),
+  ('experimental.ocr', 'Reconhecimento local de leituras', false, 0),
+  ('experimental.ai', 'Copiloto de inteligência artificial', false, 0),
+  ('experimental.dashboard', 'Dashboard analítico avançado', false, 0),
+  ('experimental.integrations', 'Hub de integrações', false, 0)
+on conflict (key) do nothing;
+
 -- Contexto ativo separa o tenant da identidade e permite evoluir para múltiplas
 -- organizações sem confiar em organization_id enviado pelo navegador.
 create table if not exists public.beta_user_context (
@@ -391,8 +413,10 @@ alter table public.beta_organizations enable row level security;
 alter table public.beta_memberships enable row level security;
 alter table public.beta_invitations enable row level security;
 alter table public.beta_admin_audit enable row level security;
+alter table public.beta_feature_flags enable row level security;
 alter table public.beta_user_context enable row level security;
-revoke all on public.beta_organizations, public.beta_memberships, public.beta_invitations, public.beta_admin_audit, public.beta_user_context from anon, authenticated;
+alter table public.beta_feature_flags force row level security;
+revoke all on public.beta_organizations, public.beta_memberships, public.beta_invitations, public.beta_admin_audit, public.beta_feature_flags, public.beta_user_context from anon, authenticated;
 
 -- Expand/contract: cria uma organização determinística para cada usuário
 -- legado que ainda não possua membership e preserva todas as linhas existentes.
@@ -798,5 +822,89 @@ begin
     jsonb_build_object('previous_owner_membership_id', current_owner.id, 'successor_membership_id', successor.id));
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text) from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text) to authenticated;
+create or replace function public.beta_feature_flags_snapshot()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  active_organization uuid;
+  can_manage boolean := false;
+begin
+  if caller is null then raise exception 'authentication_required'; end if;
+  select c.organization_id into active_organization
+  from public.beta_user_context c
+  join public.beta_memberships m on m.organization_id = c.organization_id and m.user_id = c.user_id
+  where c.user_id = caller and m.status = 'active';
+  if active_organization is null then raise exception 'membership_required'; end if;
+  can_manage := lower(coalesce(auth.jwt() ->> 'email', '')) = 'flanhenriquee@icloud.com'
+    and coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+    and exists (
+      select 1 from public.beta_memberships m
+      where m.organization_id = active_organization and m.user_id = caller
+        and m.status = 'active' and m.role in ('owner', 'admin')
+    );
+  return jsonb_build_object(
+    'can_manage', can_manage,
+    'refreshed_at', now(),
+    'flags', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'key', f.key,
+        'description', f.description,
+        'enabled', f.enabled,
+        'rollout_percentage', f.rollout_percentage,
+        'kill_switch', f.kill_switch,
+        'effective', case
+          when f.kill_switch or not f.enabled then false
+          when caller = any(f.user_ids) or active_organization = any(f.tenant_ids) then true
+          else mod((('x' || substr(md5(f.key || ':' || caller::text), 1, 8))::bit(32)::bigint), 10000) < f.rollout_percentage * 100
+        end,
+        'reason', case
+          when f.kill_switch then 'kill-switch'
+          when not f.enabled then 'disabled'
+          when caller = any(f.user_ids) then 'user-target'
+          when active_organization = any(f.tenant_ids) then 'tenant-target'
+          else 'rollout'
+        end,
+        'updated_at', f.updated_at
+      ) order by f.key), '[]'::jsonb)
+      from public.beta_feature_flags f
+    )
+  );
+end $$;
+
+create or replace function public.beta_admin_update_feature_flag(
+  p_key text,
+  p_enabled boolean,
+  p_rollout_percentage integer,
+  p_kill_switch boolean,
+  p_reason text
+)
+returns void language plpgsql security definer set search_path = '' as $$
+declare actor public.beta_memberships; previous public.beta_feature_flags;
+begin
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
+  if p_rollout_percentage not between 0 and 100 then raise exception 'invalid_rollout'; end if;
+  if char_length(trim(p_reason)) < 5 then raise exception 'invalid_reason'; end if;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active' and m.role in ('owner', 'admin');
+  if not found then raise exception 'permission_denied'; end if;
+  select * into previous from public.beta_feature_flags where key = p_key for update;
+  if not found then raise exception 'invalid_flag'; end if;
+  update public.beta_feature_flags set
+    enabled = p_enabled,
+    rollout_percentage = p_rollout_percentage,
+    kill_switch = p_kill_switch,
+    updated_by = auth.uid(),
+    updated_at = now()
+  where key = p_key;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, reason, details)
+  values (actor.organization_id, auth.uid(), 'feature_flag.updated', trim(p_reason), jsonb_build_object(
+    'key', p_key,
+    'before', jsonb_build_object('enabled', previous.enabled, 'rollout_percentage', previous.rollout_percentage, 'kill_switch', previous.kill_switch),
+    'after', jsonb_build_object('enabled', p_enabled, 'rollout_percentage', p_rollout_percentage, 'kill_switch', p_kill_switch)
+  ));
+end $$;
+
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text) from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text) to authenticated;

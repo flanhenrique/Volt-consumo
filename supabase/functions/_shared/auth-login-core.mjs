@@ -11,7 +11,11 @@ const COOKIE_NAMES = Object.freeze({
   refresh: "__Host-volt_refresh",
   csrf: "__Host-volt_csrf"
 });
-const ROUTES = new Set(["login", "session", "refresh", "logout"]);
+const ROUTES = new Set(["login", "session", "refresh", "logout", "signup", "email-verifications", "verify-email"]);
+const COMMON_PASSWORDS = new Set([
+  "123456789012", "123456789123", "abcdefghijkl", "administrator", "iloveyou1234",
+  "letmein123456", "password1234", "qwerty123456", "senha1234567", "volt12345678"
+]);
 
 function safeRequestId(request) {
   const supplied = request.headers.get("x-request-id") || "";
@@ -108,17 +112,36 @@ function clearedSessionResponse(requestId, cors) {
 }
 
 async function readCredentials(request, maxBodyBytes) {
+  const body = await readJson(request, maxBodyBytes);
+  const email = normalizedEmail(body.email);
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!email || password.length < 8 || password.length > 1024) throw new Error("invalid_credentials_shape");
+  return { email, password };
+}
+
+async function readJson(request, maxBodyBytes) {
   const declaredLength = Number(request.headers.get("content-length") || 0);
   if (declaredLength > maxBodyBytes) throw new Error("payload_too_large");
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > maxBodyBytes) throw new Error("payload_too_large");
   const body = JSON.parse(raw);
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const password = typeof body.password === "string" ? body.password : "";
-  if (!EMAIL_PATTERN.test(email) || email.length > 254 || password.length < 8 || password.length > 1024) {
-    throw new Error("invalid_credentials_shape");
-  }
-  return { email, password };
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("invalid_json_shape");
+  return body;
+}
+
+function normalizedEmail(value) {
+  const email = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return EMAIL_PATTERN.test(email) && email.length <= 254 ? email : "";
+}
+
+function passwordProblem(password) {
+  if (typeof password !== "string") return "password_required";
+  const length = [...password].length;
+  if (length < 12) return "password_too_short";
+  if (length > 128) return "password_too_long";
+  const normalized = password.normalize("NFKC").toLowerCase();
+  if (COMMON_PASSWORDS.has(normalized) || /^(.)\1+$/u.test(normalized)) return "password_too_common";
+  return "";
 }
 
 async function providerFetch(fetchFn, url, init, timeoutMs) {
@@ -146,7 +169,8 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
     if ((route === "session" && request.method !== "GET") || (route !== "session" && request.method !== "POST")) {
       return json(405, { code: "method_not_allowed", request_id: requestId }, requestId, cors);
     }
-    if (route === "login" && (request.headers.get("content-type") || "").split(";", 1)[0].trim() !== "application/json") {
+    if (["login", "signup", "email-verifications", "verify-email"].includes(route)
+      && (request.headers.get("content-type") || "").split(";", 1)[0].trim() !== "application/json") {
       return json(415, { code: "unsupported_media_type", request_id: requestId }, requestId, cors);
     }
 
@@ -157,6 +181,79 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
       if (!baseUrl.startsWith("https://") || !publicKey) throw new Error("invalid_configuration");
     } catch {
       return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+    }
+
+    if (["signup", "email-verifications", "verify-email"].includes(route)) {
+      let body;
+      try {
+        body = await readJson(request, maxBodyBytes);
+      } catch (error) {
+        const status = error?.message === "payload_too_large" ? 413 : 400;
+        return json(status, { code: status === 413 ? "payload_too_large" : "invalid_request", request_id: requestId }, requestId, cors);
+      }
+      const redirect = env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/beta/`;
+      let redirectUrl;
+      try {
+        redirectUrl = new URL(redirect);
+        if (redirectUrl.protocol !== "https:" || redirectUrl.origin !== new URL(env("BETA_APP_ORIGIN")).origin) throw new Error("invalid_redirect");
+      } catch {
+        return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      }
+
+      if (route === "signup") {
+        const email = normalizedEmail(body.email);
+        const problem = passwordProblem(body.password);
+        const noticeVersion = env("PRIVACY_NOTICE_VERSION") || "1.0";
+        if (!email || body.privacy_accepted !== true || body.privacy_notice_version !== noticeVersion) {
+          return json(400, { code: "invalid_request", request_id: requestId }, requestId, cors);
+        }
+        if (problem) {
+          return json(400, {
+            code: "weak_password",
+            guidance: "Use uma senha exclusiva entre 12 e 128 caracteres; frases longas e gerenciadores de senha são permitidos.",
+            request_id: requestId
+          }, requestId, cors);
+        }
+        const providerResponse = await providerFetch(fetchFn, `${baseUrl}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectUrl.href)}`, {
+          method: "POST",
+          headers: { apikey: publicKey, "content-type": "application/json", "x-request-id": requestId },
+          body: JSON.stringify({
+            email,
+            password: body.password,
+            data: { privacy_notice_version: noticeVersion, privacy_notice_accepted_at: new Date().toISOString() }
+          })
+        }, timeoutMs);
+        if (!providerResponse || providerResponse.status >= 500) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+        if (providerResponse.status === 429) return json(429, { code: "rate_limited", request_id: requestId }, requestId, cors);
+        return json(202, { next: "verify_email", request_id: requestId }, requestId, cors);
+      }
+
+      if (route === "email-verifications") {
+        const email = normalizedEmail(body.email);
+        if (!email) return json(400, { code: "invalid_request", request_id: requestId }, requestId, cors);
+        const providerResponse = await providerFetch(fetchFn, `${baseUrl}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectUrl.href)}`, {
+          method: "POST",
+          headers: { apikey: publicKey, "content-type": "application/json", "x-request-id": requestId },
+          body: JSON.stringify({ type: "signup", email })
+        }, timeoutMs);
+        if (!providerResponse || providerResponse.status >= 500) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+        if (providerResponse.status === 429) return json(429, { code: "rate_limited", request_id: requestId }, requestId, cors);
+        return json(202, { next: "verify_email", request_id: requestId }, requestId, cors);
+      }
+
+      const tokenHash = typeof body.token_hash === "string" ? body.token_hash : "";
+      if (!/^[A-Za-z0-9_-]{32,512}$/.test(tokenHash)) {
+        return json(400, { code: "invalid_or_expired_link", request_id: requestId }, requestId, cors);
+      }
+      const providerResponse = await providerFetch(fetchFn, `${baseUrl}/auth/v1/verify`, {
+        method: "POST",
+        headers: { apikey: publicKey, "content-type": "application/json", "x-request-id": requestId },
+        body: JSON.stringify({ type: "signup", token_hash: tokenHash })
+      }, timeoutMs);
+      if (!providerResponse || providerResponse.status >= 500) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      return providerResponse.ok
+        ? json(200, { verified: true, next: "login", request_id: requestId }, requestId, cors)
+        : json(400, { code: "invalid_or_expired_link", request_id: requestId }, requestId, cors);
     }
 
     if (route === "login") {

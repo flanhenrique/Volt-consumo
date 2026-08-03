@@ -889,6 +889,20 @@ function randomHex(byteLength) {
 async function checkOperationalHealth() {
   if (!supabaseClient || !currentUserId) return operationalHealth;
   const startedAt = performance.now();
+  const deepHealth = await checkBetaDeepHealth();
+  if (deepHealth) {
+    const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+    operationalHealth = {
+      status: deepHealth.status === "healthy" ? "healthy" : "degraded",
+      auth: deepHealth.checks?.auth_database_rbac === "up",
+      database: deepHealth.checks?.auth_database_rbac === "up",
+      checkedAt: deepHealth.checked_at || new Date().toISOString(),
+      durationMs
+    };
+    await recordOperationalEvent("health.checked", operationalHealth.status === "healthy" ? "info" : "warning", "edge-health", { auth: operationalHealth.auth, database: operationalHealth.database }, durationMs);
+    notifyBetaDataUpdate();
+    return operationalHealth;
+  }
   const [authResult, databaseResult] = await Promise.all([
     supabaseClient.auth.getSession(),
     supabaseClient.from(dataTable("user_settings")).select("user_id").maybeSingle()
@@ -910,6 +924,28 @@ async function checkOperationalHealth() {
   );
   notifyBetaDataUpdate();
   return operationalHealth;
+}
+
+async function checkBetaDeepHealth() {
+  if (APP_ENVIRONMENT.id !== "beta" || currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") return null;
+  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
+  if (!/^https:\/\/.+\.supabase\.co$/.test(config.url || "")) return null;
+  try {
+    const { data, error } = await supabaseClient.auth.getSession();
+    const token = data?.session?.access_token;
+    if (error || !token) return null;
+    const response = await tracedFetch(`${config.url}/functions/v1/health?probe=deep`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}`, apikey: config.publishableKey }
+    });
+    if (response.status === 404) return null;
+    if ([401, 403].includes(response.status)) return { status: "unhealthy", checks: { auth_database_rbac: "down" }, checked_at: new Date().toISOString() };
+    if (![200, 503].includes(response.status)) return null;
+    const payload = await response.json();
+    return payload && typeof payload === "object" ? payload : null;
+  } catch {
+    return null;
+  }
 }
 
 async function refreshMfa() {

@@ -27,6 +27,21 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           find beta -type f -name '*.js' -not -path 'beta/vendor/*' -print0 | xargs -0 -n1 node --check
+          node --check supabase/functions/_shared/health-core.mjs
+      - name: Verify health endpoint semantics
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { createHealthHandler } from './supabase/functions/_shared/health-core.mjs';
+          const env = (name) => ({ SUPABASE_URL: 'https://beta.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-only', SUPABASE_ANON_KEY: 'public-test' })[name] || '';
+          const healthy = createHealthHandler({ env, fetchFn: async () => new Response(null, { status: 200 }) });
+          assert.equal((await healthy(new Request('https://edge.test/?probe=liveness'))).status, 200);
+          assert.equal((await healthy(new Request('https://edge.test/?probe=readiness'))).status, 200);
+          const degraded = createHealthHandler({ env, fetchFn: async (url) => new Response(null, { status: url.includes('/auth/') ? 200 : 503 }) });
+          const response = await degraded(new Request('https://edge.test/?probe=readiness'));
+          assert.equal(response.status, 503);
+          assert.deepEqual((await response.json()).checks, { auth: 'up', database: 'down' });
+          NODE
       - name: Validate security and publication invariants
         shell: bash
         run: |
@@ -39,6 +54,8 @@ jobs:
           test -s beta/vendor/supabase/supabase.js
           test -s beta/vendor/tesseract/worker.min.js
           test -s beta/vendor/tessdata/eng.traineddata.gz
+          test -s supabase/functions/health/index.ts
+          test -s supabase/functions/_shared/health-core.mjs
           grep -q 'flanhenriquee@icloud.com' beta/app.js
           grep -q 'currentLevel !== "aal2"' beta/app.js
           grep -q 'volt-beta-shell-v' beta/sw.js

@@ -1047,6 +1047,20 @@ begin
   values (actor.organization_id, auth.uid(), 'operational_alert.acknowledged', trim(p_reason), jsonb_build_object('alert_id', p_alert_id));
 end $$;
 
+create or replace function public.beta_admin_health_snapshot()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare actor public.beta_memberships;
+begin
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active' and m.role in ('owner', 'admin');
+  if not found then raise exception 'permission_denied'; end if;
+  perform 1 from public.beta_operational_events limit 1;
+  return jsonb_build_object('status', 'healthy', 'auth', true, 'database', true, 'rbac', true, 'checked_at', clock_timestamp());
+end $$;
+
 create or replace function public.beta_admin_prometheus_metrics()
 returns text language plpgsql stable security definer set search_path = '' as $$
 declare snapshot jsonb := public.beta_admin_operational_snapshot();
@@ -1072,6 +1086,6 @@ begin
     'volt_beta_operation_duration_p95_ms ' || (snapshot ->> 'latency_p95_ms') || E'\n';
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_prometheus_metrics() from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_prometheus_metrics() to authenticated;
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() to authenticated;
 revoke all on function public.beta_raise_operational_alert() from public, anon, authenticated;

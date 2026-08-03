@@ -56,7 +56,12 @@ jobs:
           const accepted = await handler(new Request('https://edge.test/auth-login', { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'person@volt.test', password: 'valid-password' }) }));
           assert.equal(accepted.status, 200);
           assert.match(accepted.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Lax/);
+          assert.equal(accepted.headers.getSetCookie().length, 3);
           assert.doesNotMatch(await accepted.text(), /access_token|refresh_token|a{20}|r{20}/);
+          const missingSession = await handler(new Request('https://edge.test/auth-login/session', { method: 'GET', headers: { origin } }));
+          assert.equal(missingSession.status, 401);
+          const csrfDenied = await handler(new Request('https://edge.test/auth-login/refresh', { method: 'POST', headers: { origin } }));
+          assert.equal(csrfDenied.status, 403);
           NODE
       - name: Validate security and publication invariants
         shell: bash

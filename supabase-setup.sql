@@ -951,5 +951,30 @@ begin
   );
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot() from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot() to authenticated;
+create or replace function public.beta_admin_prometheus_metrics()
+returns text language plpgsql stable security definer set search_path = '' as $$
+declare snapshot jsonb := public.beta_admin_operational_snapshot();
+begin
+  return
+    '# HELP volt_beta_operational_events_24h Operational events recorded in the last 24 hours.' || E'\n' ||
+    '# TYPE volt_beta_operational_events_24h gauge' || E'\n' ||
+    'volt_beta_operational_events_24h ' || (snapshot ->> 'events') || E'\n' ||
+    '# HELP volt_beta_operational_errors_24h Error events recorded in the last 24 hours.' || E'\n' ||
+    '# TYPE volt_beta_operational_errors_24h gauge' || E'\n' ||
+    'volt_beta_operational_errors_24h ' || (snapshot ->> 'errors') || E'\n' ||
+    '# HELP volt_beta_operational_warnings_24h Warning events recorded in the last 24 hours.' || E'\n' ||
+    '# TYPE volt_beta_operational_warnings_24h gauge' || E'\n' ||
+    'volt_beta_operational_warnings_24h ' || (snapshot ->> 'warnings') || E'\n' ||
+    '# HELP volt_beta_operational_error_ratio_24h Error ratio from zero to one in the last 24 hours.' || E'\n' ||
+    '# TYPE volt_beta_operational_error_ratio_24h gauge' || E'\n' ||
+    'volt_beta_operational_error_ratio_24h ' || round(((snapshot ->> 'error_rate')::numeric / 100), 6) || E'\n' ||
+    '# HELP volt_beta_operation_duration_p50_ms Median measured operation duration in milliseconds.' || E'\n' ||
+    '# TYPE volt_beta_operation_duration_p50_ms gauge' || E'\n' ||
+    'volt_beta_operation_duration_p50_ms ' || (snapshot ->> 'latency_p50_ms') || E'\n' ||
+    '# HELP volt_beta_operation_duration_p95_ms 95th percentile measured operation duration in milliseconds.' || E'\n' ||
+    '# TYPE volt_beta_operation_duration_p95_ms gauge' || E'\n' ||
+    'volt_beta_operation_duration_p95_ms ' || (snapshot ->> 'latency_p95_ms') || E'\n';
+end $$;
+
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_prometheus_metrics() from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_prometheus_metrics() to authenticated;

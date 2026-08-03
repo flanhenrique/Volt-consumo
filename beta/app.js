@@ -815,6 +815,7 @@ function exposeBetaApi() {
     estimateEnergy: estimateBetaEnergy,
     estimateWater: estimateBetaWater,
     exportData: exportCurrentUserData,
+    exportOperationalMetrics: exportBetaOperationalMetrics,
     getSnapshot: getBetaSnapshot,
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
     getOrganizationSnapshot: () => structuredClone(betaOrganizationSnapshot),
@@ -1237,6 +1238,26 @@ async function refreshBetaOperationalMetrics() {
   }
   notifyBetaDataUpdate();
   return betaOperationalSnapshot;
+}
+
+async function exportBetaOperationalMetrics() {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
+    return { ok: false, message: "A exportação exige o console autorizado e MFA AAL2." };
+  }
+  const { data, error } = await supabaseClient.rpc("beta_admin_prometheus_metrics");
+  if (error || typeof data !== "string" || !data.startsWith("# HELP volt_beta_")) {
+    return { ok: false, message: "Não foi possível exportar as métricas agora." };
+  }
+  const blob = new Blob([data], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `volt-beta-metrics-${new Date().toISOString().slice(0, 10)}.prom`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  return { ok: true, message: "Métricas Prometheus exportadas sem dados pessoais." };
 }
 
 function adminErrorMessage(error) {

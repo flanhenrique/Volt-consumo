@@ -28,6 +28,7 @@ function initializeBetaExperience() {
   bindReadingFlow(shell, energyDialog, waterDialog);
   bindAccount(shell);
   bindMfa(shell);
+  bindOperationalHealth(shell);
   bindPreferences(shell);
   bindNotifications(shell);
   bindPrivacy(shell);
@@ -103,6 +104,7 @@ function betaShellMarkup() {
         <section class="settings-group"><h3>Ciclo de Contagem</h3><form id="beta-cycle-form" class="form two-column-form"><label><span>Dia de início</span><input id="beta-cycle-start" type="number" min="1" max="31" inputmode="numeric" required></label><label><span>Dia de encerramento</span><input id="beta-cycle-end" type="number" min="1" max="31" inputmode="numeric" required></label><button class="secondary-button full-row" type="submit">Salvar ciclo</button></form><p class="note">Datas são ajustadas automaticamente ao último dia de cada mês.</p></section>
         <section class="settings-group"><h3>Notificações</h3><label class="toggle-row"><span><strong>Lembrete diário</strong><small>“Faça o registro do seu consumo.”</small></span><input id="beta-reminder-enabled" type="checkbox"></label><label class="field-row"><span>Horário</span><input id="beta-reminder-time" type="time" value="19:00"></label><p class="note">Se já houver uma leitura no dia, nenhum lembrete será exibido.</p></section>
         <section class="settings-group"><h3>Privacidade</h3><div class="stack-actions"><button id="beta-export-data" class="secondary-button" type="button">Exportar meus dados</button><button id="beta-lgpd" class="secondary-button" type="button">Privacidade e LGPD</button></div></section>
+        <section class="settings-group"><div class="settings-row"><div><h3>Saúde do serviço</h3><small id="beta-health-status">Ainda não verificado</small></div><button id="beta-check-health" class="secondary-button compact-action" type="button">Verificar</button></div><p id="beta-health-details" class="note">Auth e banco serão testados sem enviar dados pessoais.</p></section>
         <details class="settings-group advanced-settings"><summary>Configurações Avançadas</summary><div id="beta-advanced-content" class="advanced-content"></div></details>
         <section class="settings-group danger-zone"><h3>Sistema</h3><p class="note">Restaura preferências e dados locais deste dispositivo. Leituras salvas na conta permanecem protegidas.</p><button id="beta-reset-app" class="danger-button" type="button">Restaurar Aplicativo</button></section>
       </section>
@@ -191,6 +193,23 @@ function bindMfa(shell) {
     renderBetaMfa();
   });
   Promise.resolve(api.refreshMfa()).then(renderBetaMfa).catch(renderBetaMfa);
+}
+
+function bindOperationalHealth(shell) {
+  const button = shell.querySelector("#beta-check-health");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    await api.checkOperationalHealth();
+    button.disabled = false;
+    renderOperationalHealth();
+  });
+}
+
+function renderOperationalHealth() {
+  const health = api.getOperationalHealth();
+  if (health.status === "unknown") return;
+  setText("#beta-health-status", health.status === "healthy" ? "Operacional" : "Degradado");
+  setText("#beta-health-details", `Autenticação: ${health.auth ? "OK" : "falha"} · Banco: ${health.database ? "OK" : "falha"} · ${health.durationMs} ms`);
 }
 
 function renderBetaMfa() {
@@ -444,6 +463,7 @@ function renderBetaExperience() {
   renderReadingHistory(snapshot);
   renderReports(snapshot, energyCurrent, waterCurrent);
   renderBetaMfa();
+  renderOperationalHealth();
   renderAdministration();
 }
 

@@ -25,6 +25,7 @@ const USER_DATA_PREFIX = environmentStorageKey(APP_ENVIRONMENT, "user-data-");
 const dataTable = (name) => environmentTableName(APP_ENVIRONMENT, name);
 const PRIVACY_NOTICE_VERSION = "1.0";
 const BETA_ADMIN_EMAIL = "flanhenriquee@icloud.com";
+const SESSION_CORRELATION_ID = crypto.randomUUID();
 const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
 const DEFAULT_WATER_SETTINGS = { rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 };
 const FLAGS = {
@@ -59,8 +60,16 @@ let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
+let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
 initializeEnvironment();
+
+window.addEventListener("error", (event) => {
+  recordOperationalEvent("runtime.error", "error", "browser", { errorType: event.error?.name || "Error" });
+});
+window.addEventListener("unhandledrejection", (event) => {
+  recordOperationalEvent("runtime.error", "error", "promise", { errorType: event.reason?.name || "UnhandledRejection" });
+});
 enforceOfflineDataPreference();
 applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
 setDefaultDate();
@@ -623,6 +632,8 @@ async function updateAuthScreen(user) {
   $("#user-name").textContent = displayName;
   await recordPrivacyAcceptance(user);
   await loadUserData(user.id);
+  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
+  void checkOperationalHealth();
   await refreshBetaAdmin();
   render();
 }
@@ -788,18 +799,66 @@ function exposeBetaApi() {
     getSnapshot: getBetaSnapshot,
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
     getMfaSnapshot: () => structuredClone(mfaSnapshot),
+    getOperationalHealth: () => structuredClone(operationalHealth),
     enableMfa: startMfaEnrollment,
     disableMfa,
     inviteMember: inviteBetaMember,
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
     refreshMfa,
+    checkOperationalHealth,
     resetApplication: resetBetaApplication,
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
     updateMember: updateBetaMember,
     updateReading: updateBetaReading
   });
+}
+
+async function recordOperationalEvent(eventType, severity, component, details = {}, durationMs = null) {
+  if (!supabaseClient || !currentUserId) return;
+  const safeDetails = Object.fromEntries(
+    Object.entries(details).filter(([key, value]) => /^[a-zA-Z][a-zA-Z0-9]{0,30}$/.test(key) && ["string", "number", "boolean"].includes(typeof value))
+  );
+  try {
+    await supabaseClient.from(dataTable("operational_events")).insert({
+      user_id: currentUserId,
+      correlation_id: SESSION_CORRELATION_ID,
+      event_type: eventType,
+      severity,
+      component,
+      duration_ms: durationMs,
+      details: safeDetails
+    });
+  } catch {
+    // Telemetria nunca interrompe o fluxo principal.
+  }
+}
+
+async function checkOperationalHealth() {
+  if (!supabaseClient || !currentUserId) return operationalHealth;
+  const startedAt = performance.now();
+  const [authResult, databaseResult] = await Promise.all([
+    supabaseClient.auth.getSession(),
+    supabaseClient.from(dataTable("user_settings")).select("user_id").maybeSingle()
+  ]);
+  const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+  operationalHealth = {
+    status: !authResult.error && !databaseResult.error ? "healthy" : "degraded",
+    auth: !authResult.error,
+    database: !databaseResult.error,
+    checkedAt: new Date().toISOString(),
+    durationMs
+  };
+  await recordOperationalEvent(
+    "health.checked",
+    operationalHealth.status === "healthy" ? "info" : "warning",
+    "web-client",
+    { auth: operationalHealth.auth, database: operationalHealth.database },
+    durationMs
+  );
+  notifyBetaDataUpdate();
+  return operationalHealth;
 }
 
 async function refreshMfa() {

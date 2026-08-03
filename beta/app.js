@@ -241,6 +241,50 @@ $("#signup-button").addEventListener("click", async () => {
     : "Conta criada. Abra o e-mail de confirmação para liberar o acesso.";
 });
 
+$("#forgot-password").addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  const emailInput = $("#login-email");
+  if (!emailInput.reportValidity()) return;
+  const button = $("#forgot-password");
+  button.disabled = true;
+  await supabaseClient.auth.resetPasswordForEmail(emailInput.value.trim(), {
+    redirectTo: `${location.origin}${location.pathname}`
+  });
+  button.disabled = false;
+  $("#login-message").textContent = "Se existir uma conta para este e-mail, enviaremos as instruções de recuperação.";
+});
+
+$("#close-password-recovery").addEventListener("click", () => $("#password-recovery-dialog").close());
+$("#password-recovery-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!supabaseClient) return;
+  const password = $("#recovery-password").value;
+  const confirmation = $("#recovery-password-confirmation").value;
+  const message = $("#password-recovery-message");
+  if (password !== confirmation) {
+    message.textContent = "As senhas não coincidem.";
+    return;
+  }
+  const button = $("#save-recovery-password");
+  button.disabled = true;
+  const { error } = await supabaseClient.auth.updateUser({ password });
+  if (error) {
+    button.disabled = false;
+    message.textContent = "O link expirou ou a senha não atende à política de segurança. Solicite uma nova recuperação.";
+    return;
+  }
+  await supabaseClient.from(dataTable("auth_security_events")).insert({
+    user_id: currentUserId,
+    event_type: "password_changed",
+    details: { method: "recovery", sessions_revoked: true }
+  });
+  await supabaseClient.auth.signOut({ scope: "global" });
+  button.disabled = false;
+  event.target.reset();
+  $("#password-recovery-dialog").close();
+  $("#login-message").textContent = "Senha atualizada. Entre novamente; as sessões anteriores foram encerradas.";
+});
+
 /**
  * Remove todo dado local do usuário no logout.
  *
@@ -503,6 +547,21 @@ async function initializeAuth() {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
 
+  supabaseClient.auth.onAuthStateChange((authEvent, session) => {
+    setTimeout(async () => {
+      if (authEvent === "PASSWORD_RECOVERY") {
+        currentUserId = session?.user?.id || null;
+        welcome.hidden = false;
+        dashboard.hidden = true;
+        $("#password-recovery-message").textContent = "";
+        $("#password-recovery-dialog").showModal();
+        $("#recovery-password").focus();
+        return;
+      }
+      await updateAuthScreen(session?.user || null);
+    }, 0);
+  });
+
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) $("#login-message").textContent = "Não foi possível verificar a sessão.";
   const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
@@ -516,9 +575,6 @@ async function initializeAuth() {
   }
   await updateAuthScreen(data?.session?.user || null);
 
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    setTimeout(() => updateAuthScreen(session?.user || null), 0);
-  });
 }
 
 function restoreRememberPreference() {

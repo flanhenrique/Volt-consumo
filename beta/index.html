@@ -44,6 +44,7 @@
         <label class="remember-option"><input id="privacy-ack" type="checkbox"><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a> (necessário somente para criar conta)</span></label>
         <button id="login-button" class="primary-button" type="submit">Entrar</button>
         <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
+        <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
       </form>
       <p id="login-message" class="note auth-note" role="status" aria-live="polite">Verificando sessão…</p>
     </section>
@@ -259,6 +260,19 @@
 
       <p class="note privacy-policy-link"><a href="./privacy.html" target="_blank" rel="noopener">Ler o Aviso de Privacidade completo</a></p>
     </div>
+  </dialog>
+  <dialog id="password-recovery-dialog" aria-labelledby="password-recovery-title">
+    <form id="password-recovery-form" class="dialog-card form">
+      <div class="section-heading">
+        <div><p class="eyebrow">SEGURANÇA</p><h2 id="password-recovery-title">Definir nova senha</h2></div>
+        <button id="close-password-recovery" class="icon-button" type="button" aria-label="Fechar">×</button>
+      </div>
+      <p class="note">Use pelo menos 8 caracteres. Uma senha longa e exclusiva é mais segura.</p>
+      <label><span>Nova senha</span><input id="recovery-password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label><span>Confirmar nova senha</span><input id="recovery-password-confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
+      <p id="password-recovery-message" class="note status-message" role="status" aria-live="polite"></p>
+      <button id="save-recovery-password" class="primary-button" type="submit">Atualizar senha</button>
+    </form>
   </dialog>
   <script src="./vendor/supabase/supabase.js" defer></script>
   <script src="./vendor/tesseract/tesseract.min.js" defer></script>

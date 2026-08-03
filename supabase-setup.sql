@@ -151,6 +151,24 @@ with check ((select auth.uid()) = user_id and status = 'requested');
 create index if not exists data_subject_requests_user_requested_idx
 on public.data_subject_requests (user_id, requested_at desc);
 
+-- PRD-002: trilha append-only de eventos de segurança visíveis ao titular.
+create table if not exists public.auth_security_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  event_type text not null check (event_type in ('password_changed', 'mfa_changed', 'sessions_revoked')),
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.auth_security_events enable row level security;
+grant select, insert on public.auth_security_events to authenticated;
+drop policy if exists "auth_security_events_select_own" on public.auth_security_events;
+create policy "auth_security_events_select_own" on public.auth_security_events
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "auth_security_events_insert_own" on public.auth_security_events;
+create policy "auth_security_events_insert_own" on public.auth_security_events
+for insert to authenticated with check ((select auth.uid()) = user_id);
+
 -- VOLT BETA: compartilha auth.users, mas mantém dados operacionais isolados.
 create table if not exists public.beta_meter_readings
 (like public.meter_readings including all);
@@ -164,6 +182,8 @@ create table if not exists public.beta_privacy_acceptances
 (like public.privacy_acceptances including all);
 create table if not exists public.beta_data_subject_requests
 (like public.data_subject_requests including all);
+create table if not exists public.beta_auth_security_events
+(like public.auth_security_events including all);
 
 do $$
 declare
@@ -171,7 +191,8 @@ declare
 begin
   foreach beta_table in array array[
     'beta_meter_readings', 'beta_water_readings', 'beta_user_settings',
-    'beta_water_settings', 'beta_privacy_acceptances', 'beta_data_subject_requests'
+    'beta_water_settings', 'beta_privacy_acceptances', 'beta_data_subject_requests',
+    'beta_auth_security_events'
   ] loop
     if not exists (
       select 1 from pg_constraint
@@ -193,10 +214,11 @@ alter table public.beta_user_settings enable row level security;
 alter table public.beta_water_settings enable row level security;
 alter table public.beta_privacy_acceptances enable row level security;
 alter table public.beta_data_subject_requests enable row level security;
+alter table public.beta_auth_security_events enable row level security;
 
 grant select, insert, update, delete on public.beta_meter_readings, public.beta_water_readings to authenticated;
 grant select, insert, update on public.beta_user_settings, public.beta_water_settings to authenticated;
-grant select, insert on public.beta_privacy_acceptances, public.beta_data_subject_requests to authenticated;
+grant select, insert on public.beta_privacy_acceptances, public.beta_data_subject_requests, public.beta_auth_security_events to authenticated;
 grant usage, select on sequence public.beta_meter_readings_id_seq, public.beta_water_readings_id_seq to authenticated;
 
 drop policy if exists "beta_meter_readings_select_own" on public.beta_meter_readings;
@@ -258,6 +280,13 @@ for select to authenticated using ((select auth.uid()) = user_id);
 drop policy if exists "beta_data_subject_requests_insert_own" on public.beta_data_subject_requests;
 create policy "beta_data_subject_requests_insert_own" on public.beta_data_subject_requests
 for insert to authenticated with check ((select auth.uid()) = user_id and status = 'requested');
+
+drop policy if exists "beta_auth_security_events_select_own" on public.beta_auth_security_events;
+create policy "beta_auth_security_events_select_own" on public.beta_auth_security_events
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "beta_auth_security_events_insert_own" on public.beta_auth_security_events;
+create policy "beta_auth_security_events_insert_own" on public.beta_auth_security_events
+for insert to authenticated with check ((select auth.uid()) = user_id);
 
 create index if not exists beta_meter_readings_user_id_idx
 on public.beta_meter_readings (user_id);

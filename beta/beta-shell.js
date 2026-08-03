@@ -26,6 +26,7 @@ function initializeBetaExperience() {
   removeLegacyDestructiveControls();
   bindNavigation(shell);
   bindReadingFlow(shell, energyDialog, waterDialog);
+  bindOrganizationContext(shell);
   bindAccount(shell);
   bindMfa(shell);
   bindOperationalHealth(shell);
@@ -57,6 +58,10 @@ function betaShellMarkup() {
       <div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA v3</span></p><h1 id="beta-greeting">Olá!</h1></div>
       <button id="beta-theme-shortcut" class="icon-button" type="button" aria-label="Alternar tema">☾</button>
     </header>
+    <section class="organization-context" aria-labelledby="beta-organization-context-label">
+      <label for="beta-organization-context"><span id="beta-organization-context-label">Organização ativa</span><select id="beta-organization-context" aria-describedby="beta-organization-context-status"></select></label>
+      <p id="beta-organization-context-status" class="note status-message" role="status" aria-live="polite"></p>
+    </section>
     <main class="beta-content" id="beta-content">
       <section class="beta-page active" id="beta-home" data-page="home" aria-labelledby="beta-home-title">
         <div class="cycle-heading"><div><p class="eyebrow">CICLO DE CONTAGEM</p><h2 id="beta-home-title">Ciclo atual</h2></div><span id="beta-cycle-label" class="cycle-chip">—</span></div>
@@ -180,6 +185,42 @@ function bindAccount(shell) {
     button.disabled = false;
     setText("#beta-account-status", result.message);
   });
+}
+
+function bindOrganizationContext(shell) {
+  const selector = shell.querySelector("#beta-organization-context");
+  selector.addEventListener("change", async () => {
+    const previous = api.getOrganizationSnapshot().activeOrganizationId;
+    selector.disabled = true;
+    setText("#beta-organization-context-status", "Validando acesso e limpando os dados do contexto anterior…");
+    const result = await api.switchOrganization(selector.value);
+    selector.disabled = false;
+    if (!result.ok) selector.value = previous || "";
+    setText("#beta-organization-context-status", result.message);
+    renderOrganizationContext();
+  });
+  Promise.resolve(api.refreshOrganizations()).then(renderOrganizationContext).catch(renderOrganizationContext);
+}
+
+function renderOrganizationContext() {
+  const snapshot = api.getOrganizationSnapshot();
+  const container = document.querySelector(".organization-context");
+  const selector = document.querySelector("#beta-organization-context");
+  if (!container || !selector) return;
+  container.hidden = !snapshot.available || snapshot.organizations.length === 0;
+  if (container.hidden) return;
+  const currentOptions = [...selector.options].map((option) => option.value).join(",");
+  const nextOptions = snapshot.organizations.map((organization) => organization.id).join(",");
+  if (currentOptions !== nextOptions) {
+    selector.replaceChildren(...snapshot.organizations.map((organization) => {
+      const option = document.createElement("option");
+      option.value = organization.id;
+      option.textContent = `${organization.name} · ${roleLabel(organization.role)}`;
+      return option;
+    }));
+  }
+  selector.value = snapshot.activeOrganizationId || "";
+  selector.disabled = snapshot.organizations.length < 2;
 }
 
 function bindMfa(shell) {
@@ -464,6 +505,7 @@ function renderBetaExperience() {
   renderReports(snapshot, energyCurrent, waterCurrent);
   renderBetaMfa();
   renderOperationalHealth();
+  renderOrganizationContext();
   renderAdministration();
 }
 

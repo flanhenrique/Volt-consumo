@@ -59,6 +59,7 @@ let scannerTarget = null;
 let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
+let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -623,6 +624,7 @@ async function updateAuthScreen(user) {
     settings = { ...DEFAULT_SETTINGS };
     waterSettings = { ...DEFAULT_WATER_SETTINGS };
     betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
+    betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
     mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
     return;
   }
@@ -730,11 +732,19 @@ async function loadUserData(userId) {
 
 function cacheUserData() {
   if (!currentUserId) return;
+  const cacheKey = userCacheKey(currentUserId);
   if (!offlineDataAllowed()) {
-    localStorage.removeItem(`${USER_DATA_PREFIX}${currentUserId}`);
+    localStorage.removeItem(cacheKey);
     return;
   }
-  localStorage.setItem(`${USER_DATA_PREFIX}${currentUserId}`, JSON.stringify({ readings, settings, waterReadings, waterSettings }));
+  localStorage.setItem(cacheKey, JSON.stringify({ readings, settings, waterReadings, waterSettings }));
+}
+
+function userCacheKey(userId) {
+  const organizationSuffix = APP_ENVIRONMENT.id === "beta"
+    ? `-${betaOrganizationSnapshot.activeOrganizationId || "no-context"}`
+    : "";
+  return `${USER_DATA_PREFIX}${userId}${organizationSuffix}`;
 }
 
 function offlineDataAllowed() {
@@ -742,9 +752,8 @@ function offlineDataAllowed() {
 }
 
 function removeAllUserCaches(userId) {
-  if (userId) localStorage.removeItem(`${USER_DATA_PREFIX}${userId}`);
   for (const key of Object.keys(localStorage)) {
-    if (key.startsWith(USER_DATA_PREFIX)) localStorage.removeItem(key);
+    if (key.startsWith(USER_DATA_PREFIX) && (!userId || key.startsWith(`${USER_DATA_PREFIX}${userId}`))) localStorage.removeItem(key);
   }
 }
 
@@ -798,6 +807,7 @@ function exposeBetaApi() {
     exportData: exportCurrentUserData,
     getSnapshot: getBetaSnapshot,
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
+    getOrganizationSnapshot: () => structuredClone(betaOrganizationSnapshot),
     getMfaSnapshot: () => structuredClone(mfaSnapshot),
     getOperationalHealth: () => structuredClone(operationalHealth),
     enableMfa: startMfaEnrollment,
@@ -805,9 +815,11 @@ function exposeBetaApi() {
     inviteMember: inviteBetaMember,
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
+    refreshOrganizations: refreshBetaOrganizationContext,
     refreshMfa,
     checkOperationalHealth,
     resetApplication: resetBetaApplication,
+    switchOrganization: switchBetaOrganization,
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
     updateMember: updateBetaMember,
@@ -1009,6 +1021,7 @@ async function refreshBetaAdmin() {
     notifyBetaDataUpdate();
     return betaAdminSnapshot;
   }
+  await refreshBetaOrganizationContext();
   if (!isConsoleOwner || mfaSnapshot.currentLevel !== "aal2") {
     betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
     notifyBetaDataUpdate();
@@ -1022,6 +1035,48 @@ async function refreshBetaAdmin() {
   }
   notifyBetaDataUpdate();
   return betaAdminSnapshot;
+}
+
+async function refreshBetaOrganizationContext() {
+  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaOrganizationSnapshot;
+  const { data, error } = await supabaseClient.rpc("beta_organization_context");
+  if (error || !data) {
+    betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "Contexto de organização indisponível." };
+  } else {
+    betaOrganizationSnapshot = {
+      available: true,
+      activeOrganizationId: data.active_organization_id || null,
+      organizations: Array.isArray(data.organizations) ? data.organizations : [],
+      message: ""
+    };
+  }
+  notifyBetaDataUpdate();
+  return betaOrganizationSnapshot;
+}
+
+async function switchBetaOrganization(organizationId) {
+  if (!currentUserId || !supabaseClient?.rpc) return { ok: false, message: "Entre novamente para trocar de organização." };
+  if (!betaOrganizationSnapshot.organizations.some((organization) => organization.id === organizationId)) {
+    return { ok: false, message: "Organização não autorizada." };
+  }
+  readings = [];
+  waterReadings = [];
+  settings = { ...DEFAULT_SETTINGS };
+  waterSettings = { ...DEFAULT_WATER_SETTINGS };
+  removeAllUserCaches(currentUserId);
+  notifyBetaDataUpdate();
+  const { error } = await supabaseClient.rpc("beta_switch_organization", { p_organization_id: organizationId });
+  if (error) {
+    await refreshBetaOrganizationContext();
+    await loadUserData(currentUserId);
+    render();
+    return { ok: false, message: "A troca foi recusada pelo servidor. O contexto anterior foi restaurado." };
+  }
+  await refreshBetaOrganizationContext();
+  await loadUserData(currentUserId);
+  await refreshBetaAdmin();
+  render();
+  return { ok: true, message: "Organização alterada com segurança." };
 }
 
 async function inviteBetaMember({ email, role }) {
@@ -1297,7 +1352,7 @@ function renderEngineSettings() {
 
 function loadUserCache(userId) {
   try {
-    const cached = JSON.parse(localStorage.getItem(`${USER_DATA_PREFIX}${userId}`) || "{}");
+    const cached = JSON.parse(localStorage.getItem(userCacheKey(userId)) || "{}");
     return {
       readings: Array.isArray(cached.readings) ? cached.readings : [],
       settings: { ...DEFAULT_SETTINGS, ...(cached.settings || {}) },

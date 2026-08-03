@@ -430,6 +430,10 @@ alter table public.beta_meter_readings alter column organization_id set not null
 alter table public.beta_water_readings alter column organization_id set not null;
 alter table public.beta_user_settings alter column organization_id set not null;
 alter table public.beta_water_settings alter column organization_id set not null;
+alter table public.beta_meter_readings force row level security;
+alter table public.beta_water_readings force row level security;
+alter table public.beta_user_settings force row level security;
+alter table public.beta_water_settings force row level security;
 
 create index if not exists beta_meter_readings_organization_idx on public.beta_meter_readings (organization_id, measured_at desc);
 create index if not exists beta_water_readings_organization_idx on public.beta_water_readings (organization_id, measured_at desc);
@@ -491,6 +495,49 @@ end $$;
 revoke all on function public.beta_current_organization(), public.beta_current_role(), public.beta_assign_organization() from public, anon;
 grant execute on function public.beta_current_organization(), public.beta_current_role() to authenticated;
 
+create or replace function public.beta_organization_context()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'active_organization_id', public.beta_current_organization(),
+    'organizations', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', o.id,
+        'name', o.name,
+        'status', o.status,
+        'role', m.role
+      ) order by o.name, o.id)
+      from public.beta_memberships m
+      join public.beta_organizations o on o.id = m.organization_id
+      where m.user_id = auth.uid() and m.status = 'active' and o.status = 'active'
+    ), '[]'::jsonb)
+  )
+$$;
+
+create or replace function public.beta_switch_organization(p_organization_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  membership public.beta_memberships;
+  organization public.beta_organizations;
+begin
+  if caller is null then raise exception 'authentication_required'; end if;
+  select * into membership from public.beta_memberships
+  where user_id = caller and organization_id = p_organization_id and status = 'active';
+  if not found then raise exception 'membership_required'; end if;
+  select * into organization from public.beta_organizations where id = p_organization_id and status = 'active';
+  if not found then raise exception 'tenant_inactive'; end if;
+
+  insert into public.beta_user_context (user_id, organization_id)
+  values (caller, p_organization_id)
+  on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
+  values (p_organization_id, caller, 'context.changed', p_organization_id, 'Troca explícita de organização', jsonb_build_object('role', membership.role));
+  return jsonb_build_object('organization_id', organization.id, 'name', organization.name, 'role', membership.role);
+end $$;
+
+revoke all on function public.beta_organization_context(), public.beta_switch_organization(uuid) from public, anon;
+grant execute on function public.beta_organization_context(), public.beta_switch_organization(uuid) to authenticated;
+
 create or replace function public.beta_admin_bootstrap(p_organization_name text, p_display_name text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -501,7 +548,14 @@ declare
   organization_id uuid;
 begin
   if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
-  select * into existing from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
+  select m.* into existing
+  from public.beta_user_context c
+  join public.beta_memberships m on m.user_id = c.user_id and m.organization_id = c.organization_id
+  join public.beta_organizations o on o.id = c.organization_id
+  where c.user_id = caller and m.status = 'active' and o.status = 'active';
+  if not found then
+    select * into existing from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
+  end if;
   if found then
     update public.beta_memberships
     set email = caller_email, display_name = left(trim(p_display_name), 80), updated_at = now()

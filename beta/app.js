@@ -29,6 +29,8 @@ const BETA_INVITATION_TOKEN = APP_ENVIRONMENT.id === "beta"
   ? new URLSearchParams(location.search).get("invite")?.trim().toLowerCase() || ""
   : "";
 const SESSION_CORRELATION_ID = crypto.randomUUID();
+const SESSION_TRACE_ID = randomHex(16);
+const ROOT_SPAN_ID = randomHex(8);
 const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
 const DEFAULT_WATER_SETTINGS = { rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 };
 const FLAGS = {
@@ -65,7 +67,7 @@ let betaAdminSnapshot = { available: false, authorized: false, organization: nul
 let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
 let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
 let betaFeatureFlagsSnapshot = { available: false, canManage: false, flags: [], refreshedAt: null, message: "" };
-let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], generatedAt: null, message: "" };
+let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], recentSpans: [], generatedAt: null, message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -572,7 +574,8 @@ async function initializeAuth() {
   }
 
   supabaseClient = window.supabase.createClient(config.url, config.publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    global: { fetch: tracedFetch }
   });
 
   supabaseClient.auth.onAuthStateChange((authEvent, session) => {
@@ -856,6 +859,9 @@ async function recordOperationalEvent(eventType, severity, component, details = 
     await supabaseClient.from(dataTable("operational_events")).insert({
       user_id: currentUserId,
       correlation_id: SESSION_CORRELATION_ID,
+      trace_id: SESSION_TRACE_ID,
+      span_id: randomHex(8),
+      parent_span_id: ROOT_SPAN_ID,
       event_type: eventType,
       severity,
       component,
@@ -865,6 +871,18 @@ async function recordOperationalEvent(eventType, severity, component, details = 
   } catch {
     // Telemetria nunca interrompe o fluxo principal.
   }
+}
+
+function tracedFetch(input, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set("traceparent", `00-${SESSION_TRACE_ID}-${randomHex(8)}-01`);
+  headers.set("x-request-id", SESSION_CORRELATION_ID);
+  return fetch(input, { ...init, headers });
+}
+
+function randomHex(byteLength) {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function checkOperationalHealth() {
@@ -1232,6 +1250,7 @@ async function refreshBetaOperationalMetrics() {
       latencyP50Ms: Number(data.latency_p50_ms || 0),
       latencyP95Ms: Number(data.latency_p95_ms || 0),
       components: Array.isArray(data.components) ? data.components : [],
+      recentSpans: Array.isArray(data.recent_spans) ? data.recent_spans : [],
       generatedAt: data.generated_at || new Date().toISOString(),
       message: ""
     };

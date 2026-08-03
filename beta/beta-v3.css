@@ -816,6 +816,10 @@ html[data-environment="beta"] .operational-metric-grid strong { margin-top: 4px;
 html[data-environment="beta"] .operational-component-list { display: grid; gap: var(--lm-space-1); margin-top: var(--lm-space-3); }
 html[data-environment="beta"] .operational-component-list > div { display: flex; justify-content: space-between; gap: var(--lm-space-3); padding-block: var(--lm-space-2); border-bottom: 1px solid var(--lm-glass-border); }
 html[data-environment="beta"] .inline-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--lm-space-2); }
+html[data-environment="beta"] .trace-timeline { margin-top: var(--lm-space-3); }
+html[data-environment="beta"] .trace-list { display: grid; gap: var(--lm-space-2); margin-top: var(--lm-space-2); }
+html[data-environment="beta"] .trace-list article { display: grid; gap: 4px; padding: var(--lm-space-3); border: 1px solid var(--lm-glass-border); border-radius: var(--lm-radius-sm); }
+html[data-environment="beta"] .trace-list code { overflow-wrap: anywhere; color: var(--lm-ink-muted); font-size: var(--lm-text-xs); }
 
 @media (max-width: 640px) {
   html[data-environment="beta"] .admin-summary-card { grid-template-columns: 1fr; }

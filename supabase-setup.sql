@@ -181,6 +181,9 @@ create table if not exists public.operational_events (
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+alter table public.operational_events add column if not exists trace_id text check (trace_id is null or trace_id ~ '^[0-9a-f]{32}$');
+alter table public.operational_events add column if not exists span_id text check (span_id is null or span_id ~ '^[0-9a-f]{16}$');
+alter table public.operational_events add column if not exists parent_span_id text check (parent_span_id is null or parent_span_id ~ '^[0-9a-f]{16}$');
 alter table public.operational_events enable row level security;
 grant insert on public.operational_events to authenticated;
 grant usage, select on sequence public.operational_events_id_seq to authenticated;
@@ -205,6 +208,9 @@ create table if not exists public.beta_auth_security_events
 (like public.auth_security_events including all);
 create table if not exists public.beta_operational_events
 (like public.operational_events including all);
+alter table public.beta_operational_events add column if not exists trace_id text check (trace_id is null or trace_id ~ '^[0-9a-f]{32}$');
+alter table public.beta_operational_events add column if not exists span_id text check (span_id is null or span_id ~ '^[0-9a-f]{16}$');
+alter table public.beta_operational_events add column if not exists parent_span_id text check (parent_span_id is null or parent_span_id ~ '^[0-9a-f]{16}$');
 
 do $$
 declare
@@ -918,7 +924,7 @@ begin
   if not found then raise exception 'permission_denied'; end if;
   return (
     with scoped as (
-      select event_type, severity, component, duration_ms, created_at
+      select event_type, severity, component, duration_ms, trace_id, span_id, parent_span_id, created_at
       from public.beta_operational_events
       where created_at >= now() - interval '24 hours'
     ), totals as (
@@ -940,6 +946,19 @@ begin
       'latency_p50_ms', totals.latency_p50_ms,
       'latency_p95_ms', totals.latency_p95_ms,
       'last_event_at', totals.last_event_at,
+      'recent_spans', (
+        select coalesce(jsonb_agg(jsonb_build_object(
+          'trace_id', trace_id,
+          'span_id', span_id,
+          'parent_span_id', parent_span_id,
+          'operation', event_type,
+          'component', component,
+          'severity', severity,
+          'duration_ms', duration_ms,
+          'created_at', created_at
+        ) order by created_at desc), '[]'::jsonb)
+        from (select * from scoped where trace_id is not null and span_id is not null order by created_at desc limit 20) spans
+      ),
       'components', (
         select coalesce(jsonb_agg(jsonb_build_object('component', component, 'events', events, 'errors', errors) order by errors desc, events desc, component), '[]'::jsonb)
         from (

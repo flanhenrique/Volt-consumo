@@ -113,9 +113,25 @@ function updateReadingFab(meter) {
 
 $("#mfa-enable").addEventListener("click", startMfaEnrollment);
 $("#mfa-disable").addEventListener("click", disableMfa);
+$("#mfa-backup-regenerate").addEventListener("click", generateMfaBackupCodes);
 $("#close-mfa-enrollment").addEventListener("click", cancelMfaEnrollment);
 $("#mfa-enrollment-form").addEventListener("submit", verifyMfaEnrollment);
 $("#mfa-challenge-form").addEventListener("submit", verifyMfaChallenge);
+$("#show-mfa-backup-recovery").addEventListener("click", () => {
+  $("#mfa-backup-recovery-panel").hidden = false;
+  $("#mfa-backup-code").required = true;
+  $("#mfa-backup-code").focus();
+});
+$("#recover-mfa-backup").addEventListener("click", recoverMfaWithBackupCode);
+$("#mfa-backup-confirmation").addEventListener("change", (event) => {
+  $("#close-mfa-backup-codes").disabled = !event.target.checked;
+});
+$("#close-mfa-backup-codes").addEventListener("click", () => {
+  $("#mfa-backup-codes").textContent = "";
+  $("#mfa-backup-confirmation").checked = false;
+  $("#close-mfa-backup-codes").disabled = true;
+  $("#mfa-backup-codes-dialog").close();
+});
 $("#cancel-mfa-challenge").addEventListener("click", async () => {
   $("#mfa-challenge-dialog").close();
   await supabaseClient?.auth.signOut({ scope: "local" });
@@ -1026,7 +1042,69 @@ function renderMfaStatus() {
       : "Autenticador ainda não configurado.";
   $("#mfa-enable").hidden = mfaSnapshot.enrolled;
   $("#mfa-disable").hidden = !mfaSnapshot.enrolled;
+  $("#mfa-backup-regenerate").hidden = APP_ENVIRONMENT.id !== "beta" || !mfaSnapshot.enrolled || mfaSnapshot.currentLevel !== "aal2";
   notifyBetaDataUpdate();
+}
+
+async function callMfaBackupEndpoint(route, body) {
+  if (APP_ENVIRONMENT.id !== "beta" || !supabaseClient) return null;
+  const { data } = await supabaseClient.auth.getSession();
+  const accessToken = data?.session?.access_token || "";
+  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
+  if (!accessToken || !config.url) return null;
+  return tracedFetch(`${config.url}/functions/v1/auth-login/${route}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify(body)
+  }).catch(() => null);
+}
+
+async function generateMfaBackupCodes() {
+  if (mfaSnapshot.currentLevel !== "aal2") {
+    $("#mfa-status").textContent = "Confirme o código do autenticador antes de gerar novos códigos de backup.";
+    await enforceMfaForSession();
+    return { ok: false, message: "Reautenticação necessária." };
+  }
+  const button = $("#mfa-backup-regenerate");
+  button.disabled = true;
+  const response = await callMfaBackupEndpoint("mfa-backup-codes", {});
+  button.disabled = false;
+  let payload = null;
+  try { payload = response?.ok ? await response.json() : null; } catch { payload = null; }
+  if (!payload?.one_time_display || payload.backup_codes?.length !== 10) {
+    $("#mfa-status").textContent = "O autenticador está ativo, mas não foi possível gerar os códigos de backup. Tente novamente nesta sessão AAL2.";
+    return { ok: false, message: "Falha ao gerar códigos de backup." };
+  }
+  $("#mfa-backup-codes").textContent = payload.backup_codes.join("\n");
+  $("#mfa-backup-confirmation").checked = false;
+  $("#close-mfa-backup-codes").disabled = true;
+  $("#mfa-backup-codes-dialog").showModal();
+  return { ok: true, message: "Códigos de backup gerados." };
+}
+
+async function recoverMfaWithBackupCode() {
+  const input = $("#mfa-backup-code");
+  if (!input.reportValidity()) return { ok: false, message: "Código inválido." };
+  const button = $("#recover-mfa-backup");
+  const message = $("#mfa-challenge-message");
+  button.disabled = true;
+  const response = await callMfaBackupEndpoint("mfa-backup-recovery", { code: input.value.trim() });
+  button.disabled = false;
+  let payload = null;
+  try { payload = await response?.json(); } catch { payload = null; }
+  if (!response?.ok || !payload?.recovered) {
+    message.textContent = response?.status === 429
+      ? "Muitas tentativas inválidas. Aguarde 15 minutos e tente novamente."
+      : "Código de backup inválido ou já utilizado.";
+    return { ok: false, message: message.textContent };
+  }
+  input.value = "";
+  input.required = false;
+  $("#mfa-backup-recovery-panel").hidden = true;
+  $("#mfa-challenge-dialog").close();
+  await supabaseClient.auth.signOut({ scope: "local" });
+  $("#login-message").textContent = "Acesso recuperado. Entre novamente e cadastre um novo autenticador; todas as sessões anteriores foram encerradas.";
+  return { ok: true, message: "Acesso recuperado." };
 }
 
 async function startMfaEnrollment() {
@@ -1073,6 +1151,7 @@ async function verifyMfaEnrollment(event) {
   $("#mfa-enrollment-dialog").close();
   await refreshMfa();
   renderMfaStatus();
+  if (APP_ENVIRONMENT.id === "beta") await generateMfaBackupCodes();
   await refreshBetaAdmin();
   await refreshBetaData();
 }

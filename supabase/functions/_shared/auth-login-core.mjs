@@ -11,7 +11,7 @@ const COOKIE_NAMES = Object.freeze({
   refresh: "__Host-volt_refresh",
   csrf: "__Host-volt_csrf"
 });
-const ROUTES = new Set(["login", "session", "refresh", "logout", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset"]);
+const ROUTES = new Set(["login", "session", "refresh", "logout", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset", "mfa-backup-codes", "mfa-backup-recovery"]);
 const COMMON_PASSWORDS = new Set([
   "123456789012", "123456789123", "abcdefghijkl", "administrator", "iloveyou1234",
   "letmein123456", "password1234", "qwerty123456", "senha1234567", "volt12345678"
@@ -152,6 +152,21 @@ async function providerFetch(fetchFn, url, init, timeoutMs) {
   }
 }
 
+async function sha256Hex(value) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function jwtClaims(token) {
+  try {
+    const payload = token.split(".")[1];
+    const normalized = payload.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    return JSON.parse(atob(normalized));
+  } catch {
+    return null;
+  }
+}
+
 export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000, maxBodyBytes = 4096 } = {}) {
   return async function authLoginHandler(request) {
     const requestId = safeRequestId(request);
@@ -169,7 +184,7 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
     if ((route === "session" && request.method !== "GET") || (route !== "session" && request.method !== "POST")) {
       return json(405, { code: "method_not_allowed", request_id: requestId }, requestId, cors);
     }
-    if (["login", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset"].includes(route)
+    if (["login", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset", "mfa-backup-codes", "mfa-backup-recovery"].includes(route)
       && (request.headers.get("content-type") || "").split(";", 1)[0].trim() !== "application/json") {
       return json(415, { code: "unsupported_media_type", request_id: requestId }, requestId, cors);
     }
@@ -181,6 +196,77 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
       if (!baseUrl.startsWith("https://") || !publicKey) throw new Error("invalid_configuration");
     } catch {
       return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+    }
+
+    if (["mfa-backup-codes", "mfa-backup-recovery"].includes(route)) {
+      let body;
+      try { body = await readJson(request, maxBodyBytes); } catch {
+        return json(400, { code: "invalid_request", request_id: requestId }, requestId, cors);
+      }
+      const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const bearer = request.headers.get("authorization") || "";
+      const accessToken = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
+      if (!serviceKey || accessToken.length < 20) return json(401, { code: "authentication_required", request_id: requestId }, requestId, cors);
+      const userResponse = await providerFetch(fetchFn, `${baseUrl}/auth/v1/user`, {
+        method: "GET", headers: { apikey: publicKey, authorization: `Bearer ${accessToken}`, "x-request-id": requestId }
+      }, timeoutMs);
+      let user;
+      try { user = userResponse?.ok ? await userResponse.json() : null; } catch { user = null; }
+      const claims = jwtClaims(accessToken);
+      if (!user?.id || claims?.sub !== user.id) return json(401, { code: "authentication_required", request_id: requestId }, requestId, cors);
+      const rpc = async (name, payload) => providerFetch(fetchFn, `${baseUrl}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, "content-type": "application/json", "x-request-id": requestId },
+        body: JSON.stringify(payload)
+      }, timeoutMs);
+
+      if (route === "mfa-backup-codes") {
+        if (claims.aal !== "aal2") return json(403, { code: "reauthentication_required", request_id: requestId }, requestId, cors);
+        const codes = new Set();
+        while (codes.size < 10) {
+          const raw = crypto.getRandomValues(new Uint8Array(8));
+          const hex = [...raw].map((byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+          codes.add(hex.match(/.{4}/g).join("-"));
+        }
+        const displayedCodes = [...codes];
+        const hashes = await Promise.all(displayedCodes.map((code) => sha256Hex(code.replaceAll("-", ""))));
+        const stored = await rpc("beta_mfa_backup_replace", { p_user_id: user.id, p_code_hashes: hashes });
+        if (!stored?.ok) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+        return json(201, { backup_codes: displayedCodes, count: 10, one_time_display: true, request_id: requestId }, requestId, cors);
+      }
+
+      const normalizedCode = typeof body.code === "string" ? body.code.trim().toUpperCase().replaceAll("-", "") : "";
+      if (!/^[0-9A-F]{16}$/.test(normalizedCode)) return json(400, { code: "invalid_backup_code", request_id: requestId }, requestId, cors);
+      const consumed = await rpc("beta_mfa_backup_consume", { p_user_id: user.id, p_code_hash: await sha256Hex(normalizedCode) });
+      let result;
+      try { result = consumed?.ok ? await consumed.json() : null; } catch { result = null; }
+      if (!result) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      if (!result.accepted) {
+        return json(result.blocked ? 429 : 400, {
+          code: result.blocked ? "mfa_temporarily_blocked" : "invalid_backup_code",
+          attempts_remaining: result.attempts_remaining,
+          retry_after_seconds: result.retry_after_seconds,
+          request_id: requestId
+        }, requestId, cors);
+      }
+
+      const adminUser = await providerFetch(fetchFn, `${baseUrl}/auth/v1/admin/users/${encodeURIComponent(user.id)}`, {
+        method: "GET", headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, "x-request-id": requestId }
+      }, timeoutMs);
+      let adminPayload;
+      try { adminPayload = adminUser?.ok ? await adminUser.json() : null; } catch { adminPayload = null; }
+      if (!adminPayload) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      for (const factor of (adminPayload.factors || []).filter((item) => item?.id)) {
+        const removed = await providerFetch(fetchFn, `${baseUrl}/auth/v1/admin/users/${encodeURIComponent(user.id)}/factors/${encodeURIComponent(factor.id)}`, {
+          method: "DELETE", headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, "x-request-id": requestId }
+        }, timeoutMs);
+        if (!removed?.ok) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      }
+      const revoked = await providerFetch(fetchFn, `${baseUrl}/auth/v1/logout?scope=global`, {
+        method: "POST", headers: { apikey: publicKey, authorization: `Bearer ${accessToken}`, "x-request-id": requestId }
+      }, timeoutMs);
+      if (!revoked?.ok) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      return json(200, { recovered: true, factors_removed: (adminPayload.factors || []).length, sessions_revoked: true, next: "login", request_id: requestId }, requestId, cors);
     }
 
     if (["password-recoveries", "password-reset"].includes(route)) {

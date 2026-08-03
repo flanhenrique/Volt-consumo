@@ -231,7 +231,7 @@
       <section class="privacy-section" aria-labelledby="mfa-title">
         <h3 id="mfa-title">Autenticação em duas etapas</h3>
         <p id="mfa-status" class="note status-message">Verificando proteção da conta…</p>
-        <div class="dialog-actions"><button id="mfa-enable" class="secondary-button" type="button">Ativar autenticador</button><button id="mfa-disable" class="danger-button" type="button" hidden>Desativar autenticador</button></div>
+        <div class="dialog-actions"><button id="mfa-enable" class="secondary-button" type="button">Ativar autenticador</button><button id="mfa-backup-regenerate" class="secondary-button" type="button" hidden>Gerar novos códigos de backup</button><button id="mfa-disable" class="danger-button" type="button" hidden>Desativar autenticador</button></div>
       </section>
 
       <section class="privacy-section" aria-labelledby="device-data-title">
@@ -298,7 +298,22 @@
       <label><span>Código de 6 dígitos</span><input id="mfa-challenge-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
       <p id="mfa-challenge-message" class="note status-message" role="status" aria-live="polite"></p>
       <div class="dialog-actions"><button id="cancel-mfa-challenge" class="secondary-button" type="button">Cancelar e sair</button><button class="primary-button" type="submit">Verificar</button></div>
+      <button id="show-mfa-backup-recovery" class="text-button" type="button">Usar um código de backup</button>
+      <section id="mfa-backup-recovery-panel" class="mfa-backup-panel" hidden>
+        <label><span>Código de backup</span><input id="mfa-backup-code" type="text" inputmode="text" autocomplete="one-time-code" spellcheck="false" pattern="[0-9A-Fa-f]{4}(?:-[0-9A-Fa-f]{4}){3}" maxlength="19"></label>
+        <p class="note">A recuperação remove os fatores MFA e encerra todas as sessões. Depois, entre novamente e cadastre um novo autenticador.</p>
+        <button id="recover-mfa-backup" class="danger-button" type="button">Recuperar acesso</button>
+      </section>
     </form>
+  </dialog>
+  <dialog id="mfa-backup-codes-dialog" aria-labelledby="mfa-backup-codes-title">
+    <div class="dialog-card form">
+      <div class="section-heading"><div><p class="eyebrow">SEGURANÇA</p><h2 id="mfa-backup-codes-title">Códigos de backup</h2></div></div>
+      <p class="note">Guarde estes códigos em local seguro. Cada código funciona uma única vez e esta lista não será exibida novamente.</p>
+      <pre id="mfa-backup-codes" class="mfa-backup-codes" aria-label="Dez códigos de backup"></pre>
+      <label class="remember-option"><input id="mfa-backup-confirmation" type="checkbox"><span>Salvei os códigos em um local seguro</span></label>
+      <button id="close-mfa-backup-codes" class="primary-button" type="button" disabled>Concluir</button>
+    </div>
   </dialog>
   <script src="./vendor/supabase/supabase.js" defer></script>
   <script src="./vendor/tesseract/tesseract.min.js" defer></script>

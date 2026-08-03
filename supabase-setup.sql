@@ -354,6 +354,20 @@ create table if not exists public.beta_invitations (
   created_at timestamptz not null default now()
 );
 
+alter table public.beta_invitations add column if not exists token_hash text;
+alter table public.beta_invitations add column if not exists consumed_at timestamptz;
+alter table public.beta_invitations add column if not exists declined_at timestamptz;
+alter table public.beta_invitations drop constraint if exists beta_invitations_status_check;
+alter table public.beta_invitations add constraint beta_invitations_status_check
+check (status in ('pending', 'accepted', 'declined', 'revoked', 'expired'));
+update public.beta_invitations set status = 'revoked'
+where status = 'pending' and token_hash is null;
+alter table public.beta_invitations drop constraint if exists beta_invitations_pending_token_check;
+alter table public.beta_invitations add constraint beta_invitations_pending_token_check
+check (status <> 'pending' or token_hash is not null);
+create unique index if not exists beta_invitations_token_hash_idx
+on public.beta_invitations (token_hash) where token_hash is not null;
+
 create table if not exists public.beta_admin_audit (
   id bigint generated always as identity primary key,
   organization_id uuid not null references public.beta_organizations(id),
@@ -544,7 +558,6 @@ declare
   caller uuid := auth.uid();
   caller_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
   existing public.beta_memberships;
-  invitation public.beta_invitations;
   organization_id uuid;
 begin
   if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
@@ -564,22 +577,6 @@ begin
     values (caller, existing.organization_id)
     on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
     return jsonb_build_object('membership_id', existing.id, 'organization_id', existing.organization_id);
-  end if;
-
-  select * into invitation from public.beta_invitations
-  where lower(email) = caller_email and status = 'pending' and expires_at > now()
-  order by created_at limit 1 for update;
-  if found then
-    insert into public.beta_memberships (organization_id, user_id, email, display_name, role)
-    values (invitation.organization_id, caller, caller_email, left(trim(p_display_name), 80), invitation.role)
-    returning id into existing.id;
-    update public.beta_invitations set status = 'accepted' where id = invitation.id;
-    insert into public.beta_user_context (user_id, organization_id)
-    values (caller, invitation.organization_id)
-    on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
-    insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
-    values (invitation.organization_id, caller, 'invitation.accepted', existing.id, 'Aceite pelo usuário autenticado');
-    return jsonb_build_object('membership_id', existing.id, 'organization_id', invitation.organization_id);
   end if;
 
   if caller_email <> 'flanhenriquee@icloud.com' then raise exception 'permission_denied'; end if;
@@ -626,9 +623,15 @@ begin
   );
 end $$;
 
-create or replace function public.beta_admin_invite_member(p_email text, p_role text)
-returns uuid language plpgsql security definer set search_path = '' as $$
-declare actor public.beta_memberships; invitation_id uuid; normalized_email text := lower(trim(p_email));
+drop function if exists public.beta_admin_invite_member(text, text);
+create function public.beta_admin_invite_member(p_email text, p_role text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  actor public.beta_memberships;
+  invitation_id uuid;
+  normalized_email text := lower(trim(p_email));
+  invitation_token text := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+  invitation_hash text := encode(sha256(convert_to(invitation_token, 'UTF8')), 'hex');
 begin
   if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
      or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
@@ -639,11 +642,94 @@ begin
   if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid_email'; end if;
   if p_role not in ('admin', 'member', 'viewer') then raise exception 'invalid_role'; end if;
   update public.beta_invitations set status = 'revoked' where organization_id = actor.organization_id and lower(email) = normalized_email and status = 'pending';
-  insert into public.beta_invitations (organization_id, email, role, invited_by, expires_at)
-  values (actor.organization_id, normalized_email, p_role, auth.uid(), now() + interval '48 hours') returning id into invitation_id;
+  if exists (
+    select 1 from public.beta_memberships
+    where organization_id = actor.organization_id and lower(email) = normalized_email and status = 'active'
+  ) then raise exception 'membership_exists'; end if;
+  insert into public.beta_invitations (organization_id, email, role, invited_by, expires_at, token_hash)
+  values (actor.organization_id, normalized_email, p_role, auth.uid(), now() + interval '48 hours', invitation_hash) returning id into invitation_id;
   insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
   values (actor.organization_id, auth.uid(), 'member.invited', invitation_id, 'Convite administrativo', jsonb_build_object('role', p_role));
-  return invitation_id;
+  return jsonb_build_object('invitation_id', invitation_id, 'token', invitation_token, 'expires_at', now() + interval '48 hours');
+end $$;
+
+create or replace function public.beta_invitation_preview(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  caller_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  invitation public.beta_invitations;
+  organization public.beta_organizations;
+  supplied_hash text;
+begin
+  if auth.uid() is null or caller_email = '' then raise exception 'authentication_required'; end if;
+  if p_token !~ '^[a-f0-9]{64}$' then raise exception 'invalid_invitation'; end if;
+  supplied_hash := encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+  select * into invitation from public.beta_invitations where token_hash = supplied_hash;
+  if not found or invitation.status <> 'pending' or lower(invitation.email) <> caller_email then raise exception 'invalid_invitation'; end if;
+  if invitation.expires_at <= now() then
+    update public.beta_invitations set status = 'expired' where id = invitation.id and status = 'pending';
+    raise exception 'invite_expired';
+  end if;
+  select * into organization from public.beta_organizations where id = invitation.organization_id and status = 'active';
+  if not found then raise exception 'tenant_inactive'; end if;
+  return jsonb_build_object(
+    'invitation_id', invitation.id,
+    'organization', jsonb_build_object('id', organization.id, 'name', organization.name),
+    'role', invitation.role,
+    'expires_at', invitation.expires_at
+  );
+end $$;
+
+create or replace function public.beta_accept_invitation(p_token text, p_display_name text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  caller_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  invitation public.beta_invitations;
+  membership_id uuid;
+  supplied_hash text;
+begin
+  if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
+  if p_token !~ '^[a-f0-9]{64}$' then raise exception 'invalid_invitation'; end if;
+  supplied_hash := encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+  select * into invitation from public.beta_invitations where token_hash = supplied_hash for update;
+  if not found or invitation.status <> 'pending' or lower(invitation.email) <> caller_email then raise exception 'invalid_invitation'; end if;
+  if invitation.expires_at <= now() then
+    update public.beta_invitations set status = 'expired' where id = invitation.id;
+    raise exception 'invite_expired';
+  end if;
+  if not exists (select 1 from public.beta_organizations where id = invitation.organization_id and status = 'active') then raise exception 'tenant_inactive'; end if;
+
+  insert into public.beta_memberships (organization_id, user_id, email, display_name, role, status)
+  values (invitation.organization_id, caller, caller_email, left(trim(p_display_name), 80), invitation.role, 'active')
+  on conflict (organization_id, user_id) do update
+  set email = excluded.email, display_name = excluded.display_name, role = excluded.role, status = 'active', updated_at = now()
+  returning id into membership_id;
+  update public.beta_invitations set status = 'accepted', consumed_at = now() where id = invitation.id;
+  insert into public.beta_user_context (user_id, organization_id)
+  values (caller, invitation.organization_id)
+  on conflict (user_id) do update set organization_id = excluded.organization_id, updated_at = now();
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
+  values (invitation.organization_id, caller, 'invitation.accepted', membership_id, 'Aceite explícito com token de uso único');
+  return jsonb_build_object('membership_id', membership_id, 'organization_id', invitation.organization_id);
+end $$;
+
+create or replace function public.beta_decline_invitation(p_token text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  caller_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  invitation public.beta_invitations;
+  supplied_hash text;
+begin
+  if caller is null or caller_email = '' then raise exception 'authentication_required'; end if;
+  if p_token !~ '^[a-f0-9]{64}$' then raise exception 'invalid_invitation'; end if;
+  supplied_hash := encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+  select * into invitation from public.beta_invitations where token_hash = supplied_hash for update;
+  if not found or invitation.status <> 'pending' or lower(invitation.email) <> caller_email then raise exception 'invalid_invitation'; end if;
+  update public.beta_invitations set status = 'declined', declined_at = now() where id = invitation.id;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason)
+  values (invitation.organization_id, caller, 'invitation.declined', invitation.id, 'Recusa explícita pelo destinatário autenticado');
 end $$;
 
 create or replace function public.beta_admin_update_member(p_membership_id uuid, p_role text, p_status text, p_reason text)
@@ -670,5 +756,5 @@ begin
   values (actor.organization_id, auth.uid(), 'member.access_updated', target.id, trim(p_reason), jsonb_build_object('before_role', target.role, 'before_status', target.status, 'after_role', p_role, 'after_status', p_status));
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_admin_update_member(uuid, text, text, text) from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_admin_update_member(uuid, text, text, text) to authenticated;
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text) from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text) to authenticated;

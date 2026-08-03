@@ -27,6 +27,7 @@ function initializeBetaExperience() {
   bindNavigation(shell);
   bindReadingFlow(shell, energyDialog, waterDialog);
   bindOrganizationContext(shell);
+  bindInvitation(shell);
   bindAccount(shell);
   bindMfa(shell);
   bindOperationalHealth(shell);
@@ -129,6 +130,8 @@ function betaShellMarkup() {
     <dialog id="beta-delete-dialog" class="beta-dialog"><form method="dialog" class="dialog-card"><h2>Excluir esta leitura?</h2><p>Somente o registro selecionado será removido.</p><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button id="beta-confirm-delete" class="danger-button" value="confirm">Excluir leitura</button></div></form></dialog>
     <dialog id="beta-reset-dialog" class="beta-dialog"><div class="dialog-card"><div id="beta-reset-step-one"><h2>Restaurar o aplicativo?</h2><p>Preferências e cópias locais deste dispositivo serão removidas. As leituras da sua conta não serão apagadas.</p><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-continue" class="danger-button" type="button">Continuar</button></div></div><div id="beta-reset-step-two" hidden><h2>Confirmação final</h2><label><span>Digite RESTAURAR para confirmar</span><input id="beta-reset-confirmation" autocomplete="off"></label><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-confirm" class="danger-button" type="button" disabled>Restaurar agora</button></div></div></div></dialog>
     <dialog id="beta-invite-dialog" class="beta-dialog"><form id="beta-invite-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">NOVO ACESSO</p><h2>Convidar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><label><span>E-mail</span><input id="beta-invite-email" type="email" autocomplete="email" required></label><label><span>Papel</span><select id="beta-invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><p class="note">O convite expira em 48 horas e fica restrito a esta organização.</p><button class="primary-button" type="submit">Registrar convite</button></form></dialog>
+    <dialog id="beta-invite-created-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">CONVITE SEGURO</p><h2>Link criado</h2></div><button class="icon-button" type="button" data-close-invite-created aria-label="Fechar">×</button></div><p class="note">Envie este link apenas ao destinatário. O token aparece uma vez, expira em 48 horas e não é armazenado em texto aberto.</p><label><span>Link de uso único</span><input id="beta-created-invite-url" type="text" readonly aria-readonly="true"></label><div class="dialog-actions"><button id="beta-copy-invite-url" class="secondary-button" type="button">Copiar link</button><button class="primary-button" type="button" data-close-invite-created>Concluir</button></div><p id="beta-created-invite-status" class="note status-message" role="status" aria-live="polite"></p></div></dialog>
+    <dialog id="beta-invitation-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">CONVITE</p><h2>Acesso a uma organização</h2></div></div><div id="beta-invitation-preview"><p>Você foi convidado para <strong id="beta-invitation-organization">—</strong>.</p><dl class="invitation-summary"><div><dt>Papel</dt><dd id="beta-invitation-role">—</dd></div><div><dt>Expiração</dt><dd id="beta-invitation-expiry">—</dd></div></dl><div class="dialog-actions"><button id="beta-decline-invitation" class="secondary-button" type="button">Recusar</button><button id="beta-accept-invitation" class="primary-button" type="button">Aceitar convite</button></div></div><p id="beta-invitation-message" class="note status-message" role="status" aria-live="polite"></p><button id="beta-close-invalid-invitation" class="secondary-button" type="button" hidden>Fechar</button></div></dialog>
     <dialog id="beta-member-dialog" class="beta-dialog"><form id="beta-member-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">ACESSO</p><h2 id="beta-member-dialog-title">Editar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><input id="beta-member-id" type="hidden"><label><span>Papel</span><select id="beta-member-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option><option value="owner">Proprietário</option></select></label><label><span>Status</span><select id="beta-member-status"><option value="active">Ativo</option><option value="suspended">Suspenso</option><option value="removed">Removido</option></select></label><label><span>Justificativa</span><textarea id="beta-member-reason" minlength="5" maxlength="240" required></textarea></label><label id="beta-destructive-confirmation-row" hidden><span>Digite o e-mail para confirmar</span><input id="beta-member-confirmation" autocomplete="off"></label><button id="beta-save-member" class="primary-button" type="submit">Salvar acesso</button></form></dialog>
   `;
 }
@@ -221,6 +224,47 @@ function renderOrganizationContext() {
   }
   selector.value = snapshot.activeOrganizationId || "";
   selector.disabled = snapshot.organizations.length < 2;
+}
+
+function bindInvitation(shell) {
+  const dialog = shell.querySelector("#beta-invitation-dialog");
+  const accept = shell.querySelector("#beta-accept-invitation");
+  const decline = shell.querySelector("#beta-decline-invitation");
+  accept.addEventListener("click", async () => {
+    accept.disabled = true;
+    decline.disabled = true;
+    const result = await api.acceptInvitation();
+    accept.disabled = false;
+    decline.disabled = false;
+    setText("#beta-invitation-message", result.message);
+    if (result.ok) dialog.close();
+  });
+  decline.addEventListener("click", async () => {
+    accept.disabled = true;
+    decline.disabled = true;
+    const result = await api.declineInvitation();
+    setText("#beta-invitation-message", result.message);
+    if (result.ok) dialog.close();
+    accept.disabled = false;
+    decline.disabled = false;
+  });
+  shell.querySelector("#beta-close-invalid-invitation").addEventListener("click", () => dialog.close());
+  Promise.resolve().then(renderInvitation).catch(renderInvitation);
+}
+
+function renderInvitation() {
+  const snapshot = api.getInvitationSnapshot();
+  const dialog = document.querySelector("#beta-invitation-dialog");
+  if (!dialog || !snapshot.present) return;
+  document.querySelector("#beta-invitation-preview").hidden = !snapshot.available;
+  document.querySelector("#beta-close-invalid-invitation").hidden = snapshot.available;
+  setText("#beta-invitation-message", snapshot.message || "Confira o contexto antes de aceitar.");
+  if (snapshot.available) {
+    setText("#beta-invitation-organization", snapshot.organization?.name || "Organização");
+    setText("#beta-invitation-role", roleLabel(snapshot.role));
+    setText("#beta-invitation-expiry", new Date(snapshot.expiresAt).toLocaleString("pt-BR"));
+  }
+  if (!dialog.open) dialog.showModal();
 }
 
 function bindMfa(shell) {
@@ -377,6 +421,7 @@ function bindReports(shell) {
 
 function bindAdministration(shell) {
   const inviteDialog = shell.querySelector("#beta-invite-dialog");
+  const createdDialog = shell.querySelector("#beta-invite-created-dialog");
   const memberDialog = shell.querySelector("#beta-member-dialog");
   shell.querySelectorAll("[data-close-admin-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
   shell.querySelector("#beta-invite-user").addEventListener("click", () => inviteDialog.showModal());
@@ -385,7 +430,28 @@ function bindAdministration(shell) {
     event.preventDefault();
     const result = await api.inviteMember({ email: shell.querySelector("#beta-invite-email").value.trim(), role: shell.querySelector("#beta-invite-role").value });
     setText("#beta-admin-status", result.message);
-    if (result.ok) { event.target.reset(); inviteDialog.close(); renderAdministration(); }
+    if (result.ok) {
+      event.target.reset();
+      inviteDialog.close();
+      shell.querySelector("#beta-created-invite-url").value = result.invitationUrl;
+      setText("#beta-created-invite-status", "");
+      createdDialog.showModal();
+      renderAdministration();
+    }
+  });
+  shell.querySelectorAll("[data-close-invite-created]").forEach((button) => button.addEventListener("click", () => {
+    shell.querySelector("#beta-created-invite-url").value = "";
+    createdDialog.close();
+  }));
+  shell.querySelector("#beta-copy-invite-url").addEventListener("click", async () => {
+    const field = shell.querySelector("#beta-created-invite-url");
+    try {
+      await navigator.clipboard.writeText(field.value);
+      setText("#beta-created-invite-status", "Link copiado.");
+    } catch {
+      field.select();
+      setText("#beta-created-invite-status", "Selecione e copie o link manualmente.");
+    }
   });
   shell.querySelector("#beta-member-status").addEventListener("change", syncDestructiveConfirmation);
   shell.querySelector("#beta-member-confirmation").addEventListener("input", syncDestructiveConfirmation);
@@ -506,6 +572,7 @@ function renderBetaExperience() {
   renderBetaMfa();
   renderOperationalHealth();
   renderOrganizationContext();
+  renderInvitation();
   renderAdministration();
 }
 

@@ -25,6 +25,9 @@ const USER_DATA_PREFIX = environmentStorageKey(APP_ENVIRONMENT, "user-data-");
 const dataTable = (name) => environmentTableName(APP_ENVIRONMENT, name);
 const PRIVACY_NOTICE_VERSION = "1.0";
 const BETA_ADMIN_EMAIL = "flanhenriquee@icloud.com";
+const BETA_INVITATION_TOKEN = APP_ENVIRONMENT.id === "beta"
+  ? new URLSearchParams(location.search).get("invite")?.trim().toLowerCase() || ""
+  : "";
 const SESSION_CORRELATION_ID = crypto.randomUUID();
 const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
 const DEFAULT_WATER_SETTINGS = { rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 };
@@ -60,6 +63,7 @@ let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
 let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
+let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -625,6 +629,7 @@ async function updateAuthScreen(user) {
     waterSettings = { ...DEFAULT_WATER_SETTINGS };
     betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
     betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
+    betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
     mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
     return;
   }
@@ -633,6 +638,7 @@ async function updateAuthScreen(user) {
   currentDisplayName = user.user_metadata?.display_name || "";
   $("#user-name").textContent = displayName;
   await recordPrivacyAcceptance(user);
+  await refreshBetaInvitation();
   await refreshBetaAdmin();
   await loadUserData(user.id);
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
@@ -808,11 +814,14 @@ function exposeBetaApi() {
     getSnapshot: getBetaSnapshot,
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
     getOrganizationSnapshot: () => structuredClone(betaOrganizationSnapshot),
+    getInvitationSnapshot: () => structuredClone(betaInvitationSnapshot),
     getMfaSnapshot: () => structuredClone(mfaSnapshot),
     getOperationalHealth: () => structuredClone(operationalHealth),
     enableMfa: startMfaEnrollment,
     disableMfa,
     inviteMember: inviteBetaMember,
+    acceptInvitation: acceptBetaInvitation,
+    declineInvitation: declineBetaInvitation,
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
     refreshOrganizations: refreshBetaOrganizationContext,
@@ -1082,10 +1091,52 @@ async function switchBetaOrganization(organizationId) {
 async function inviteBetaMember({ email, role }) {
   if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) return { ok: false, message: "Acesso administrativo não autorizado." };
   if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
-  const { error } = await supabaseClient.rpc("beta_admin_invite_member", { p_email: email, p_role: role });
-  if (error) return { ok: false, message: adminErrorMessage(error) };
+  const { data, error } = await supabaseClient.rpc("beta_admin_invite_member", { p_email: email, p_role: role });
+  if (error || !data?.token) return { ok: false, message: adminErrorMessage(error) };
+  const invitationUrl = new URL(location.href);
+  invitationUrl.search = "";
+  invitationUrl.hash = "";
+  invitationUrl.searchParams.set("invite", data.token);
   await refreshBetaAdmin();
-  return { ok: true, message: "Convite registrado por 48 horas." };
+  return { ok: true, message: "Convite seguro criado por 48 horas.", invitationUrl: invitationUrl.href };
+}
+
+async function refreshBetaInvitation() {
+  if (!BETA_INVITATION_TOKEN || !currentUserId || !supabaseClient?.rpc) return betaInvitationSnapshot;
+  const { data, error } = await supabaseClient.rpc("beta_invitation_preview", { p_token: BETA_INVITATION_TOKEN });
+  betaInvitationSnapshot = error || !data
+    ? { present: true, available: false, organization: null, role: null, expiresAt: null, message: "Este convite é inválido, expirou ou pertence a outro e-mail." }
+    : { present: true, available: true, organization: data.organization, role: data.role, expiresAt: data.expires_at, message: "" };
+  notifyBetaDataUpdate();
+  return betaInvitationSnapshot;
+}
+
+async function acceptBetaInvitation() {
+  if (!betaInvitationSnapshot.available || !BETA_INVITATION_TOKEN) return { ok: false, message: "Convite indisponível." };
+  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Usuário";
+  const { error } = await supabaseClient.rpc("beta_accept_invitation", { p_token: BETA_INVITATION_TOKEN, p_display_name: displayName });
+  if (error) return { ok: false, message: "Não foi possível aceitar. O convite pode ter sido utilizado ou expirado." };
+  clearBetaInvitationFromAddress();
+  await refreshBetaAdmin();
+  await loadUserData(currentUserId);
+  render();
+  return { ok: true, message: "Convite aceito. A organização foi ativada." };
+}
+
+async function declineBetaInvitation() {
+  if (!betaInvitationSnapshot.available || !BETA_INVITATION_TOKEN) return { ok: false, message: "Convite indisponível." };
+  const { error } = await supabaseClient.rpc("beta_decline_invitation", { p_token: BETA_INVITATION_TOKEN });
+  if (error) return { ok: false, message: "Não foi possível recusar o convite agora." };
+  clearBetaInvitationFromAddress();
+  return { ok: true, message: "Convite recusado. Nenhum acesso foi concedido." };
+}
+
+function clearBetaInvitationFromAddress() {
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete("invite");
+  history.replaceState({}, "", cleanUrl);
+  betaInvitationSnapshot = { present: false, available: false, organization: null, role: null, expiresAt: null, message: "" };
+  notifyBetaDataUpdate();
 }
 
 async function updateBetaMember({ membershipId, role, status, reason }) {

@@ -326,6 +326,30 @@ html[data-environment="beta"] .organization-context select {
 
 html[data-environment="beta"] .organization-context .status-message:empty { display: none; }
 
+html[data-environment="beta"] .invitation-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lm-space-3);
+  margin: 0;
+}
+
+html[data-environment="beta"] .invitation-summary div {
+  padding: var(--lm-space-3);
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-md);
+  background: var(--lm-glass-thin);
+}
+
+html[data-environment="beta"] .invitation-summary dt {
+  font-size: var(--lm-text-xs);
+  color: var(--lm-text-muted);
+}
+
+html[data-environment="beta"] .invitation-summary dd {
+  margin: var(--lm-space-1) 0 0;
+  font-weight: 700;
+}
+
 /* O conteúdo reserva a faixa do rodapé flutuante através do token — nunca
    por um número escrito à mão. */
 html[data-environment="beta"] .beta-content {

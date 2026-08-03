@@ -1,0 +1,52 @@
+name: Beta quality gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-static-beta:
+    name: Validate published Beta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JavaScript syntax
+        run: |
+          find beta -type f -name '*.js' -not -path 'beta/vendor/*' -print0 | xargs -0 -n1 node --check
+      - name: Validate security and publication invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s beta/index.html
+          test -s beta/app.js
+          test -s beta/sw.js
+          test -s beta/icon-192.png
+          test -s beta/icon-512.png
+          test -s beta/vendor/supabase/supabase.js
+          test -s beta/vendor/tesseract/worker.min.js
+          test -s beta/vendor/tessdata/eng.traineddata.gz
+          grep -q 'flanhenriquee@icloud.com' beta/app.js
+          grep -q 'currentLevel !== "aal2"' beta/app.js
+          grep -q 'volt-beta-shell-v' beta/sw.js
+          grep -q 'auth.jwt().*aal' supabase-setup.sql
+          if grep -qE 'cdn\.jsdelivr\.net|tessdata\.projectnaptha\.com' beta/index.html; then
+            echo 'External runtime CDN found in beta/index.html'
+            exit 1
+          fi
+      - name: Verify vendor checksums
+        shell: bash
+        run: cd beta/vendor && sha256sum --check SHA256SUMS

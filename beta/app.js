@@ -28,6 +28,9 @@ const BETA_ADMIN_EMAIL = "flanhenriquee@icloud.com";
 const BETA_INVITATION_TOKEN = APP_ENVIRONMENT.id === "beta"
   ? new URLSearchParams(location.search).get("invite")?.trim().toLowerCase() || ""
   : "";
+const BETA_PASSWORD_RECOVERY_ID = APP_ENVIRONMENT.id === "beta"
+  ? new URLSearchParams(location.search).get("password_recovery")?.trim().toLowerCase() || ""
+  : "";
 const SESSION_CORRELATION_ID = crypto.randomUUID();
 const SESSION_TRACE_ID = randomHex(16);
 const ROOT_SPAN_ID = randomHex(8);
@@ -276,9 +279,18 @@ $("#forgot-password").addEventListener("click", async () => {
   if (!emailInput.reportValidity()) return;
   const button = $("#forgot-password");
   button.disabled = true;
-  await supabaseClient.auth.resetPasswordForEmail(emailInput.value.trim(), {
-    redirectTo: `${location.origin}${location.pathname}`
-  });
+  if (APP_ENVIRONMENT.id === "beta") {
+    const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
+    await tracedFetch(`${config.url}/functions/v1/auth-login/password-recoveries`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: emailInput.value.trim() })
+    }).catch(() => null);
+  } else {
+    await supabaseClient.auth.resetPasswordForEmail(emailInput.value.trim(), {
+      redirectTo: `${location.origin}${location.pathname}`
+    });
+  }
   button.disabled = false;
   $("#login-message").textContent = "Se existir uma conta para este e-mail, enviaremos as instruções de recuperação.";
 });
@@ -296,6 +308,37 @@ $("#password-recovery-form").addEventListener("submit", async (event) => {
   }
   const button = $("#save-recovery-password");
   button.disabled = true;
+  if (APP_ENVIRONMENT.id === "beta") {
+    const length = [...password].length;
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData?.session?.access_token || "";
+    if (!BETA_PASSWORD_RECOVERY_ID || !accessToken || length < 12 || length > 128) {
+      button.disabled = false;
+      message.textContent = "O link expirou ou a senha não atende à política de 12 a 128 caracteres. Solicite uma nova recuperação.";
+      return;
+    }
+    const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
+    const response = await tracedFetch(`${config.url}/functions/v1/auth-login/password-reset`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ request_id: BETA_PASSWORD_RECOVERY_ID, password })
+    }).catch(() => null);
+    if (!response?.ok) {
+      button.disabled = false;
+      message.textContent = "O link expirou ou já foi usado. Solicite uma nova recuperação.";
+      return;
+    }
+    await supabaseClient.auth.signOut({ scope: "local" });
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete("password_recovery");
+    cleanUrl.hash = "";
+    history.replaceState(null, "", cleanUrl);
+    button.disabled = false;
+    event.target.reset();
+    $("#password-recovery-dialog").close();
+    $("#login-message").textContent = "Senha atualizada. Entre novamente; todas as sessões anteriores foram encerradas.";
+    return;
+  }
   const { error } = await supabaseClient.auth.updateUser({ password });
   if (error) {
     button.disabled = false;

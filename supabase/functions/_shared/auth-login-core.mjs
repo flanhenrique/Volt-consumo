@@ -11,7 +11,7 @@ const COOKIE_NAMES = Object.freeze({
   refresh: "__Host-volt_refresh",
   csrf: "__Host-volt_csrf"
 });
-const ROUTES = new Set(["login", "session", "refresh", "logout", "signup", "email-verifications", "verify-email"]);
+const ROUTES = new Set(["login", "session", "refresh", "logout", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset"]);
 const COMMON_PASSWORDS = new Set([
   "123456789012", "123456789123", "abcdefghijkl", "administrator", "iloveyou1234",
   "letmein123456", "password1234", "qwerty123456", "senha1234567", "volt12345678"
@@ -42,7 +42,7 @@ function corsHeaders(origin) {
   return origin ? {
     "access-control-allow-origin": origin,
     "access-control-allow-credentials": "true",
-    "access-control-allow-headers": "content-type, x-csrf-token, x-request-id, traceparent",
+    "access-control-allow-headers": "authorization, content-type, x-csrf-token, x-request-id, traceparent",
     "access-control-allow-methods": "GET, POST, OPTIONS",
     vary: "Origin"
   } : {};
@@ -169,7 +169,7 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
     if ((route === "session" && request.method !== "GET") || (route !== "session" && request.method !== "POST")) {
       return json(405, { code: "method_not_allowed", request_id: requestId }, requestId, cors);
     }
-    if (["login", "signup", "email-verifications", "verify-email"].includes(route)
+    if (["login", "signup", "email-verifications", "verify-email", "password-recoveries", "password-reset"].includes(route)
       && (request.headers.get("content-type") || "").split(";", 1)[0].trim() !== "application/json") {
       return json(415, { code: "unsupported_media_type", request_id: requestId }, requestId, cors);
     }
@@ -181,6 +181,93 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
       if (!baseUrl.startsWith("https://") || !publicKey) throw new Error("invalid_configuration");
     } catch {
       return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+    }
+
+    if (["password-recoveries", "password-reset"].includes(route)) {
+      let body;
+      try {
+        body = await readJson(request, maxBodyBytes);
+      } catch (error) {
+        const status = error?.message === "payload_too_large" ? 413 : 400;
+        return json(status, { code: status === 413 ? "payload_too_large" : "invalid_request", request_id: requestId }, requestId, cors);
+      }
+      const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY") || "";
+      if (!serviceKey) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      const rpc = async (name, payload) => providerFetch(fetchFn, `${baseUrl}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, "content-type": "application/json", "x-request-id": requestId },
+        body: JSON.stringify(payload)
+      }, timeoutMs);
+
+      if (route === "password-recoveries") {
+        const email = normalizedEmail(body.email);
+        if (!email) return json(400, { code: "invalid_request", request_id: requestId }, requestId, cors);
+        const recoveryId = crypto.randomUUID();
+        const stored = await rpc("beta_password_recovery_request", { p_email: email, p_request_id: recoveryId });
+        if (!stored || !stored.ok) return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+
+        let redirectUrl;
+        try {
+          redirectUrl = new URL(env("AUTH_PASSWORD_REDIRECT_URL") || env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/beta/`);
+          if (redirectUrl.protocol !== "https:" || redirectUrl.origin !== new URL(env("BETA_APP_ORIGIN")).origin) throw new Error("invalid_redirect");
+          redirectUrl.searchParams.set("password_recovery", recoveryId);
+        } catch {
+          return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+        }
+        await providerFetch(fetchFn, `${baseUrl}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl.href)}`, {
+          method: "POST",
+          headers: { apikey: publicKey, "content-type": "application/json", "x-request-id": requestId },
+          body: JSON.stringify({ email })
+        }, timeoutMs);
+        return json(202, { next: "check_email", request_id: requestId }, requestId, cors);
+      }
+
+      const recoveryId = typeof body.request_id === "string" ? body.request_id : "";
+      const problem = passwordProblem(body.password);
+      const bearer = request.headers.get("authorization") || "";
+      const recoveryToken = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
+      if (!/^[0-9a-f-]{36}$/i.test(recoveryId) || problem || recoveryToken.length < 20) {
+        return json(400, { code: problem ? "weak_password" : "invalid_or_expired_link", request_id: requestId }, requestId, cors);
+      }
+      const userResponse = await providerFetch(fetchFn, `${baseUrl}/auth/v1/user`, {
+        method: "GET",
+        headers: { apikey: publicKey, authorization: `Bearer ${recoveryToken}`, "x-request-id": requestId }
+      }, timeoutMs);
+      let recoveryUser;
+      try { recoveryUser = userResponse?.ok ? await userResponse.json() : null; } catch { recoveryUser = null; }
+      if (!recoveryUser || typeof recoveryUser.id !== "string") {
+        return json(400, { code: "invalid_or_expired_link", request_id: requestId }, requestId, cors);
+      }
+
+      const claimed = await rpc("beta_password_recovery_claim", { p_request_id: recoveryId, p_user_id: recoveryUser.id });
+      let claimAccepted = false;
+      try { claimAccepted = claimed?.ok && await claimed.json() === true; } catch { claimAccepted = false; }
+      if (!claimAccepted) return json(400, { code: "invalid_or_expired_link", request_id: requestId }, requestId, cors);
+      const releaseClaim = () => rpc("beta_password_recovery_release", { p_request_id: recoveryId, p_user_id: recoveryUser.id });
+
+      const updated = await providerFetch(fetchFn, `${baseUrl}/auth/v1/admin/users/${encodeURIComponent(recoveryUser.id)}`, {
+        method: "PUT",
+        headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, "content-type": "application/json", "x-request-id": requestId },
+        body: JSON.stringify({ password: body.password })
+      }, timeoutMs);
+      if (!updated?.ok) {
+        await releaseClaim();
+        return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      }
+      const revoked = await providerFetch(fetchFn, `${baseUrl}/auth/v1/logout?scope=global`, {
+        method: "POST",
+        headers: { apikey: publicKey, authorization: `Bearer ${recoveryToken}`, "x-request-id": requestId }
+      }, timeoutMs);
+      if (!revoked?.ok && ![401, 403].includes(revoked?.status)) {
+        await releaseClaim();
+        return json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
+      }
+      const finalized = await rpc("beta_password_recovery_finalize", { p_request_id: recoveryId, p_user_id: recoveryUser.id });
+      let finalizedOk = false;
+      try { finalizedOk = finalized?.ok && await finalized.json() === true; } catch { finalizedOk = false; }
+      return finalizedOk
+        ? json(200, { reset: true, sessions_revoked: true, next: "login", request_id: requestId }, requestId, cors)
+        : json(503, { code: "service_unavailable", request_id: requestId }, requestId, cors);
     }
 
     if (["signup", "email-verifications", "verify-email"].includes(route)) {

@@ -59,6 +59,7 @@
   --lm-text-2xl: 27px;
   --lm-text-3xl: 34px;
   --lm-text-4xl: 44px;
+  --lm-text-field: max(16px, var(--lm-text-md));
   --lm-weight-regular: 450;
   --lm-weight-medium: 560;
   --lm-weight-bold: 680;

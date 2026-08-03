@@ -1221,6 +1221,9 @@ async function scanMeterPhoto(event) {
   try {
     if (!window.Tesseract) throw new Error("OCR indisponível");
     const result = await window.Tesseract.recognize(file, "eng", {
+      workerPath: "./vendor/tesseract/worker.min.js",
+      corePath: "./vendor/tesseract-core",
+      langPath: "./vendor/tessdata",
       logger: ({ progress }) => {
         if (Number.isFinite(progress)) $("#scanner-progress span").style.width = `${Math.round(progress * 100)}%`;
       }

@@ -1061,6 +1061,13 @@ begin
   return jsonb_build_object('status', 'healthy', 'auth', true, 'database', true, 'rbac', true, 'checked_at', clock_timestamp());
 end $$;
 
+create or replace function public.beta_service_readiness()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform 1 from public.beta_operational_events limit 1;
+  return jsonb_build_object('status', 'healthy', 'database', true, 'checked_at', clock_timestamp());
+end $$;
+
 create or replace function public.beta_admin_prometheus_metrics()
 returns text language plpgsql stable security definer set search_path = '' as $$
 declare snapshot jsonb := public.beta_admin_operational_snapshot();
@@ -1089,3 +1096,5 @@ end $$;
 revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() from public, anon;
 grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() to authenticated;
 revoke all on function public.beta_raise_operational_alert() from public, anon, authenticated;
+revoke all on function public.beta_service_readiness() from public, anon, authenticated;
+grant execute on function public.beta_service_readiness() to service_role;

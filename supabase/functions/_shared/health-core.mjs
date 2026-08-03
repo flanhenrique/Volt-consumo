@@ -84,7 +84,7 @@ export function createHealthHandler({ fetchFn = fetch, env, now = () => new Date
     const headers = { authorization: `Bearer ${serviceKey}`, apikey: serviceKey, "x-request-id": requestId };
     const [auth, database] = await Promise.all([
       dependencyCheck(fetchFn, `${baseUrl}/auth/v1/health`, { method: "GET", headers }, timeoutMs),
-      dependencyCheck(fetchFn, `${baseUrl}/rest/v1/beta_operational_events?select=id&limit=0`, { method: "GET", headers }, timeoutMs)
+      dependencyCheck(fetchFn, `${baseUrl}/rest/v1/rpc/beta_service_readiness`, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: "{}" }, timeoutMs)
     ]);
     const healthy = auth === "up" && database === "up";
     return json(healthy ? 200 : 503, { status: healthy ? "healthy" : "unhealthy", probe, checks: { auth, database }, duration_ms: Date.now() - startedAt, checked_at: now().toISOString(), request_id: requestId }, requestId, request.method);

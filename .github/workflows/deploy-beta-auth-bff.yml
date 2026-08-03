@@ -26,7 +26,11 @@ jobs:
         id: credentials
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: echo "available=$([[ -n \"$SUPABASE_ACCESS_TOKEN\" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        run: |
+          case "$SUPABASE_ACCESS_TOKEN" in
+            sbp_*) echo "available=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "available=false" >> "$GITHUB_OUTPUT" ;;
+          esac
       - name: Install Supabase CLI
         if: steps.credentials.outputs.available == 'true'
         uses: supabase/setup-cli@v1

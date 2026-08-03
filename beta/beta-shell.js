@@ -45,7 +45,10 @@ function initializeBetaExperience() {
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
   new MutationObserver(() => {
-    if (!dashboard.hidden) renderBetaExperience();
+    if (!dashboard.hidden) {
+      renderBetaExperience();
+      requestAnimationFrame(resetPageScroll);
+    }
   }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -172,7 +175,12 @@ function showPage(pageName) {
     active ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
   });
   document.querySelector("#beta-reading-fab").hidden = pageName === "settings" || pageName === "users";
-  document.querySelector("#beta-content").scrollTo({ top: 0, behavior: "smooth" });
+  requestAnimationFrame(resetPageScroll);
+}
+
+function resetPageScroll() {
+  document.querySelector("#beta-content")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
 function bindReadingFlow(shell, energyDialog, waterDialog) {

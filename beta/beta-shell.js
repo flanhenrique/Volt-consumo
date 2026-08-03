@@ -132,7 +132,8 @@ function betaShellMarkup() {
     <dialog id="beta-invite-dialog" class="beta-dialog"><form id="beta-invite-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">NOVO ACESSO</p><h2>Convidar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><label><span>E-mail</span><input id="beta-invite-email" type="email" autocomplete="email" required></label><label><span>Papel</span><select id="beta-invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><p class="note">O convite expira em 48 horas e fica restrito a esta organização.</p><button class="primary-button" type="submit">Registrar convite</button></form></dialog>
     <dialog id="beta-invite-created-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">CONVITE SEGURO</p><h2>Link criado</h2></div><button class="icon-button" type="button" data-close-invite-created aria-label="Fechar">×</button></div><p class="note">Envie este link apenas ao destinatário. O token aparece uma vez, expira em 48 horas e não é armazenado em texto aberto.</p><label><span>Link de uso único</span><input id="beta-created-invite-url" type="text" readonly aria-readonly="true"></label><div class="dialog-actions"><button id="beta-copy-invite-url" class="secondary-button" type="button">Copiar link</button><button class="primary-button" type="button" data-close-invite-created>Concluir</button></div><p id="beta-created-invite-status" class="note status-message" role="status" aria-live="polite"></p></div></dialog>
     <dialog id="beta-invitation-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">CONVITE</p><h2>Acesso a uma organização</h2></div></div><div id="beta-invitation-preview"><p>Você foi convidado para <strong id="beta-invitation-organization">—</strong>.</p><dl class="invitation-summary"><div><dt>Papel</dt><dd id="beta-invitation-role">—</dd></div><div><dt>Expiração</dt><dd id="beta-invitation-expiry">—</dd></div></dl><div class="dialog-actions"><button id="beta-decline-invitation" class="secondary-button" type="button">Recusar</button><button id="beta-accept-invitation" class="primary-button" type="button">Aceitar convite</button></div></div><p id="beta-invitation-message" class="note status-message" role="status" aria-live="polite"></p><button id="beta-close-invalid-invitation" class="secondary-button" type="button" hidden>Fechar</button></div></dialog>
-    <dialog id="beta-member-dialog" class="beta-dialog"><form id="beta-member-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">ACESSO</p><h2 id="beta-member-dialog-title">Editar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><input id="beta-member-id" type="hidden"><label><span>Papel</span><select id="beta-member-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option><option value="owner">Proprietário</option></select></label><label><span>Status</span><select id="beta-member-status"><option value="active">Ativo</option><option value="suspended">Suspenso</option><option value="removed">Removido</option></select></label><label><span>Justificativa</span><textarea id="beta-member-reason" minlength="5" maxlength="240" required></textarea></label><label id="beta-destructive-confirmation-row" hidden><span>Digite o e-mail para confirmar</span><input id="beta-member-confirmation" autocomplete="off"></label><button id="beta-save-member" class="primary-button" type="submit">Salvar acesso</button></form></dialog>
+    <dialog id="beta-member-dialog" class="beta-dialog"><form id="beta-member-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">ACESSO</p><h2 id="beta-member-dialog-title">Editar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><input id="beta-member-id" type="hidden"><label><span>Papel</span><select id="beta-member-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><label><span>Status</span><select id="beta-member-status"><option value="active">Ativo</option><option value="suspended">Suspenso</option><option value="removed">Removido</option></select></label><label><span>Justificativa</span><textarea id="beta-member-reason" minlength="5" maxlength="240" required></textarea></label><label id="beta-destructive-confirmation-row" hidden><span>Digite o e-mail para confirmar</span><input id="beta-member-confirmation" autocomplete="off"></label><button id="beta-save-member" class="primary-button" type="submit">Salvar acesso</button></form></dialog>
+    <dialog id="beta-owner-transfer-dialog" class="beta-dialog"><form id="beta-owner-transfer-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">PROPRIEDADE</p><h2>Transferir organização</h2></div><button class="icon-button" type="button" data-close-owner-transfer aria-label="Fechar">×</button></div><input id="beta-owner-successor-id" type="hidden"><p>A propriedade será transferida para <strong id="beta-owner-successor-email">—</strong>. O proprietário atual passará a administrador.</p><label><span>Justificativa</span><textarea id="beta-owner-transfer-reason" minlength="5" maxlength="240" required></textarea></label><label><span id="beta-owner-transfer-confirmation-label">Digite o nome da organização para confirmar</span><input id="beta-owner-transfer-confirmation" autocomplete="off" required></label><p class="note">A operação exige MFA AAL2 e ocorre em uma única transação.</p><div class="dialog-actions"><button class="secondary-button" type="button" data-close-owner-transfer>Cancelar</button><button id="beta-confirm-owner-transfer" class="danger-button" type="submit" disabled>Transferir propriedade</button></div></form></dialog>
   `;
 }
 
@@ -423,6 +424,7 @@ function bindAdministration(shell) {
   const inviteDialog = shell.querySelector("#beta-invite-dialog");
   const createdDialog = shell.querySelector("#beta-invite-created-dialog");
   const memberDialog = shell.querySelector("#beta-member-dialog");
+  const ownerTransferDialog = shell.querySelector("#beta-owner-transfer-dialog");
   shell.querySelectorAll("[data-close-admin-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
   shell.querySelector("#beta-invite-user").addEventListener("click", () => inviteDialog.showModal());
   shell.querySelector("#beta-user-search").addEventListener("input", renderAdministration);
@@ -467,6 +469,23 @@ function bindAdministration(shell) {
     setText("#beta-admin-status", result.message);
     if (result.ok) { memberDialog.close(); renderAdministration(); }
   });
+  shell.querySelectorAll("[data-close-owner-transfer]").forEach((button) => button.addEventListener("click", () => ownerTransferDialog.close()));
+  shell.querySelector("#beta-owner-transfer-confirmation").addEventListener("input", syncOwnerTransferConfirmation);
+  shell.querySelector("#beta-owner-transfer-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const snapshot = api.getAdminSnapshot();
+    if (shell.querySelector("#beta-owner-transfer-confirmation").value !== snapshot.organization?.name) return;
+    const button = shell.querySelector("#beta-confirm-owner-transfer");
+    button.disabled = true;
+    const result = await api.transferOwner({
+      membershipId: shell.querySelector("#beta-owner-successor-id").value,
+      reason: shell.querySelector("#beta-owner-transfer-reason").value.trim()
+    });
+    setText("#beta-admin-status", result.message);
+    if (result.ok) ownerTransferDialog.close();
+    button.disabled = false;
+    renderAdministration();
+  });
   Promise.resolve(api.refreshAdmin()).then(renderAdministration).catch(renderAdministration);
 }
 
@@ -509,10 +528,34 @@ function createMemberRow(member) {
   const role = document.createElement("span"); role.textContent = roleLabel(member.role);
   const status = document.createElement("span"); status.className = `status-chip ${member.status}`; status.textContent = statusLabel(member.status);
   meta.append(role, status);
+  const actions = document.createElement("div"); actions.className = "admin-member-actions";
   const edit = document.createElement("button"); edit.type = "button"; edit.className = "text-button"; edit.textContent = "Gerenciar";
   edit.addEventListener("click", () => openMemberDialog(member));
-  row.append(identity, meta, edit);
+  actions.append(edit);
+  const snapshot = api.getAdminSnapshot();
+  if (member.status === "active" && member.role !== "owner" && ["owner", "admin"].includes(snapshot.membership?.role)) {
+    const transfer = document.createElement("button"); transfer.type = "button"; transfer.className = "text-button danger-text"; transfer.textContent = "Transferir propriedade";
+    transfer.addEventListener("click", () => openOwnerTransferDialog(member));
+    actions.append(transfer);
+  }
+  row.append(identity, meta, actions);
   return row;
+}
+
+function openOwnerTransferDialog(member) {
+  const snapshot = api.getAdminSnapshot();
+  document.querySelector("#beta-owner-successor-id").value = member.id;
+  setText("#beta-owner-successor-email", member.email);
+  document.querySelector("#beta-owner-transfer-reason").value = "";
+  document.querySelector("#beta-owner-transfer-confirmation").value = "";
+  setText("#beta-owner-transfer-confirmation-label", `Digite ${snapshot.organization?.name || "o nome da organização"} para confirmar`);
+  document.querySelector("#beta-confirm-owner-transfer").disabled = true;
+  document.querySelector("#beta-owner-transfer-dialog").showModal();
+}
+
+function syncOwnerTransferConfirmation() {
+  const snapshot = api.getAdminSnapshot();
+  document.querySelector("#beta-confirm-owner-transfer").disabled = document.querySelector("#beta-owner-transfer-confirmation").value !== snapshot.organization?.name;
 }
 
 function createInvitationRow(invitation) {

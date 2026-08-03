@@ -832,6 +832,7 @@ function exposeBetaApi() {
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
     updateMember: updateBetaMember,
+    transferOwner: transferBetaOwner,
     updateReading: updateBetaReading
   });
 }
@@ -1153,9 +1154,24 @@ async function updateBetaMember({ membershipId, role, status, reason }) {
   return { ok: true, message: "Acesso atualizado e registrado na auditoria." };
 }
 
+async function transferBetaOwner({ membershipId, reason }) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
+    return { ok: false, message: "A transferência exige o console autorizado e MFA AAL2." };
+  }
+  const { error } = await supabaseClient.rpc("beta_admin_transfer_owner", {
+    p_membership_id: membershipId,
+    p_reason: reason
+  });
+  if (error) return { ok: false, message: adminErrorMessage(error) };
+  await refreshBetaAdmin();
+  return { ok: true, message: "Propriedade transferida atomicamente e registrada na auditoria." };
+}
+
 function adminErrorMessage(error) {
   const message = String(error?.message || "");
   if (message.includes("last_admin")) return "A organização não pode ficar sem administrador.";
+  if (message.includes("use_owner_transfer") || message.includes("owner_invariant")) return "Use o fluxo protegido de transferência de propriedade.";
+  if (message.includes("invalid_successor")) return "Selecione outro membro ativo para receber a propriedade.";
   if (message.includes("permission_denied")) return "Você não possui permissão para esta ação.";
   if (message.includes("invalid_")) return "Revise os dados informados.";
   return "Não foi possível concluir a ação administrativa.";

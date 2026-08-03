@@ -454,6 +454,24 @@ create index if not exists beta_water_readings_organization_idx on public.beta_w
 create index if not exists beta_user_settings_organization_idx on public.beta_user_settings (organization_id);
 create index if not exists beta_water_settings_organization_idx on public.beta_water_settings (organization_id);
 create index if not exists beta_memberships_user_status_idx on public.beta_memberships (user_id, status);
+create unique index if not exists beta_memberships_one_active_owner_idx
+on public.beta_memberships (organization_id) where role = 'owner' and status = 'active';
+
+create or replace function public.beta_enforce_owner_invariant()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare affected_organization uuid := coalesce(new.organization_id, old.organization_id); owner_count integer;
+begin
+  select count(*) into owner_count from public.beta_memberships
+  where organization_id = affected_organization and role = 'owner' and status = 'active';
+  if owner_count <> 1 then raise exception 'owner_invariant'; end if;
+  return coalesce(new, old);
+end $$;
+
+drop trigger if exists beta_memberships_owner_invariant on public.beta_memberships;
+create constraint trigger beta_memberships_owner_invariant
+after insert or update or delete on public.beta_memberships
+deferrable initially deferred for each row execute function public.beta_enforce_owner_invariant();
+revoke all on function public.beta_enforce_owner_invariant() from public, anon, authenticated;
 
 create or replace function public.beta_current_organization()
 returns uuid language sql stable security definer set search_path = '' as $$
@@ -734,7 +752,7 @@ end $$;
 
 create or replace function public.beta_admin_update_member(p_membership_id uuid, p_role text, p_status text, p_reason text)
 returns void language plpgsql security definer set search_path = '' as $$
-declare actor public.beta_memberships; target public.beta_memberships; active_admins integer;
+declare actor public.beta_memberships; target public.beta_memberships;
 begin
   if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
      or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
@@ -747,14 +765,38 @@ begin
   if p_role not in ('owner', 'admin', 'member', 'viewer') or p_status not in ('active', 'suspended', 'removed') then raise exception 'invalid_state'; end if;
   if char_length(trim(p_reason)) < 5 then raise exception 'invalid_reason'; end if;
   if actor.role <> 'owner' and (target.role = 'owner' or p_role in ('owner', 'admin')) then raise exception 'permission_denied'; end if;
-  if target.role in ('owner', 'admin') and (p_role not in ('owner', 'admin') or p_status <> 'active') then
-    select count(*) into active_admins from public.beta_memberships where organization_id = actor.organization_id and role in ('owner', 'admin') and status = 'active' and id <> target.id;
-    if active_admins = 0 then raise exception 'last_admin'; end if;
-  end if;
+  if target.role = 'owner' or p_role = 'owner' then raise exception 'use_owner_transfer'; end if;
   update public.beta_memberships set role = p_role, status = p_status, updated_at = now() where id = target.id;
   insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
   values (actor.organization_id, auth.uid(), 'member.access_updated', target.id, trim(p_reason), jsonb_build_object('before_role', target.role, 'before_status', target.status, 'after_role', p_role, 'after_status', p_status));
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text) from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text) to authenticated;
+create or replace function public.beta_admin_transfer_owner(p_membership_id uuid, p_reason text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare actor public.beta_memberships; current_owner public.beta_memberships; successor public.beta_memberships;
+begin
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
+  if char_length(trim(p_reason)) < 5 then raise exception 'invalid_reason'; end if;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active' and m.role in ('owner', 'admin') for update of m;
+  if not found then raise exception 'permission_denied'; end if;
+  select * into current_owner from public.beta_memberships
+  where organization_id = actor.organization_id and status = 'active' and role = 'owner' for update;
+  if not found then raise exception 'owner_invariant'; end if;
+  select * into successor from public.beta_memberships
+  where id = p_membership_id and organization_id = actor.organization_id and status = 'active'
+  for update;
+  if not found or successor.id = current_owner.id then raise exception 'invalid_successor'; end if;
+
+  update public.beta_memberships set role = 'admin', updated_at = now() where id = current_owner.id;
+  update public.beta_memberships set role = 'owner', updated_at = now() where id = successor.id;
+  update public.beta_organizations set owner_user_id = successor.user_id where id = actor.organization_id;
+  insert into public.beta_admin_audit (organization_id, actor_user_id, action, target_id, reason, details)
+  values (actor.organization_id, auth.uid(), 'organization.owner_transferred', successor.id, trim(p_reason),
+    jsonb_build_object('previous_owner_membership_id', current_owner.id, 'successor_membership_id', successor.id));
+end $$;
+
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text) from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text) to authenticated;

@@ -1633,11 +1633,48 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
    Uma coluna nas grades largas. As grades de três colunas de relatório
    permanecem: são rótulo e número curtos. */
 @media (max-width: 560px) {
+  html[data-environment="beta"] {
+    --lm-fab-size: 52px;
+    --lm-nav-gap: 8px;
+  }
+
+  html[data-environment="beta"] .beta-content {
+    padding-top: var(--lm-space-3);
+  }
+
+  html[data-environment="beta"] .beta-page {
+    gap: var(--lm-space-3);
+  }
+
   html[data-environment="beta"] .utility-grid,
   html[data-environment="beta"] .summary-values,
-  html[data-environment="beta"] .financial-summary-card .summary-values,
   html[data-environment="beta"] .stack-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-environment="beta"] .financial-summary-card .summary-values {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--lm-space-1);
+    margin-top: var(--lm-space-3);
+  }
+
+  html[data-environment="beta"] .financial-summary-card .summary-values div {
+    padding: var(--lm-space-2);
+    border-radius: var(--lm-radius-sm);
+  }
+
+  html[data-environment="beta"] .financial-summary-card .summary-values strong {
+    font-size: var(--lm-text-sm);
+    white-space: nowrap;
+  }
+
+  html[data-environment="beta"] .utility-card,
+  html[data-environment="beta"] .cycle-summary-card {
+    padding: var(--lm-space-3);
+  }
+
+  html[data-environment="beta"] .utility-card-heading {
+    margin-bottom: var(--lm-space-3);
   }
 
   html[data-environment="beta"] .summary-header,
@@ -1662,6 +1699,14 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
     width: var(--lm-fab-size);
     padding: 0;
     justify-content: center;
+  }
+
+  html[data-environment="beta"] .bottom-navigation {
+    padding: var(--lm-space-1);
+  }
+
+  html[data-environment="beta"] .bottom-navigation button {
+    min-height: 48px;
   }
 
   html[data-environment="beta"] .beta-reading-fab img {

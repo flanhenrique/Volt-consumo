@@ -906,5 +906,50 @@ begin
   ));
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text) from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text) to authenticated;
+create or replace function public.beta_admin_operational_snapshot()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare actor public.beta_memberships;
+begin
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
+  select m.* into actor from public.beta_memberships m
+  join public.beta_user_context c on c.organization_id = m.organization_id and c.user_id = m.user_id
+  where m.user_id = auth.uid() and m.status = 'active' and m.role in ('owner', 'admin');
+  if not found then raise exception 'permission_denied'; end if;
+  return (
+    with scoped as (
+      select event_type, severity, component, duration_ms, created_at
+      from public.beta_operational_events
+      where created_at >= now() - interval '24 hours'
+    ), totals as (
+      select count(*)::integer as events,
+        count(*) filter (where severity = 'error')::integer as errors,
+        count(*) filter (where severity = 'warning')::integer as warnings,
+        round(coalesce(percentile_cont(0.50) within group (order by duration_ms) filter (where duration_ms is not null), 0))::integer as latency_p50_ms,
+        round(coalesce(percentile_cont(0.95) within group (order by duration_ms) filter (where duration_ms is not null), 0))::integer as latency_p95_ms,
+        max(created_at) as last_event_at
+      from scoped
+    )
+    select jsonb_build_object(
+      'window_hours', 24,
+      'generated_at', now(),
+      'events', totals.events,
+      'errors', totals.errors,
+      'warnings', totals.warnings,
+      'error_rate', case when totals.events = 0 then 0 else round((totals.errors::numeric / totals.events) * 100, 2) end,
+      'latency_p50_ms', totals.latency_p50_ms,
+      'latency_p95_ms', totals.latency_p95_ms,
+      'last_event_at', totals.last_event_at,
+      'components', (
+        select coalesce(jsonb_agg(jsonb_build_object('component', component, 'events', events, 'errors', errors) order by errors desc, events desc, component), '[]'::jsonb)
+        from (
+          select component, count(*)::integer as events, count(*) filter (where severity = 'error')::integer as errors
+          from scoped group by component
+        ) grouped
+      )
+    ) from totals
+  );
+end $$;
+
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot() from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot() to authenticated;

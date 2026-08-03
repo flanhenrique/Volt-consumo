@@ -65,6 +65,7 @@ let betaAdminSnapshot = { available: false, authorized: false, organization: nul
 let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
 let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
 let betaFeatureFlagsSnapshot = { available: false, canManage: false, flags: [], refreshedAt: null, message: "" };
+let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], generatedAt: null, message: "" };
 let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
 
@@ -642,6 +643,7 @@ async function updateAuthScreen(user) {
   await refreshBetaInvitation();
   await refreshBetaAdmin();
   await refreshBetaFeatureFlags();
+  await refreshBetaOperationalMetrics();
   await loadUserData(user.id);
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
   void checkOperationalHealth();
@@ -820,6 +822,7 @@ function exposeBetaApi() {
     getFeatureFlagsSnapshot: () => structuredClone(betaFeatureFlagsSnapshot),
     getMfaSnapshot: () => structuredClone(mfaSnapshot),
     getOperationalHealth: () => structuredClone(operationalHealth),
+    getOperationalSnapshot: () => structuredClone(betaOperationalSnapshot),
     enableMfa: startMfaEnrollment,
     disableMfa,
     inviteMember: inviteBetaMember,
@@ -828,6 +831,7 @@ function exposeBetaApi() {
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
     refreshFeatureFlags: refreshBetaFeatureFlags,
+    refreshOperationalMetrics: refreshBetaOperationalMetrics,
     refreshOrganizations: refreshBetaOrganizationContext,
     refreshMfa,
     checkOperationalHealth,
@@ -1091,6 +1095,7 @@ async function switchBetaOrganization(organizationId) {
   await loadUserData(currentUserId);
   await refreshBetaAdmin();
   await refreshBetaFeatureFlags();
+  await refreshBetaOperationalMetrics();
   render();
   return { ok: true, message: "Organização alterada com segurança." };
 }
@@ -1205,6 +1210,33 @@ async function updateBetaFeatureFlag({ key, enabled, rolloutPercentage, killSwit
   if (error) return { ok: false, message: adminErrorMessage(error) };
   await refreshBetaFeatureFlags();
   return { ok: true, message: "Feature flag atualizada e registrada na auditoria." };
+}
+
+async function refreshBetaOperationalMetrics() {
+  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaOperationalSnapshot;
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
+    betaOperationalSnapshot = { ...betaOperationalSnapshot, available: false, message: "" };
+    return betaOperationalSnapshot;
+  }
+  const { data, error } = await supabaseClient.rpc("beta_admin_operational_snapshot");
+  if (error || !data) {
+    betaOperationalSnapshot = { ...betaOperationalSnapshot, available: false, message: "Métricas indisponíveis até a atualização do banco." };
+  } else {
+    betaOperationalSnapshot = {
+      available: true,
+      events: Number(data.events || 0),
+      errors: Number(data.errors || 0),
+      warnings: Number(data.warnings || 0),
+      errorRate: Number(data.error_rate || 0),
+      latencyP50Ms: Number(data.latency_p50_ms || 0),
+      latencyP95Ms: Number(data.latency_p95_ms || 0),
+      components: Array.isArray(data.components) ? data.components : [],
+      generatedAt: data.generated_at || new Date().toISOString(),
+      message: ""
+    };
+  }
+  notifyBetaDataUpdate();
+  return betaOperationalSnapshot;
 }
 
 function adminErrorMessage(error) {

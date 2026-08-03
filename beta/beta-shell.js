@@ -39,7 +39,7 @@ function initializeBetaExperience() {
   bindAdministration(shell);
 
   window.setInterval(() => {
-    if (!document.hidden) Promise.resolve(api.refreshFeatureFlags()).catch(() => undefined);
+    if (!document.hidden) Promise.all([api.refreshFeatureFlags(), api.refreshOperationalMetrics()]).catch(() => undefined);
   }, 25_000);
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
@@ -100,6 +100,7 @@ function betaShellMarkup() {
         <div id="beta-admin-unavailable" class="admin-notice" hidden><strong>Administração indisponível</strong><p id="beta-admin-message">A atualização do banco precisa ser aplicada antes de usar este módulo.</p></div>
         <div id="beta-admin-workspace" hidden>
           <article class="admin-summary-card"><div><small>Organização</small><strong id="beta-organization-name">—</strong></div><div><small>Seu papel</small><strong id="beta-current-role">—</strong></div><div><small>Usuários ativos</small><strong id="beta-member-count">0</strong></div></article>
+          <section class="settings-group" aria-labelledby="beta-operational-title"><div class="settings-row"><div><h3 id="beta-operational-title">Operação nas últimas 24 horas</h3><small>Métricas agregadas, sem conteúdo pessoal.</small></div><button id="beta-refresh-operational" class="secondary-button compact-action" type="button">Atualizar métricas</button></div><div id="beta-operational-unavailable" class="admin-notice" hidden></div><div id="beta-operational-metrics" class="operational-metric-grid"><div><small>Eventos</small><strong id="beta-metric-events">0</strong></div><div><small>Erros</small><strong id="beta-metric-errors">0</strong></div><div><small>Taxa de erro</small><strong id="beta-metric-error-rate">0%</strong></div><div><small>Latência p95</small><strong id="beta-metric-latency">0 ms</strong></div></div><div id="beta-operational-components" class="operational-component-list"></div><small id="beta-operational-refreshed">—</small></section>
           <section class="settings-group"><div class="settings-row"><div><h3>Usuários</h3><small>Gerencie papéis e acesso apenas desta organização.</small></div><label class="admin-search"><span class="sr-only">Buscar usuário</span><input id="beta-user-search" type="search" placeholder="Buscar por nome ou e-mail"></label></div><div id="beta-member-list" class="admin-member-list"></div></section>
           <section class="settings-group"><h3>Convites pendentes</h3><div id="beta-invitation-list" class="admin-invitation-list"></div></section>
           <section class="settings-group" aria-labelledby="beta-feature-flags-title"><div class="settings-row"><div><h3 id="beta-feature-flags-title">Feature flags</h3><small>Rollout determinístico e kill switch com propagação automática.</small></div><small id="beta-feature-flags-refreshed">—</small></div><div id="beta-feature-flag-list" class="feature-flag-list"></div></section>
@@ -433,6 +434,12 @@ function bindAdministration(shell) {
   shell.querySelectorAll("[data-close-admin-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
   shell.querySelector("#beta-invite-user").addEventListener("click", () => inviteDialog.showModal());
   shell.querySelector("#beta-user-search").addEventListener("input", renderAdministration);
+  shell.querySelector("#beta-refresh-operational").addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    await api.refreshOperationalMetrics();
+    event.currentTarget.disabled = false;
+    renderOperationalMetrics();
+  });
   shell.querySelector("#beta-invite-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const result = await api.inviteMember({ email: shell.querySelector("#beta-invite-email").value.trim(), role: shell.querySelector("#beta-invite-role").value });
@@ -491,7 +498,7 @@ function bindAdministration(shell) {
     button.disabled = false;
     renderAdministration();
   });
-  Promise.all([api.refreshAdmin(), api.refreshFeatureFlags()]).then(renderAdministration).catch(renderAdministration);
+  Promise.all([api.refreshAdmin(), api.refreshFeatureFlags(), api.refreshOperationalMetrics()]).then(renderAdministration).catch(renderAdministration);
 }
 
 function syncDestructiveConfirmation() {
@@ -521,6 +528,36 @@ function renderAdministration() {
   invitationList.replaceChildren(...snapshot.invitations.map(createInvitationRow));
   if (!snapshot.invitations.length) invitationList.append(createEmptyMessage("Nenhum convite pendente."));
   renderFeatureFlags();
+  renderOperationalMetrics();
+}
+
+function renderOperationalMetrics() {
+  const snapshot = api.getOperationalSnapshot();
+  const unavailable = document.querySelector("#beta-operational-unavailable");
+  const metrics = document.querySelector("#beta-operational-metrics");
+  const components = document.querySelector("#beta-operational-components");
+  if (!unavailable || !metrics || !components) return;
+  unavailable.hidden = snapshot.available;
+  metrics.hidden = !snapshot.available;
+  components.hidden = !snapshot.available;
+  if (!snapshot.available) {
+    unavailable.textContent = snapshot.message || "Métricas operacionais indisponíveis.";
+    setText("#beta-operational-refreshed", "—");
+    return;
+  }
+  setText("#beta-metric-events", String(snapshot.events));
+  setText("#beta-metric-errors", String(snapshot.errors));
+  setText("#beta-metric-error-rate", `${snapshot.errorRate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`);
+  setText("#beta-metric-latency", `${snapshot.latencyP95Ms} ms`);
+  components.replaceChildren(...snapshot.components.map((item) => {
+    const row = document.createElement("div");
+    const name = document.createElement("span"); name.textContent = item.component;
+    const value = document.createElement("strong"); value.textContent = `${item.events} eventos · ${item.errors} erros`;
+    row.append(name, value);
+    return row;
+  }));
+  if (!snapshot.components.length) components.append(createEmptyMessage("Nenhum evento no período."));
+  setText("#beta-operational-refreshed", snapshot.generatedAt ? `Atualizado ${new Date(snapshot.generatedAt).toLocaleString("pt-BR")}` : "Atualizado");
 }
 
 function renderFeatureFlags() {

@@ -808,6 +808,13 @@ html[data-environment="beta"] .feature-flag-row label span { display: block; mar
 html[data-environment="beta"] .feature-flag-row .compact-toggle { align-self: center; }
 html[data-environment="beta"] .feature-flag-row .compact-toggle input { width: auto; }
 html[data-environment="beta"] .feature-flag-row .flag-rollout input { width: 88px; }
+html[data-environment="beta"] .operational-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--lm-space-2); margin-top: var(--lm-space-3); }
+html[data-environment="beta"] .operational-metric-grid > div { padding: var(--lm-space-3); border: 1px solid var(--lm-glass-border); border-radius: var(--lm-radius-sm); background: color-mix(in srgb, var(--lm-glass-veil) 72%, transparent); }
+html[data-environment="beta"] .operational-metric-grid small,
+html[data-environment="beta"] .operational-metric-grid strong { display: block; }
+html[data-environment="beta"] .operational-metric-grid strong { margin-top: 4px; font-size: var(--lm-text-lg); }
+html[data-environment="beta"] .operational-component-list { display: grid; gap: var(--lm-space-1); margin-top: var(--lm-space-3); }
+html[data-environment="beta"] .operational-component-list > div { display: flex; justify-content: space-between; gap: var(--lm-space-3); padding-block: var(--lm-space-2); border-bottom: 1px solid var(--lm-glass-border); }
 
 @media (max-width: 640px) {
   html[data-environment="beta"] .admin-summary-card { grid-template-columns: 1fr; }
@@ -819,6 +826,7 @@ html[data-environment="beta"] .feature-flag-row .flag-rollout input { width: 88p
   html[data-environment="beta"] .feature-flag-row > div,
   html[data-environment="beta"] .feature-flag-row > input,
   html[data-environment="beta"] .feature-flag-row > button { grid-column: 1 / -1; }
+  html[data-environment="beta"] .operational-metric-grid { grid-template-columns: 1fr 1fr; }
 }
 
 /* ==========================================================================

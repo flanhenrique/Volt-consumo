@@ -1,0 +1,175 @@
+name: Beta encrypted backup
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+    inputs:
+      restore_drill:
+        description: "Restaurar o backup em PostgreSQL isolado"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup lógico criptografado
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+    steps:
+      - name: Validar configuração obrigatória
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL" || { echo "::error::SUPABASE_DB_URL não configurado"; exit 1; }
+          test -n "$BACKUP_AGE_RECIPIENT" || { echo "::error::BACKUP_AGE_RECIPIENT não configurado"; exit 1; }
+
+      - name: Instalar cliente PostgreSQL e age
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client age
+
+      - name: Criar, validar e criptografar backup
+        id: dump
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          plain="volt-beta-${stamp}.dump"
+          encrypted="${plain}.age"
+          manifest="${plain}.manifest.txt"
+          pg_dump --schema=public --format=custom --compress=9 --no-owner --no-privileges --file="$plain" "$SUPABASE_DB_URL"
+          pg_restore --list "$plain" > "$manifest"
+          test -s "$manifest"
+          object_count="$(grep -Ec ' TABLE | TABLE DATA | FUNCTION ' "$manifest")"
+          test "$object_count" -gt 0 || { echo "::error::Backup sem objetos restauráveis"; exit 1; }
+          sha256sum "$plain" >> "$manifest"
+          age --recipient "$BACKUP_AGE_RECIPIENT" --output "$encrypted" "$plain"
+          test -s "$encrypted"
+          shred --remove "$plain"
+          echo "artifact=volt-beta-backup-${stamp}" >> "$GITHUB_OUTPUT"
+          echo "encrypted=$encrypted" >> "$GITHUB_OUTPUT"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+
+      - name: Armazenar somente artefato criptografado
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dump.outputs.artifact }}
+          path: |
+            ${{ steps.dump.outputs.encrypted }}
+            ${{ steps.dump.outputs.manifest }}
+          if-no-files-found: error
+          retention-days: 14
+
+  restore-drill:
+    name: Ensaio de restauração isolado
+    needs: backup
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.restore_drill }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: restore-only
+          POSTGRES_DB: volt_restore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d volt_restore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+      PGPASSWORD: restore-only
+    steps:
+      - name: Validar chave privada do ensaio
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_AGE_IDENTITY" || { echo "::error::BACKUP_AGE_IDENTITY não configurado"; exit 1; }
+
+      - name: Baixar backup desta execução
+        uses: actions/download-artifact@v4
+        with:
+          pattern: volt-beta-backup-*
+          merge-multiple: true
+          path: restore-input
+
+      - name: Instalar ferramentas
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client age
+
+      - name: Descriptografar e restaurar em ambiente descartável
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          identity_file="$(mktemp)"
+          printf '%s\n' "$BACKUP_AGE_IDENTITY" > "$identity_file"
+          encrypted="$(find restore-input -maxdepth 1 -name '*.dump.age' -print -quit)"
+          test -n "$encrypted"
+          plain="${encrypted%.age}"
+          age --decrypt --identity "$identity_file" --output "$plain" "$encrypted"
+          rm -f "$identity_file"
+          database="postgresql://postgres@127.0.0.1:5432/volt_restore"
+          psql "$database" -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create table auth.users (id uuid primary key);"
+          psql "$database" -v ON_ERROR_STOP=1 -c "create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';"
+          pg_restore --exit-on-error --section=pre-data --no-owner --no-privileges --dbname="$database" "$plain"
+          pg_restore --exit-on-error --section=data --disable-triggers --no-owner --no-privileges --dbname="$database" "$plain"
+          psql "$database" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare item record;
+          begin
+            for item in
+              select table_schema, table_name, column_name
+              from information_schema.columns
+              where table_schema = 'public' and data_type = 'uuid'
+                and column_name in ('user_id', 'owner_user_id', 'actor_user_id', 'invited_by', 'updated_by')
+            loop
+              execute format('insert into auth.users(id) select distinct %I from %I.%I where %I is not null on conflict do nothing', item.column_name, item.table_schema, item.table_name, item.column_name);
+            end loop;
+          end $$;
+          SQL
+          pg_restore --exit-on-error --section=post-data --no-owner --no-privileges --dbname="$database" "$plain"
+          shred --remove "$plain"
+
+      - name: Verificar schema e dados essenciais
+        shell: bash
+        run: |
+          set -euo pipefail
+          database="postgresql://postgres@127.0.0.1:5432/volt_restore"
+          psql "$database" -v ON_ERROR_STOP=1 -Atc "
+            select case when count(*) >= 8 then 'ok' else 'incomplete' end
+            from information_schema.tables
+            where table_schema = 'public'
+              and table_name in (
+                'beta_meter_readings',
+                'beta_water_readings',
+                'beta_user_settings',
+                'beta_water_settings',
+                'beta_organizations',
+                'beta_memberships',
+                'beta_admin_audit',
+                'beta_feature_flags'
+              );" | grep -qx ok
+          psql "$database" -v ON_ERROR_STOP=1 -Atc "
+            select case when count(*) >= 4 then 'ok' else 'incomplete' end
+            from pg_policies
+            where schemaname = 'public' and tablename like 'beta_%';" | grep -qx ok
+          echo "Restauração validada em banco isolado e descartável."

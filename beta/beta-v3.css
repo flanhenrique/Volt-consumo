@@ -267,9 +267,14 @@ html[data-environment="beta"] .beta-header {
   align-items: center;
   justify-content: space-between;
   gap: var(--lm-space-4);
-  margin-inline: calc(-1 * max(var(--lm-gutter), var(--lm-safe-left)));
+  /* Sangria até as bordas: cada lado desconta exatamente o recuo que a casca
+     aplicou naquele lado. Usar um valor único para os dois deixava uma faixa
+     sem pintura quando os recortes do aparelho eram assimétricos. */
+  margin-left: calc(-1 * max(var(--lm-gutter), var(--lm-safe-left)));
+  margin-right: calc(-1 * max(var(--lm-gutter), var(--lm-safe-right)));
   padding-block: max(var(--lm-space-4), var(--lm-safe-top)) var(--lm-space-3);
-  padding-inline: max(var(--lm-gutter), var(--lm-safe-left));
+  padding-left: max(var(--lm-gutter), var(--lm-safe-left));
+  padding-right: max(var(--lm-gutter), var(--lm-safe-right));
   border-bottom: 1px solid transparent;
   background: transparent;
   transition:
@@ -1140,13 +1145,13 @@ html[data-environment="beta"] .engine-details {
    ========================================================================== */
 
 html[data-environment="beta"] .bottom-navigation {
+  --lm-nav-columns: 4;
   position: fixed;
   z-index: 30;
   bottom: calc(var(--lm-safe-bottom) + var(--lm-nav-gap));
   left: 50%;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(var(--lm-nav-columns), minmax(0, 1fr));
   width: min(calc(100% - 2 * var(--lm-gutter)), 520px);
   padding: var(--lm-space-2);
   border: 1px solid var(--lm-glass-border-strong);
@@ -1156,6 +1161,11 @@ html[data-environment="beta"] .bottom-navigation {
   -webkit-backdrop-filter: var(--lm-glass-thick-filter);
   box-shadow: var(--lm-shadow-4), inset 0 1px 0 var(--lm-glass-highlight);
   transform: translateX(-50%);
+}
+
+/* A navegação administrativa ganha "Usuários" sem criar uma segunda linha. */
+html[data-environment="beta"] .bottom-navigation:has(#beta-users-nav:not([hidden])) {
+  --lm-nav-columns: 5;
 }
 
 /* Cápsula deslizante. Posição e largura vêm de beta-v3.js. */
@@ -1185,7 +1195,6 @@ html[data-environment="beta"] .bottom-navigation button {
   z-index: 1;
   display: grid;
   place-items: center;
-  min-width: 0;
   gap: 2px;
   min-height: 52px;
   border: 0;
@@ -1206,14 +1215,9 @@ html[data-environment="beta"] .bottom-navigation button span {
 }
 
 html[data-environment="beta"] .bottom-navigation button small {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
   font-size: var(--lm-text-2xs);
   font-weight: var(--lm-weight-black);
   letter-spacing: 0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 html[data-environment="beta"] .bottom-navigation button:hover:not(.active) {
@@ -1708,18 +1712,6 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
 
   html[data-environment="beta"] .bottom-navigation button {
     min-height: 48px;
-    padding-inline: 2px;
-  }
-
-  /* O nome completo continua no DOM e acessível; no espaço visual restrito,
-     o termo equivalente e mais curto evita colisão com "Usuários". */
-  html[data-environment="beta"] .bottom-navigation [data-nav="settings"] small {
-    font-size: 0;
-  }
-
-  html[data-environment="beta"] .bottom-navigation [data-nav="settings"] small::after {
-    content: "Ajustes";
-    font-size: var(--lm-text-2xs);
   }
 
   html[data-environment="beta"] .beta-reading-fab img {

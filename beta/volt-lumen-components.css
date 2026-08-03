@@ -41,10 +41,18 @@
   html:is([data-environment="beta"], .volt-lumen) {
     box-sizing: border-box;
     min-height: 100%;
-    /* Sem salto de layout quando a barra de rolagem aparece. */
-    scrollbar-gutter: stable;
     /* O elástico de rolagem mostra o fundo do app, nunca o do navegador. */
     overscroll-behavior-y: none;
+
+    /* Nada de `scrollbar-gutter` aqui.
+       A v3.1 reservava uma faixa de barra de rolagem no elemento raiz. A
+       reserva ocorre apenas do lado final da linha — a direita — e estreita a
+       caixa de conteúdo sem estreitar a viewport. O resultado era um
+       desalinhamento em três frentes: o conteúdo deslocava para a esquerda,
+       sobrava um vão à direita, e os elementos `position: fixed` (navegação e
+       botão de ação), que se ancoram na viewport e não na caixa de conteúdo,
+       deixavam de alinhar com os cartões. Em telefone a barra é sobreposta e
+       não ocupa espaço algum, então a reserva era puro prejuízo. */
 
     & *,
     & *::before,
@@ -79,25 +87,29 @@
     & .status-message:empty {
       display: none;
     }
+
+    /* Rótulo existente para leitores de tela, ausente para os olhos. Usado
+       onde o campo é autoexplicativo pelo placeholder — a busca de usuários,
+       por exemplo. Sem esta regra o texto aparecia solto na tela. */
+    & .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      border: 0;
+      white-space: nowrap;
+    }
   }
 }
 
-/* Navegadores móveis usam uma barra de rolagem sobreposta. Reservar um
-   gutter nessa faixa estreita reduz apenas o conteúdo, mas não os elementos
-   fixos posicionados pela viewport, deslocando os dois eixos entre si. */
-@media (max-width: 759px) {
-  html:is([data-environment="beta"], .volt-lumen) {
-    scrollbar-gutter: auto;
-    scrollbar-width: none;
-  }
-
-  html:is([data-environment="beta"], .volt-lumen)::-webkit-scrollbar,
-  html:is([data-environment="beta"], .volt-lumen) body::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-}
+/* A reserva de barra de rolagem foi removida da regra base, acima. A tentativa
+   anterior de neutralizá-la vivia num `@media (max-width: 759px)` e falhava em
+   qualquer aparelho que reportasse viewport maior — inclusive telefones em
+   modo de exibição ampliado. Correção condicional não serve para um defeito
+   que desalinha toda a interface: a reserva simplesmente não existe mais. */
 
 /* ==========================================================================
    1. Escopo

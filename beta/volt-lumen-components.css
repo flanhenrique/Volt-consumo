@@ -475,6 +475,14 @@
     & select,
     & textarea {
       width: 100%;
+      /* Um controle de formulário tem largura intrínseca: o `select` se mede
+         pela opção mais longa, o `input` pelo `size`. Em grade ou flex essa
+         largura vira piso e o elemento se recusa a encolher, empurrando o
+         contêiner para fora da tela. Estas duas linhas removem o piso e o
+         teto: o campo passa a caber onde for colocado, em qualquer largura de
+         aparelho. */
+      min-width: 0;
+      max-width: 100%;
       min-height: var(--lm-touch-target);
       padding: var(--lm-space-3) var(--lm-space-4);
       border: 1px solid var(--lm-glass-border-strong);

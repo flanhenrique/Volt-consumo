@@ -130,6 +130,7 @@ dialog { width: min(calc(100% - 40px), 420px); padding: 0; border: 1px solid var
 dialog::backdrop { background: #071015aa; backdrop-filter: blur(4px); }
 .dialog-card { padding: 24px; }
 .dialog-card p { color: var(--muted); }
+.mfa-qr-code { width: min(240px, 100%); margin-inline: auto; border: 12px solid #fff; border-radius: 14px; background: #fff; }
 .dialog-actions { justify-content: flex-end; gap: 10px; }
 .scanner-card { display: grid; gap: 15px; }
 .scanner-card h2 { margin: 0; }

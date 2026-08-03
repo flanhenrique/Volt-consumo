@@ -369,7 +369,7 @@ begin
     return jsonb_build_object('membership_id', existing.id);
   end if;
 
-  if caller_email <> 'flanhenriquee@icloud.com' then raise exception 'permission_denied'; end if;
+  if caller_email <> 'flanhenriquee@icloud.com' or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
 
   insert into public.beta_organizations (name, owner_user_id)
   values (left(trim(p_organization_name), 80), caller) returning id into organization_id;
@@ -387,7 +387,8 @@ declare
   actor public.beta_memberships;
   organization public.beta_organizations;
 begin
-  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com' then
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then
     return jsonb_build_object('authorized', false);
   end if;
   select * into actor from public.beta_memberships where user_id = caller and status = 'active' order by created_at limit 1;
@@ -412,7 +413,8 @@ create or replace function public.beta_admin_invite_member(p_email text, p_role 
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare actor public.beta_memberships; invitation_id uuid; normalized_email text := lower(trim(p_email));
 begin
-  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com' then raise exception 'permission_denied'; end if;
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
   select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
   if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
   if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'invalid_email'; end if;
@@ -429,7 +431,8 @@ create or replace function public.beta_admin_update_member(p_membership_id uuid,
 returns void language plpgsql security definer set search_path = '' as $$
 declare actor public.beta_memberships; target public.beta_memberships; active_admins integer;
 begin
-  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com' then raise exception 'permission_denied'; end if;
+  if lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'permission_denied'; end if;
   select * into actor from public.beta_memberships where user_id = auth.uid() and status = 'active' order by created_at limit 1;
   if not found or actor.role not in ('owner', 'admin') then raise exception 'permission_denied'; end if;
   select * into target from public.beta_memberships where id = p_membership_id and organization_id = actor.organization_id for update;

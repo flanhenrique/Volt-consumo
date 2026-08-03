@@ -27,6 +27,7 @@ function initializeBetaExperience() {
   bindNavigation(shell);
   bindReadingFlow(shell, energyDialog, waterDialog);
   bindAccount(shell);
+  bindMfa(shell);
   bindPreferences(shell);
   bindNotifications(shell);
   bindPrivacy(shell);
@@ -97,6 +98,7 @@ function betaShellMarkup() {
       <section class="beta-page" id="beta-settings" data-page="settings" aria-labelledby="beta-settings-title" hidden>
         <div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="beta-settings-title">Configurações</h2></div></div>
         <section class="settings-group"><div class="settings-row"><h3>Conta</h3><button id="beta-logout" class="text-button" type="button">Sair</button></div><form id="beta-account-form" class="form compact-form"><label><span>Nome de exibição</span><input id="beta-display-name" type="text" maxlength="40" autocomplete="name" placeholder="Como prefere ser chamado" required></label><label><span>E-mail</span><input id="beta-account-email" type="email" readonly aria-readonly="true"></label><p id="beta-account-status" class="note status-message full-row" role="status" aria-live="polite">Conta conectada</p><button class="secondary-button" type="submit">Salvar alterações</button></form></section>
+        <section class="settings-group"><div class="settings-row"><div><h3>Autenticação em duas etapas</h3><small id="beta-mfa-status">Verificando proteção da conta…</small></div><button id="beta-mfa-action" class="secondary-button compact-action" type="button">Ativar</button></div><p class="note">Obrigatória para liberar o controle administrativo de usuários.</p></section>
         <section class="settings-group"><h3>Preferências</h3><form id="beta-preferences-form" class="form compact-form"><label><span>Idioma</span><select id="beta-language"><option value="pt-BR">Português (Brasil)</option><option value="auto">Automático do dispositivo</option></select></label><label><span>Tema</span><select id="beta-theme"><option value="system">Usar padrão do dispositivo</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><label><span>Formato de data</span><select id="beta-date-format"><option value="short">20/07/2026, 18:52</option><option value="long">20 de julho de 2026, 18:52</option></select></label><button class="secondary-button" type="submit">Salvar preferências</button></form></section>
         <section class="settings-group"><h3>Ciclo de Contagem</h3><form id="beta-cycle-form" class="form two-column-form"><label><span>Dia de início</span><input id="beta-cycle-start" type="number" min="1" max="31" inputmode="numeric" required></label><label><span>Dia de encerramento</span><input id="beta-cycle-end" type="number" min="1" max="31" inputmode="numeric" required></label><button class="secondary-button full-row" type="submit">Salvar ciclo</button></form><p class="note">Datas são ajustadas automaticamente ao último dia de cada mês.</p></section>
         <section class="settings-group"><h3>Notificações</h3><label class="toggle-row"><span><strong>Lembrete diário</strong><small>“Faça o registro do seu consumo.”</small></span><input id="beta-reminder-enabled" type="checkbox"></label><label class="field-row"><span>Horário</span><input id="beta-reminder-time" type="time" value="19:00"></label><p class="note">Se já houver uma leitura no dia, nenhum lembrete será exibido.</p></section>
@@ -176,6 +178,30 @@ function bindAccount(shell) {
     button.disabled = false;
     setText("#beta-account-status", result.message);
   });
+}
+
+function bindMfa(shell) {
+  const action = shell.querySelector("#beta-mfa-action");
+  action.addEventListener("click", async () => {
+    action.disabled = true;
+    const snapshot = api.getMfaSnapshot();
+    const result = snapshot.enrolled ? await api.disableMfa() : await api.enableMfa();
+    action.disabled = false;
+    if (!result?.ok && result?.message) setText("#beta-mfa-status", result.message);
+    renderBetaMfa();
+  });
+  Promise.resolve(api.refreshMfa()).then(renderBetaMfa).catch(renderBetaMfa);
+}
+
+function renderBetaMfa() {
+  const snapshot = api.getMfaSnapshot();
+  setText("#beta-mfa-status", !snapshot.available
+    ? "MFA indisponível no provedor."
+    : snapshot.enrolled
+      ? `Ativo · sessão ${snapshot.currentLevel.toUpperCase()}`
+      : "Ainda não configurado");
+  const action = document.querySelector("#beta-mfa-action");
+  if (action) action.textContent = snapshot.enrolled ? "Desativar" : "Ativar";
 }
 
 function bindPreferences(shell) {
@@ -417,6 +443,7 @@ function renderBetaExperience() {
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
   renderReadingHistory(snapshot);
   renderReports(snapshot, energyCurrent, waterCurrent);
+  renderBetaMfa();
   renderAdministration();
 }
 

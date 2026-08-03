@@ -58,6 +58,7 @@ let scannerTarget = null;
 let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
+let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
 
 initializeEnvironment();
 enforceOfflineDataPreference();
@@ -88,6 +89,16 @@ function updateReadingFab(meter) {
   fab.setAttribute("aria-label", isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia");
   fab.title = isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia";
 }
+
+$("#mfa-enable").addEventListener("click", startMfaEnrollment);
+$("#mfa-disable").addEventListener("click", disableMfa);
+$("#close-mfa-enrollment").addEventListener("click", cancelMfaEnrollment);
+$("#mfa-enrollment-form").addEventListener("submit", verifyMfaEnrollment);
+$("#mfa-challenge-form").addEventListener("submit", verifyMfaChallenge);
+$("#cancel-mfa-challenge").addEventListener("click", async () => {
+  $("#mfa-challenge-dialog").close();
+  await supabaseClient?.auth.signOut({ scope: "local" });
+});
 
 /**
  * Ativa uma aba de medidor mantendo o estado ARIA sincronizado.
@@ -320,6 +331,7 @@ $("#open-settings").addEventListener("click", () => {
   $("#offline-data").checked = offlineDataAllowed();
   $("#privacy-message").textContent = "";
   $("#privacy-dialog").showModal();
+  refreshMfa().then(renderMfaStatus);
 });
 
 $("#close-privacy").addEventListener("click", () => $("#privacy-dialog").close());
@@ -585,6 +597,10 @@ function restoreRememberPreference() {
 
 async function updateAuthScreen(user) {
   const signedIn = Boolean(user);
+  if (signedIn) {
+    currentUserId = user.id;
+    if (!(await enforceMfaForSession())) return;
+  }
   welcome.hidden = signedIn;
   dashboard.hidden = !signedIn;
   $("#login-password").value = "";
@@ -598,6 +614,7 @@ async function updateAuthScreen(user) {
     settings = { ...DEFAULT_SETTINGS };
     waterSettings = { ...DEFAULT_WATER_SETTINGS };
     betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
+    mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
     return;
   }
   const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
@@ -770,9 +787,13 @@ function exposeBetaApi() {
     exportData: exportCurrentUserData,
     getSnapshot: getBetaSnapshot,
     getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
+    getMfaSnapshot: () => structuredClone(mfaSnapshot),
+    enableMfa: startMfaEnrollment,
+    disableMfa,
     inviteMember: inviteBetaMember,
     refreshData: refreshBetaData,
     refreshAdmin: refreshBetaAdmin,
+    refreshMfa,
     resetApplication: resetBetaApplication,
     setTheme: applyTheme,
     updateDisplayName: updateBetaDisplayName,
@@ -781,9 +802,134 @@ function exposeBetaApi() {
   });
 }
 
+async function refreshMfa() {
+  if (!supabaseClient?.auth?.mfa || !currentUserId) {
+    mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
+    return mfaSnapshot;
+  }
+  const [factorResult, assuranceResult] = await Promise.all([
+    supabaseClient.auth.mfa.listFactors(),
+    supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel()
+  ]);
+  if (factorResult.error || assuranceResult.error) {
+    mfaSnapshot = { ...mfaSnapshot, available: false };
+    return mfaSnapshot;
+  }
+  const verified = (factorResult.data?.totp || []).find((factor) => factor.status === "verified") || null;
+  mfaSnapshot = {
+    ...mfaSnapshot,
+    available: true,
+    enrolled: Boolean(verified),
+    factorId: verified?.id || null,
+    currentLevel: assuranceResult.data?.currentLevel || "aal1",
+    nextLevel: assuranceResult.data?.nextLevel || "aal1"
+  };
+  return mfaSnapshot;
+}
+
+function renderMfaStatus() {
+  const status = $("#mfa-status");
+  if (!status) return;
+  status.textContent = !mfaSnapshot.available
+    ? "MFA indisponível até a configuração do provedor de identidade."
+    : mfaSnapshot.enrolled
+      ? `Autenticador ativo. Sessão atual em ${mfaSnapshot.currentLevel.toUpperCase()}.`
+      : "Autenticador ainda não configurado.";
+  $("#mfa-enable").hidden = mfaSnapshot.enrolled;
+  $("#mfa-disable").hidden = !mfaSnapshot.enrolled;
+  notifyBetaDataUpdate();
+}
+
+async function startMfaEnrollment() {
+  if (!supabaseClient?.auth?.mfa) return { ok: false, message: "MFA indisponível." };
+  const { data, error } = await supabaseClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "Volt" });
+  if (error || !data?.id || !data?.totp) return { ok: false, message: "Não foi possível iniciar a configuração do autenticador." };
+  mfaSnapshot = { ...mfaSnapshot, enrollment: { factorId: data.id, secret: data.totp.secret, qrCode: data.totp.qr_code } };
+  $("#mfa-qr-code").src = data.totp.qr_code;
+  $("#mfa-secret").value = data.totp.secret;
+  $("#mfa-enrollment-code").value = "";
+  $("#mfa-enrollment-message").textContent = "";
+  $("#mfa-enrollment-dialog").showModal();
+  return { ok: true, message: "Configuração iniciada." };
+}
+
+async function cancelMfaEnrollment() {
+  const factorId = mfaSnapshot.enrollment?.factorId;
+  if (factorId) await supabaseClient?.auth?.mfa?.unenroll({ factorId });
+  mfaSnapshot = { ...mfaSnapshot, enrollment: null };
+  $("#mfa-enrollment-dialog").close();
+  await refreshMfa();
+  renderMfaStatus();
+  await refreshBetaAdmin();
+}
+
+async function verifyMfaEnrollment(event) {
+  event.preventDefault();
+  const factorId = mfaSnapshot.enrollment?.factorId;
+  if (!factorId) return;
+  const code = $("#mfa-enrollment-code").value.trim();
+  const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId, code });
+  if (error) {
+    $("#mfa-enrollment-message").textContent = "Código inválido ou expirado. Aguarde o próximo código e tente novamente.";
+    return;
+  }
+  await supabaseClient.from(dataTable("auth_security_events")).insert({
+    user_id: currentUserId,
+    event_type: "mfa_changed",
+    details: { action: "enrolled", factor_type: "totp" }
+  });
+  mfaSnapshot = { ...mfaSnapshot, enrollment: null };
+  event.target.reset();
+  $("#mfa-enrollment-dialog").close();
+  await refreshMfa();
+  renderMfaStatus();
+  await refreshBetaAdmin();
+}
+
+async function disableMfa() {
+  if (!mfaSnapshot.factorId || !confirm("Desativar a autenticação em duas etapas desta conta?")) return { ok: false, message: "Ação cancelada." };
+  const { error } = await supabaseClient.auth.mfa.unenroll({ factorId: mfaSnapshot.factorId });
+  if (error) return { ok: false, message: "Não foi possível desativar o autenticador. Confirme a sessão em AAL2." };
+  await supabaseClient.from(dataTable("auth_security_events")).insert({
+    user_id: currentUserId,
+    event_type: "mfa_changed",
+    details: { action: "unenrolled", factor_type: "totp" }
+  });
+  await refreshMfa();
+  renderMfaStatus();
+  await refreshBetaAdmin();
+  return { ok: true, message: "Autenticador desativado." };
+}
+
+async function verifyMfaChallenge(event) {
+  event.preventDefault();
+  const code = $("#mfa-challenge-code").value.trim();
+  const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId: mfaSnapshot.factorId, code });
+  if (error) {
+    $("#mfa-challenge-message").textContent = "Código inválido ou expirado.";
+    return;
+  }
+  event.target.reset();
+  $("#mfa-challenge-dialog").close();
+  await refreshMfa();
+  await updateAuthScreen((await supabaseClient.auth.getUser()).data?.user || null);
+}
+
+async function enforceMfaForSession() {
+  await refreshMfa();
+  renderMfaStatus();
+  if (!mfaSnapshot.enrolled || mfaSnapshot.currentLevel === "aal2") return true;
+  welcome.hidden = true;
+  dashboard.hidden = true;
+  $("#mfa-challenge-message").textContent = "";
+  if (!$("#mfa-challenge-dialog").open) $("#mfa-challenge-dialog").showModal();
+  $("#mfa-challenge-code").focus();
+  return false;
+}
+
 async function refreshBetaAdmin() {
   if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaAdminSnapshot;
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) {
+  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
     betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
     notifyBetaDataUpdate();
     return betaAdminSnapshot;

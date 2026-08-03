@@ -228,6 +228,12 @@
         <p class="note">Controle a cópia deste dispositivo, exporte seus dados ou registre uma solicitação. Operações ficam vinculadas à sua conta autenticada.</p>
       </section>
 
+      <section class="privacy-section" aria-labelledby="mfa-title">
+        <h3 id="mfa-title">Autenticação em duas etapas</h3>
+        <p id="mfa-status" class="note status-message">Verificando proteção da conta…</p>
+        <div class="dialog-actions"><button id="mfa-enable" class="secondary-button" type="button">Ativar autenticador</button><button id="mfa-disable" class="danger-button" type="button" hidden>Desativar autenticador</button></div>
+      </section>
+
       <section class="privacy-section" aria-labelledby="device-data-title">
         <h3 id="device-data-title">Dados neste dispositivo</h3>
         <label class="remember-option"><input id="offline-data" type="checkbox"><span>Permitir cópia offline das leituras e preferências</span></label>
@@ -272,6 +278,26 @@
       <label><span>Confirmar nova senha</span><input id="recovery-password-confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
       <p id="password-recovery-message" class="note status-message" role="status" aria-live="polite"></p>
       <button id="save-recovery-password" class="primary-button" type="submit">Atualizar senha</button>
+    </form>
+  </dialog>
+  <dialog id="mfa-enrollment-dialog" aria-labelledby="mfa-enrollment-title">
+    <form id="mfa-enrollment-form" class="dialog-card form">
+      <div class="section-heading"><div><p class="eyebrow">SEGURANÇA</p><h2 id="mfa-enrollment-title">Ativar autenticador</h2></div><button id="close-mfa-enrollment" class="icon-button" type="button" aria-label="Fechar">×</button></div>
+      <p class="note">Leia o QR code no Google Authenticator, Authy ou aplicativo compatível.</p>
+      <img id="mfa-qr-code" class="mfa-qr-code" alt="QR code para configurar o autenticador">
+      <label><span>Chave para configuração manual</span><input id="mfa-secret" type="text" readonly aria-readonly="true"></label>
+      <label><span>Código de 6 dígitos</span><input id="mfa-enrollment-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+      <p id="mfa-enrollment-message" class="note status-message" role="status" aria-live="polite"></p>
+      <button class="primary-button" type="submit">Confirmar e ativar</button>
+    </form>
+  </dialog>
+  <dialog id="mfa-challenge-dialog" aria-labelledby="mfa-challenge-title">
+    <form id="mfa-challenge-form" class="dialog-card form">
+      <div class="section-heading"><div><p class="eyebrow">VERIFICAÇÃO</p><h2 id="mfa-challenge-title">Código do autenticador</h2></div></div>
+      <p class="note">Confirme o código atual para concluir o acesso.</p>
+      <label><span>Código de 6 dígitos</span><input id="mfa-challenge-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+      <p id="mfa-challenge-message" class="note status-message" role="status" aria-live="polite"></p>
+      <div class="dialog-actions"><button id="cancel-mfa-challenge" class="secondary-button" type="button">Cancelar e sair</button><button class="primary-button" type="submit">Verificar</button></div>
     </form>
   </dialog>
   <script src="./vendor/supabase/supabase.js" defer></script>

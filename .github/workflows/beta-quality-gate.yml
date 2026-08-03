@@ -28,6 +28,7 @@ jobs:
         run: |
           find beta -type f -name '*.js' -not -path 'beta/vendor/*' -print0 | xargs -0 -n1 node --check
           node --check supabase/functions/_shared/health-core.mjs
+          node --check supabase/functions/_shared/auth-login-core.mjs
       - name: Verify health endpoint semantics
         run: |
           node --input-type=module <<'NODE'
@@ -41,6 +42,21 @@ jobs:
           const response = await degraded(new Request('https://edge.test/?probe=readiness'));
           assert.equal(response.status, 503);
           assert.deepEqual((await response.json()).checks, { auth: 'up', database: 'down' });
+          NODE
+      - name: Verify auth BFF security semantics
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { createAuthLoginHandler } from './supabase/functions/_shared/auth-login-core.mjs';
+          const origin = 'https://flanhenrique.github.io';
+          const env = (name) => ({ BETA_APP_ORIGIN: origin, SUPABASE_URL: 'https://beta.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'public-test' })[name] || '';
+          const handler = createAuthLoginHandler({ env, fetchFn: async () => Response.json({ access_token: 'a'.repeat(40), refresh_token: 'r'.repeat(40), expires_in: 3600, user: { id: 'user-1' } }) });
+          const denied = await handler(new Request('https://edge.test/auth-login', { method: 'POST', headers: { origin: 'https://evil.test', 'content-type': 'application/json' }, body: '{}' }));
+          assert.equal(denied.status, 403);
+          const accepted = await handler(new Request('https://edge.test/auth-login', { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'person@volt.test', password: 'valid-password' }) }));
+          assert.equal(accepted.status, 200);
+          assert.match(accepted.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Lax/);
+          assert.doesNotMatch(await accepted.text(), /access_token|refresh_token|a{20}|r{20}/);
           NODE
       - name: Validate security and publication invariants
         shell: bash
@@ -56,6 +72,8 @@ jobs:
           test -s beta/vendor/tessdata/eng.traineddata.gz
           test -s supabase/functions/health/index.ts
           test -s supabase/functions/_shared/health-core.mjs
+          test -s supabase/functions/auth-login/index.ts
+          test -s supabase/functions/_shared/auth-login-core.mjs
           grep -q 'flanhenriquee@icloud.com' beta/app.js
           grep -q 'currentLevel !== "aal2"' beta/app.js
           grep -q 'volt-beta-shell-v' beta/sw.js

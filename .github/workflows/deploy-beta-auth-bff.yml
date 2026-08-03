@@ -1,0 +1,42 @@
+name: Deploy beta auth BFF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/auth-login/**"
+      - "supabase/functions/_shared/auth-login-core.mjs"
+      - ".github/workflows/deploy-beta-auth-bff.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-beta-auth-bff
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: beta
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect deployment credentials
+        id: credentials
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: echo "available=$([[ -n \"$SUPABASE_ACCESS_TOKEN\" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Install Supabase CLI
+        if: steps.credentials.outputs.available == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Publish auth-login
+        if: steps.credentials.outputs.available == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy auth-login --project-ref zatwcrouojjqnuuabdif
+      - name: Record manual-deploy requirement
+        if: steps.credentials.outputs.available != 'true'
+        run: echo "SUPABASE_ACCESS_TOKEN is not configured; deployment remains a controlled manual operation."

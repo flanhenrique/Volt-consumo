@@ -60,11 +60,18 @@
       box-sizing: inherit;
     }
 
+    /* `clip` em vez de `hidden`: impede rolagem horizontal sem criar um
+       contêiner de rolagem. Qualquer elemento que escape da largura da tela
+       fica contido em vez de esticar o documento — e sem documento esticado o
+       Safari não encolhe a página para fazê-la caber, que era o efeito visto
+       na variante de administrador. */
+    overflow-x: clip;
+
     & body {
       min-height: 100dvh;
       margin: 0;
       padding: 0;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
 
     /* Container único. Largura, recuo lateral e recortes num lugar só. */

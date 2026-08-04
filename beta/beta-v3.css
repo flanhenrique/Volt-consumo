@@ -313,9 +313,12 @@ html[data-environment="beta"] .organization-context {
 
 html[data-environment="beta"] .organization-context[hidden] { display: none; }
 
+/* A coluna do rótulo podia crescer até 7rem e não encolhia. Com o nome da
+   organização ao lado, os dois juntos estouravam o cartão em telas estreitas.
+   Agora o rótulo cede espaço; em telefone os dois empilham. */
 html[data-environment="beta"] .organization-context label {
   display: grid;
-  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   align-items: center;
   gap: var(--lm-space-3);
   margin: 0;
@@ -1196,6 +1199,8 @@ html[data-environment="beta"] .bottom-navigation button {
   display: grid;
   place-items: center;
   gap: 2px;
+  min-width: 0;
+  overflow: hidden;
   min-height: 52px;
   border: 0;
   border-radius: var(--lm-radius-md);
@@ -1214,10 +1219,19 @@ html[data-environment="beta"] .bottom-navigation button span {
   transition: transform var(--lm-duration-base) var(--lm-ease-glass);
 }
 
+/* O rótulo acompanha a largura disponível. Com quatro abas cada coluna tem
+   folga; com cinco, "Configurações" a 10px não cabe e transborda o botão, a
+   barra e a viewport — e o Safari encolhe a página inteira para compensar.
+   O `clamp` reduz a fonte junto com a tela e o recorte garante que nenhum
+   rótulo longo empurre o layout, seja qual for a contagem de abas. */
 html[data-environment="beta"] .bottom-navigation button small {
-  font-size: var(--lm-text-2xs);
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(8px, 2.3vw, 11px);
   font-weight: var(--lm-weight-black);
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 html[data-environment="beta"] .bottom-navigation button:hover:not(.active) {
@@ -1730,6 +1744,15 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
 
   html[data-environment="beta"] .compact-action {
     max-width: 152px;
+  }
+
+  /* Rótulo acima, seletor abaixo, ambos em largura total. Lado a lado num
+     telefone os dois disputam a mesma linha e o nome da organização fica
+     ilegível. */
+  html[data-environment="beta"] .organization-context label {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--lm-space-2);
   }
 
   /* --- Relatórios em telefone -------------------------------------------

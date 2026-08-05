@@ -39,7 +39,7 @@
       <p class="lead">Registre o medidor, acompanhe seu consumo e antecipe o valor da próxima conta.</p>
       <form id="login-form" class="card form">
         <label><span>E-mail</span><input id="login-email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required></label>
-        <label><span>Senha</span><input id="login-password" type="password" autocomplete="current-password" minlength="6" placeholder="••••••••" required></label>
+        <label><span>Senha</span><input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
         <label class="remember-option"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
         <label class="remember-option"><input id="privacy-ack" type="checkbox"><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a> (necessário somente para criar conta)</span></label>
         <button id="login-button" class="primary-button" type="submit">Entrar</button>
@@ -274,8 +274,8 @@
         <button id="close-password-recovery" class="icon-button" type="button" aria-label="Fechar">×</button>
       </div>
       <p class="note">Use pelo menos 8 caracteres. Uma senha longa e exclusiva é mais segura.</p>
-      <label><span>Nova senha</span><input id="recovery-password" type="password" autocomplete="new-password" minlength="8" required></label>
-      <label><span>Confirmar nova senha</span><input id="recovery-password-confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label><span>Nova senha</span><input id="recovery-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+      <label><span>Confirmar nova senha</span><input id="recovery-password-confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
       <p id="password-recovery-message" class="note status-message" role="status" aria-live="polite"></p>
       <button id="save-recovery-password" class="primary-button" type="submit">Atualizar senha</button>
     </form>

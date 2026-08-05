@@ -8,6 +8,14 @@ import {
 } from "./packages/consumption-domain/browser/index.js";
 import { listEngineDefinitions } from "./packages/engine-core/browser/index.js";
 import {
+  PASSWORD_POLICY,
+  buildSignupRequestBody,
+  describeProviderError,
+  describeSignupOutcome,
+  messageForCode,
+  validateSignupInput
+} from "./packages/auth-client/browser/index.js";
+import {
   environmentStorageKey,
   environmentTableName,
   resolveAppEnvironment
@@ -242,25 +250,70 @@ $("#login-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("#signup-button").addEventListener("click", async () => {
-  if (!supabaseClient || !$("#login-form").reportValidity()) return;
-  const email = $("#login-email").value.trim();
-  const password = $("#login-password").value;
-  const button = $("#signup-button");
-  const message = $("#login-message");
-  if (!$("#privacy-ack").checked) {
-    message.textContent = "Leia e confirme o Aviso de Privacidade para criar a conta.";
-    $("#privacy-ack").focus();
-    return;
-  }
-  const privacyAcceptedAt = new Date().toISOString();
-  button.disabled = true;
-  button.textContent = "Criando conta…";
-  message.textContent = "";
+/**
+ * Rastro de diagnóstico do cadastro.
+ *
+ * Registra a etapa alcançada, nunca o conteúdo. Senha jamais aparece; o e-mail
+ * é reduzido a domínio e comprimento, o suficiente para correlacionar sem
+ * expor o endereço de quem tentou criar a conta.
+ */
+function signupTrace(step, detail = {}) {
+  const entry = { scope: "signup", step, environment: APP_ENVIRONMENT.id, at: new Date().toISOString(), ...detail };
+  signupDiagnostics.push(entry);
+  if (signupDiagnostics.length > 30) signupDiagnostics.shift();
+  window.VOLT_SIGNUP_TRACE = signupDiagnostics;
+  return entry;
+}
 
+function emailShape(email) {
+  const at = email.lastIndexOf("@");
+  return { emailDomain: at >= 0 ? email.slice(at + 1) : "(sem domínio)", emailLength: email.length };
+}
+
+const signupDiagnostics = [];
+
+// O campo é compartilhado por entrar e criar conta. Ele não pode exigir o
+// mínimo de cadastro — quem já tem senha antiga ficaria impedido de entrar —,
+// então a regra aparece como dica e é validada só no caminho de cadastro.
+$("#login-password").title =
+  `Para criar uma conta, a senha precisa ter entre ${PASSWORD_POLICY.minLength} e ${PASSWORD_POLICY.maxLength} caracteres.`;
+
+/** Cadastro pela rota servidor da beta. Devolve o resultado já traduzido. */
+async function signUpThroughEdgeFunction(input) {
+  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
+  if (!config.url) {
+    signupTrace("config_missing");
+    return describeSignupOutcome({ status: 503, code: "service_unavailable" });
+  }
+  let response;
+  try {
+    signupTrace("provider_request", { route: "auth-login/signup" });
+    response = await tracedFetch(`${config.url}/functions/v1/auth-login/signup`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(buildSignupRequestBody(input, PRIVACY_NOTICE_VERSION))
+    });
+  } catch (error) {
+    signupTrace("network_failure", { reason: String(error?.name || "erro") });
+    return describeSignupOutcome({ status: 0 });
+  }
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+  const requestId = response.headers.get("x-request-id") || payload.request_id || "";
+  signupTrace("provider_response", { status: response.status, code: payload.code || "", requestId });
+  return describeSignupOutcome({ status: response.status, code: payload.code, requestId });
+}
+
+/** Cadastro pelo SDK, usado no ambiente oficial. */
+async function signUpThroughProvider(input, privacyAcceptedAt) {
+  signupTrace("provider_request", { route: "sdk/signUp" });
   const { data, error } = await supabaseClient.auth.signUp({
-    email,
-    password,
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
     options: {
       emailRedirectTo: `${location.origin}${location.pathname}`,
       data: {
@@ -269,24 +322,88 @@ $("#signup-button").addEventListener("click", async () => {
       }
     }
   });
-
-  button.disabled = false;
-  button.textContent = "Criar minha conta";
   if (error) {
-    message.textContent = error.message.toLowerCase().includes("already")
-      ? "Este e-mail já possui uma conta. Use Entrar."
-      : "Não foi possível criar a conta. Confira os dados e tente novamente.";
+    signupTrace("provider_error", { reason: error.message });
+    return { outcome: describeProviderError(error.message), user: null, session: null };
+  }
+  signupTrace("provider_response", { status: 200, hasSession: Boolean(data.session) });
+  return {
+    outcome: describeSignupOutcome({ status: 200 }),
+    user: data.user || null,
+    session: data.session || null
+  };
+}
+
+$("#signup-button").addEventListener("click", async () => {
+  const button = $("#signup-button");
+  const message = $("#login-message");
+  const input = {
+    email: $("#login-email").value,
+    password: $("#login-password").value,
+    privacyAccepted: $("#privacy-ack").checked
+  };
+
+  signupDiagnostics.length = 0;
+  signupTrace("started", emailShape(input.email.trim()));
+
+  if (!supabaseClient) {
+    signupTrace("client_unavailable");
+    message.textContent = messageForCode("service_unavailable");
     return;
   }
 
-  localStorage.setItem(SAVED_EMAIL_KEY, email);
+  // A validação local vem antes da validação nativa do navegador porque
+  // produz mensagens mais precisas — o campo declara apenas "obrigatório",
+  // enquanto aqui sabemos qual regra foi violada.
+  const validation = validateSignupInput(input);
+  if (!validation.ok) {
+    signupTrace("validation_failed", { code: validation.code, field: validation.field });
+    message.textContent = validation.message;
+    const target = { email: "#login-email", password: "#login-password", privacy: "#privacy-ack" }[validation.field];
+    if (target) $(target).focus();
+    return;
+  }
+  signupTrace("validation_passed");
+
+  const privacyAcceptedAt = new Date().toISOString();
+  button.disabled = true;
+  button.textContent = "Criando conta…";
+  message.textContent = "";
+
+  let outcome;
+  let createdUser = null;
+  if (APP_ENVIRONMENT.id === "beta") {
+    outcome = await signUpThroughEdgeFunction(input);
+  } else {
+    const result = await signUpThroughProvider(input, privacyAcceptedAt);
+    outcome = result.outcome;
+    createdUser = result.user;
+  }
+
+  button.disabled = false;
+  button.textContent = "Criar minha conta";
+
+  if (!outcome.ok) {
+    signupTrace("finished", { ok: false, code: outcome.code });
+    message.textContent = outcome.message;
+    return;
+  }
+
+  localStorage.setItem(SAVED_EMAIL_KEY, input.email.trim().toLowerCase());
   $("#remember-user").checked = true;
   localStorage.setItem(REMEMBER_KEY, "true");
   $("#login-password").value = "";
-  if (data.user) await recordPrivacyAcceptance(data.user, privacyAcceptedAt);
-  message.textContent = data.session
-    ? "Conta criada. Você já pode usar o app."
-    : "Conta criada. Abra o e-mail de confirmação para liberar o acesso.";
+
+  // O aceite é gravado quando o provedor já devolveu a identidade. Na beta a
+  // sessão só existe após a confirmação por e-mail, e o registro é feito no
+  // primeiro login autenticado.
+  if (createdUser) {
+    signupTrace("privacy_acceptance");
+    await recordPrivacyAcceptance(createdUser, privacyAcceptedAt);
+  }
+
+  signupTrace("finished", { ok: true, code: outcome.code });
+  message.textContent = outcome.message;
 });
 
 $("#forgot-password").addEventListener("click", async () => {

@@ -156,4 +156,3 @@ export function detectContinuousWaterFlow(readings) {
         litersPerHour
     };
 }
-//# sourceMappingURL=index.js.map

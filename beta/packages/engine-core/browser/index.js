@@ -87,6 +87,58 @@ const ENGINE_CATALOG = Object.freeze([
                 status: "available"
             })
         ])
+    }),
+    // Motor de Tarifas — corrige o TECH-002, em que a estimativa multiplica o
+    // volume por uma tarifa média e erra 8,3% no caso de referência do KB-001.
+    //
+    // Entra desligado em duas travas independentes: `enabled: false` no
+    // descritor e `engines.tariff` falso nos dois ambientes. O cálculo por
+    // tarifa média continua sendo o caminho de produção até que os valores
+    // sejam conferidos contra faturas reais.
+    Object.freeze({
+        id: "tariff-engine",
+        displayName: "Tariff Engine",
+        version: "0.1.0",
+        lifecycle: "development",
+        enabled: false,
+        featureFlag: "engines.tariff",
+        capabilities: Object.freeze([
+            "faixas progressivas e acumulativas",
+            "vigência versionada",
+            "memória de cálculo auditável"
+        ]),
+        items: Object.freeze([
+            Object.freeze({
+                id: "TAR-001",
+                title: "Aplicação de faixas",
+                description: "Cobra cada faixa pelo volume que cai dentro dela, ou o volume inteiro pela faixa atingida.",
+                status: "development"
+            }),
+            Object.freeze({
+                id: "TAR-002",
+                title: "Tarifa mínima e consumo mínimo",
+                description: "Aplica piso de valor e piso de volume declarando na memória quanto cada um elevou.",
+                status: "development"
+            }),
+            Object.freeze({
+                id: "TAR-003",
+                title: "Modos de esgoto",
+                description: "Cobre os sete modos previstos, do percentual sobre valor à tabela própria.",
+                status: "development"
+            }),
+            Object.freeze({
+                id: "TAR-004",
+                title: "Vigência e proveniência",
+                description: "Escolhe a versão vigente na data e registra fonte, regulador e versão aplicadas.",
+                status: "development"
+            }),
+            Object.freeze({
+                id: "TAR-005",
+                title: "Memória de cálculo",
+                description: "Emite linha a linha com quantidade, unitário e subtotal, somando exatamente o total.",
+                status: "development"
+            })
+        ])
     })
 ]);
 const ALLOWED_TRANSITIONS = Object.freeze({
@@ -359,4 +411,3 @@ function metricKey(metric, labels) {
         .join(",");
     return suffix ? `${metric}{${suffix}}` : metric;
 }
-//# sourceMappingURL=index.js.map

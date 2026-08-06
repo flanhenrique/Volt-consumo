@@ -176,4 +176,3 @@ function createCalculationContext(context, precisionScale) {
         precisionScale
     };
 }
-//# sourceMappingURL=consumption-platform.js.map

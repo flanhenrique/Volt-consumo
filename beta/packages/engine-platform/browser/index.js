@@ -85,4 +85,3 @@ function validateWorkflowEvent(event) {
     if (!event.calculation.formulaId.trim())
         throw new Error("Cálculo do fluxo sem fórmula.");
 }
-//# sourceMappingURL=index.js.map

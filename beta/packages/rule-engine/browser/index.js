@@ -238,4 +238,3 @@ function deepFreeze(value) {
     }
     return value;
 }
-//# sourceMappingURL=index.js.map

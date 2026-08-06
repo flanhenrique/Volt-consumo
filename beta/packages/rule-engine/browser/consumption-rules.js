@@ -221,4 +221,3 @@ function deepFreeze(value) {
     }
     return value;
 }
-//# sourceMappingURL=consumption-rules.js.map

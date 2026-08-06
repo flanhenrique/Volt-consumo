@@ -9,6 +9,7 @@ export const OFFICIAL_ENVIRONMENT = deepFreeze({
     featureFlags: {
         "engines.rule": true,
         "engines.calculation": true,
+        "engines.tariff": false,
         "experimental.ocr": false,
         "experimental.ai": false,
         "experimental.dashboard": false,
@@ -27,6 +28,7 @@ export const BETA_ENVIRONMENT = deepFreeze({
     featureFlags: {
         "engines.rule": true,
         "engines.calculation": true,
+        "engines.tariff": false,
         "experimental.ocr": false,
         "experimental.ai": false,
         "experimental.dashboard": false,
@@ -62,4 +64,3 @@ function deepFreeze(value) {
     }
     return value;
 }
-//# sourceMappingURL=index.js.map

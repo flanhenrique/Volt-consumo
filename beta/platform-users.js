@@ -1,6 +1,17 @@
 // Volt Beta — diretório global de usuários da plataforma
 // Somente leitura. Os dados são obtidos por RPC protegida; nada pessoal fica embutido no bundle público.
 
+installPlatformUsersStyles();
+
+function installPlatformUsersStyles() {
+  if (document.querySelector('link[data-platform-users-styles]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = new URL("./platform-users.css?v=57", import.meta.url).href;
+  link.dataset.platformUsersStyles = "true";
+  document.head.append(link);
+}
+
 let platformUsersClient = null;
 let platformUsersSnapshot = null;
 

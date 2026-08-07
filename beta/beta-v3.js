@@ -16,6 +16,7 @@
  */
 
 import "./energy-detail.js";
+import "./locality-context.js";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
@@ -34,15 +35,6 @@ function start() {
   enhanceSubmitFeedback();
 }
 
-/* ==========================================================================
-   1. Barra de status
-   --------------------------------------------------------------------------
-   Sem isto o navegador pinta a faixa da barra de status com a cor declarada
-   estaticamente no HTML, e aparece uma faixa clara acima do aplicativo. A cor
-   passa a ser lida do próprio tema em vigor, então barra de status, cabeçalho
-   e conteúdo formam uma superfície contínua nos dois temas.
-   ========================================================================== */
-
 function syncStatusBarColor() {
   const apply = () => {
     const canvas = getComputedStyle(document.documentElement)
@@ -56,24 +48,12 @@ function syncStatusBarColor() {
   };
 
   apply();
-
-  // O tema muda por atributo na raiz (botão de tema) ou por preferência do
-  // sistema quando nenhum tema foi fixado.
   new MutationObserver(apply).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme"]
   });
   DARK_SCHEME.addEventListener("change", apply);
 }
-
-/* ==========================================================================
-   2. Altura da navegação
-   --------------------------------------------------------------------------
-   `--lm-content-bottom` reserva a faixa do rodapé flutuante para que nenhum
-   cartão termine escondido atrás dele. Essa reserva depende da altura real da
-   barra, que muda com o tamanho de fonte do sistema e com o comprimento dos
-   rótulos. Medir é mais confiável do que estimar.
-   ========================================================================== */
 
 function measureNavigationHeight(shell) {
   const navigation = shell.querySelector(".bottom-navigation");
@@ -90,13 +70,6 @@ function measureNavigationHeight(shell) {
   publish();
 }
 
-/* ==========================================================================
-   3. Cabeçalho
-   --------------------------------------------------------------------------
-   O cabeçalho nasce transparente e só ganha vidro quando há conteúdo por
-   baixo dele. É o que permite que a primeira tela seja uma superfície só.
-   ========================================================================== */
-
 function enhanceHeader(shell) {
   const header = shell.querySelector(".beta-header");
   const content = shell.querySelector("#beta-content");
@@ -110,14 +83,6 @@ function enhanceHeader(shell) {
   window.addEventListener("scroll", sync, { passive: true });
   sync();
 }
-
-/* ==========================================================================
-   4. Navegação inferior
-   --------------------------------------------------------------------------
-   Uma única cápsula percorre a barra em vez de quatro fundos acendendo e
-   apagando. A posição é medida do próprio botão ativo, então acompanha
-   qualquer largura de tela sem valores fixos.
-   ========================================================================== */
 
 function enhanceNavigation(shell) {
   const navigation = shell.querySelector(".bottom-navigation");
@@ -149,8 +114,6 @@ function enhanceNavigation(shell) {
   navigation.addEventListener("click", () => requestAnimationFrame(move));
   window.addEventListener("resize", move, { passive: true });
 
-  // A barra só tem largura mensurável depois que o painel deixa de estar
-  // oculto; observar o atributo evita medir um elemento de tamanho zero.
   const dashboard = document.querySelector("#dashboard");
   if (dashboard) {
     new MutationObserver(() => {
@@ -162,13 +125,6 @@ function enhanceNavigation(shell) {
 
   release();
 }
-
-/* ==========================================================================
-   5. Estado de carregamento
-   --------------------------------------------------------------------------
-   Marca o botão que disparou um envio enquanto a operação corre. O ouvinte é
-   passivo: não cancela, não altera dados e não interfere no envio.
-   ========================================================================== */
 
 function enhanceSubmitFeedback() {
   document.addEventListener(
@@ -185,8 +141,6 @@ function enhanceSubmitFeedback() {
         delete button.dataset.loading;
       };
 
-      // A aplicação repinta a interface ao concluir; o estado é liberado no
-      // próximo repinte estável ou por tempo, o que ocorrer primeiro.
       window.addEventListener("volt:beta-data", settle, { once: true });
       window.setTimeout(settle, REDUCED_MOTION.matches ? 240 : 900);
     },

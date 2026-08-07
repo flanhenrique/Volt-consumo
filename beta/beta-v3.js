@@ -15,6 +15,8 @@
  * nenhuma funcionalidade do produto depende dele.
  */
 
+import "./energy-detail.js";
+
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
 

@@ -1,6 +1,6 @@
 const energyDetailStylesheet = document.createElement("link");
 energyDetailStylesheet.rel = "stylesheet";
-energyDetailStylesheet.href = "./energy-detail.css";
+energyDetailStylesheet.href = "./energy-detail.css?v=52";
 document.head.append(energyDetailStylesheet);
 
 const explanations = {

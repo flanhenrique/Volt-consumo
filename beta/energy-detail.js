@@ -1,11 +1,10 @@
+import "./platform-users.js";
+
 installUtilityDetailStyles();
 
 async function installUtilityDetailStyles() {
   const href = new URL("./energy-detail.css?v=54", import.meta.url);
 
-  // Safari/PWA no iOS pode ignorar um <link rel="stylesheet"> criado depois
-  // que o módulo já começou a executar. Preferimos uma folha construída pelo
-  // CSSOM; ela respeita o mesmo CSS externo e funciona dentro do WebKit/PWA.
   try {
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {
       const response = await fetch(href, { cache: "no-store" });

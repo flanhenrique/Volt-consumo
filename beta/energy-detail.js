@@ -1,33 +1,253 @@
 const energyDetailStyle = document.createElement("style");
 energyDetailStyle.textContent = `
-html[data-environment="beta"] .utility-card.energy { cursor: pointer; }
-html[data-environment="beta"] .utility-card.energy:focus-visible { outline: 3px solid var(--lm-accent, #16c784); outline-offset: 4px; }
-html[data-environment="beta"] .tariff-info-card { display: none; }
-html[data-environment="beta"] .energy-detail-dialog { width: min(calc(100% - 20px), 560px); max-height: min(88dvh, 820px); margin: auto auto max(env(safe-area-inset-bottom), 10px); padding: 0; border: 1px solid var(--lm-glass-border); border-radius: 30px 30px 22px 22px; color: var(--lm-ink); background: color-mix(in srgb, var(--lm-canvas) 78%, transparent); box-shadow: 0 24px 80px rgba(0,0,0,.28); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); }
-html[data-environment="beta"] .energy-detail-dialog::backdrop { background: rgba(3,10,14,.48); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-html[data-environment="beta"] .energy-detail-sheet { display: grid; gap: 18px; padding: 22px; }
-html[data-environment="beta"] .energy-detail-handle { width: 46px; height: 5px; margin: -6px auto 0; border-radius: 99px; background: color-mix(in srgb, var(--lm-ink) 26%, transparent); }
-html[data-environment="beta"] .energy-detail-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
-html[data-environment="beta"] .energy-detail-title { display:flex; align-items:center; gap:10px; }
-html[data-environment="beta"] .energy-detail-title span { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; color:#0c8f62; background:rgba(22,199,132,.13); font-weight:900; }
-html[data-environment="beta"] .energy-detail-title h2 { margin:0; font-size:clamp(21px,5vw,28px); }
-html[data-environment="beta"] .energy-detail-cycle { margin:-8px 0 0; color:var(--lm-ink-soft); font-size:13px; }
-html[data-environment="beta"] .energy-detail-list { display:grid; overflow:hidden; border:1px solid var(--lm-glass-border); border-radius:20px; background:var(--lm-glass-thin); }
-html[data-environment="beta"] .energy-detail-row { display:grid; grid-template-columns:minmax(0,1fr) auto 28px; align-items:center; gap:12px; padding:15px 14px; }
-html[data-environment="beta"] .energy-detail-row + .energy-detail-row { border-top:1px solid var(--lm-glass-border); }
-html[data-environment="beta"] .energy-detail-copy { min-width:0; }
-html[data-environment="beta"] .energy-detail-copy strong { display:block; font-size:15px; }
-html[data-environment="beta"] .energy-detail-copy small { display:block; margin-top:3px; color:var(--lm-ink-soft); font-size:12px; line-height:1.35; }
-html[data-environment="beta"] .energy-detail-value { text-align:right; font-weight:850; white-space:nowrap; }
-html[data-environment="beta"] .energy-detail-info { display:grid; place-items:center; width:26px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--lm-accent, #16c784) 55%, transparent); border-radius:50%; color:var(--lm-accent-ink, #0c8f62); background:transparent; font-weight:900; }
-html[data-environment="beta"] .energy-detail-total { display:flex; align-items:end; justify-content:space-between; gap:18px; padding:4px 2px 0; }
-html[data-environment="beta"] .energy-detail-total span { color:var(--lm-accent-ink, #0c8f62); font-size:12px; font-weight:850; letter-spacing:.12em; }
-html[data-environment="beta"] .energy-detail-total strong { font-size:clamp(28px,7vw,38px); }
-html[data-environment="beta"] .energy-detail-note { margin:0; padding:13px 14px; border:1px solid var(--lm-glass-border); border-radius:16px; color:var(--lm-ink-soft); background:var(--lm-glass-thin); font-size:12px; line-height:1.45; }
-html[data-environment="beta"] .energy-detail-popover { position:fixed; inset:auto 12px calc(var(--lm-nav-height, 72px) + env(safe-area-inset-bottom) + 18px); z-index:9999; max-width:520px; margin-inline:auto; padding:14px 16px; border:1px solid var(--lm-glass-border); border-radius:18px; color:var(--lm-ink); background:color-mix(in srgb, var(--lm-canvas) 88%, transparent); box-shadow:0 18px 48px rgba(0,0,0,.22); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); }
-html[data-environment="beta"] .energy-detail-popover strong { display:block; margin-bottom:5px; }
-html[data-environment="beta"] .energy-detail-popover p { margin:0; color:var(--lm-ink-soft); font-size:13px; line-height:1.4; }
-@media (max-width:390px) { html[data-environment="beta"] .energy-detail-sheet { padding:18px 14px; } html[data-environment="beta"] .energy-detail-row { grid-template-columns:minmax(0,1fr) auto 26px; padding:13px 11px; gap:8px; } }
+.utility-card.energy { cursor:pointer; }
+.utility-card.energy:focus-visible { outline:3px solid #19c98a; outline-offset:4px; }
+.tariff-info-card { display:none !important; }
+
+.energy-detail-dialog {
+  position:fixed;
+  inset:auto 10px max(env(safe-area-inset-bottom),10px) 10px;
+  width:auto;
+  max-width:560px;
+  max-height:min(86dvh,820px);
+  margin:0 auto;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(151,177,191,.25);
+  border-radius:30px 30px 24px 24px;
+  color:#f5f8fa;
+  background:rgba(7,18,26,.88);
+  box-shadow:0 28px 90px rgba(0,0,0,.48);
+  backdrop-filter:blur(34px) saturate(165%);
+  -webkit-backdrop-filter:blur(34px) saturate(165%);
+}
+.energy-detail-dialog::backdrop {
+  background:rgba(1,8,13,.62);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.energy-detail-sheet {
+  display:grid;
+  gap:18px;
+  max-height:min(86dvh,820px);
+  padding:14px 18px calc(22px + env(safe-area-inset-bottom));
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.energy-detail-handle {
+  width:50px;
+  height:5px;
+  margin:0 auto 2px;
+  border-radius:999px;
+  background:rgba(226,237,242,.34);
+}
+.energy-detail-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.energy-detail-title {
+  display:flex;
+  align-items:center;
+  gap:11px;
+  min-width:0;
+}
+.energy-detail-title > span {
+  display:grid;
+  flex:0 0 36px;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border:1px solid rgba(24,206,141,.35);
+  border-radius:50%;
+  color:#25d996;
+  background:rgba(20,170,117,.16);
+  box-shadow:inset 0 0 18px rgba(28,220,151,.08);
+  font-size:21px;
+  font-weight:900;
+}
+.energy-detail-title h2 {
+  margin:0;
+  color:#f5f8fa;
+  font-size:clamp(21px,5.4vw,29px);
+  line-height:1.08;
+  letter-spacing:-.025em;
+}
+.energy-detail-heading .icon-button {
+  display:grid;
+  flex:0 0 44px;
+  place-items:center;
+  width:44px;
+  height:44px;
+  padding:0;
+  border:1px solid rgba(170,190,201,.2);
+  border-radius:50%;
+  color:#f1f6f8;
+  background:rgba(255,255,255,.07);
+  font-size:26px;
+}
+.energy-detail-cycle {
+  margin:-6px 0 0;
+  color:#aebdc6;
+  font-size:13px;
+  line-height:1.4;
+}
+.energy-detail-list {
+  display:grid;
+  overflow:hidden;
+  border:1px solid rgba(143,170,184,.22);
+  border-radius:20px;
+  background:rgba(18,34,44,.72);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.energy-detail-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto 30px;
+  align-items:center;
+  gap:12px;
+  min-height:72px;
+  padding:13px 14px;
+}
+.energy-detail-row + .energy-detail-row { border-top:1px solid rgba(143,170,184,.18); }
+.energy-detail-copy {
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
+  column-gap:11px;
+  align-items:center;
+  min-width:0;
+}
+.energy-detail-row-icon {
+  display:grid;
+  grid-row:1 / span 2;
+  place-items:center;
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  font-size:20px;
+  font-weight:900;
+}
+.energy-detail-row[data-detail-key="consumption"] .energy-detail-row-icon { color:#47eb8d; background:rgba(50,201,106,.14); }
+.energy-detail-row[data-detail-key="flag"] .energy-detail-row-icon { color:#ffd74f; background:rgba(241,196,43,.14); }
+.energy-detail-row[data-detail-key="lighting"] .energy-detail-row-icon { color:#b89aff; background:rgba(139,104,230,.15); }
+.energy-detail-row[data-detail-key="taxes"] .energy-detail-row-icon { color:#55dc72; background:rgba(65,195,95,.13); }
+.energy-detail-row[data-detail-key="fine"] .energy-detail-row-icon { color:#ff7777; background:rgba(229,82,82,.14); }
+.energy-detail-row[data-detail-key="interest"] .energy-detail-row-icon { color:#f47ad5; background:rgba(214,70,178,.14); }
+.energy-detail-copy strong {
+  display:block;
+  min-width:0;
+  overflow:hidden;
+  color:#f4f7f9;
+  font-size:15px;
+  line-height:1.25;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.energy-detail-copy small {
+  display:block;
+  min-width:0;
+  margin-top:3px;
+  overflow:hidden;
+  color:#98aab5;
+  font-size:12px;
+  line-height:1.35;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.energy-detail-value {
+  color:#f6f9fa;
+  font-size:15px;
+  font-weight:850;
+  text-align:right;
+  white-space:nowrap;
+}
+.energy-detail-value.muted { color:#8798a3; font-weight:700; }
+.energy-detail-info {
+  display:grid;
+  place-items:center;
+  width:27px;
+  height:27px;
+  padding:0;
+  border:1px solid rgba(48,224,135,.8);
+  border-radius:50%;
+  color:#45e58d;
+  background:transparent;
+  font-size:13px;
+  font-weight:900;
+}
+.energy-detail-total {
+  display:grid;
+  gap:5px;
+  padding:4px 4px 0;
+}
+.energy-detail-total span {
+  color:#42df8e;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.13em;
+}
+.energy-detail-total strong {
+  color:#f7fafb;
+  font-size:clamp(30px,8vw,40px);
+  line-height:1;
+  letter-spacing:-.02em;
+}
+.energy-detail-note {
+  position:relative;
+  margin:0;
+  padding:14px 15px 14px 48px;
+  border:1px solid rgba(143,170,184,.2);
+  border-radius:17px;
+  color:#a8b8c1;
+  background:rgba(18,34,44,.54);
+  font-size:12px;
+  line-height:1.5;
+}
+.energy-detail-note::before {
+  content:"✓";
+  position:absolute;
+  left:14px;
+  top:50%;
+  display:grid;
+  place-items:center;
+  width:23px;
+  height:23px;
+  border:1px solid #31db84;
+  border-radius:50%;
+  color:#31db84;
+  transform:translateY(-50%);
+  font-weight:900;
+}
+.energy-detail-popover {
+  position:fixed;
+  right:12px;
+  bottom:calc(var(--lm-nav-height,72px) + env(safe-area-inset-bottom) + 18px);
+  left:12px;
+  z-index:9999;
+  max-width:520px;
+  margin-inline:auto;
+  padding:14px 16px;
+  border:1px solid rgba(143,170,184,.24);
+  border-radius:18px;
+  color:#f5f8fa;
+  background:rgba(8,20,28,.94);
+  box-shadow:0 18px 48px rgba(0,0,0,.36);
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+}
+.energy-detail-popover strong { display:block; margin-bottom:5px; }
+.energy-detail-popover p { margin:0; color:#a8b8c1; font-size:13px; line-height:1.4; }
+
+@media (max-width:390px) {
+  .energy-detail-dialog { inset-inline:7px; }
+  .energy-detail-sheet { gap:14px; padding-inline:12px; }
+  .energy-detail-row { grid-template-columns:minmax(0,1fr) auto 27px; gap:8px; padding:12px 10px; }
+  .energy-detail-copy { grid-template-columns:34px minmax(0,1fr); column-gap:8px; }
+  .energy-detail-row-icon { width:34px; height:34px; border-radius:10px; font-size:17px; }
+  .energy-detail-copy strong { font-size:14px; }
+  .energy-detail-copy small { font-size:11px; }
+  .energy-detail-value { font-size:14px; }
+}
 `;
 document.head.append(energyDetailStyle);
 
@@ -37,7 +257,16 @@ const explanations = {
   lighting: ["Taxa de iluminação pública", "Contribuição municipal de iluminação pública configurada no aplicativo. A cobrança real pode variar conforme o município e a fatura."],
   taxes: ["Impostos", "ICMS, PIS e COFINS podem compor a fatura. O Volt não inventa esses valores: quando não há dado confiável, o item fica como não identificado."],
   fine: ["Multa", "Cobrança por atraso ou outra penalidade informada pela concessionária. Só deve entrar no total quando houver valor real identificado."],
-  interest: ["Juros", "Juros por atraso ou encargos financeiros da fatura. Só devem ser somados quando houver valor real identificado."],
+  interest: ["Juros", "Juros por atraso ou encargos financeiros da fatura. Só devem ser somados quando houver valor real identificado."]
+};
+
+const rowIcons = {
+  consumption: "ϟ",
+  flag: "⚑",
+  lighting: "⌁",
+  taxes: "%",
+  fine: "!",
+  interest: "%"
 };
 
 let detailDialog;
@@ -77,7 +306,7 @@ function ensureDialog() {
       </div>
       <p class="energy-detail-cycle" id="energy-detail-cycle">Ciclo atual</p>
       <div class="energy-detail-list" id="energy-detail-list"></div>
-      <div class="energy-detail-total"><div><span>TOTAL ESTIMADO</span></div><strong id="energy-detail-total">R$ 0,00</strong></div>
+      <div class="energy-detail-total"><span>TOTAL ESTIMADO</span><strong id="energy-detail-total">R$ 0,00</strong></div>
       <p class="energy-detail-note">Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.</p>
     </div>`;
   document.body.append(detailDialog);
@@ -104,35 +333,41 @@ function renderEnergyDetail() {
   const estimate = snapshot.energy.estimate || {};
   const settings = snapshot.energy.settings || {};
   const consumption = Number(snapshot.energy.summary?.consumption || 0);
-  const flagRate = Math.max(0, Number(estimate.flagCost || 0));
   const rows = [
-    row("consumption", "Consumo", `${formatNumber(consumption, 0)} kWh × ${currency(Number(settings.rate || 0))}/kWh`, currency(Number(estimate.baseCost || 0))),
-    row("flag", "Bandeira tarifária", flagLabel(settings.flag), currency(flagRate)),
-    row("lighting", "Taxa de iluminação pública", "Valor configurado", currency(Number(settings.lightingFee || 0))),
-    row("taxes", "Impostos", "Não identificado na estimativa atual", "—"),
-    row("fine", "Multa", "Não identificada na estimativa atual", "—"),
-    row("interest", "Juros", "Não identificados na estimativa atual", "—")
+    row("consumption", "Consumo", `${formatNumber(consumption, 0)} kWh × ${rateCurrency(Number(settings.rate || 0))}/kWh`, currency(Number(estimate.baseCost || 0))),
+    row("flag", "Bandeira tarifária", flagLabel(settings.flag), currency(Number(estimate.flagCost || 0))),
+    row("lighting", "Taxa de iluminação pública", "Contribuição configurada", currency(Number(settings.lightingFee || 0))),
+    row("taxes", "Impostos", "Não identificado na estimativa atual", "—", true),
+    row("fine", "Multa", "Não identificada na estimativa atual", "—", true),
+    row("interest", "Juros", "Não identificados na estimativa atual", "—", true)
   ];
-  const list = detailDialog.querySelector("#energy-detail-list");
-  list.replaceChildren(...rows);
+  detailDialog.querySelector("#energy-detail-list").replaceChildren(...rows);
   detailDialog.querySelector("#energy-detail-total").textContent = currency(Number(estimate.totalCost || 0));
   const cycleLabel = document.querySelector("#beta-cycle-label")?.textContent?.trim();
   detailDialog.querySelector("#energy-detail-cycle").textContent = cycleLabel && cycleLabel !== "—" ? `Ciclo atual · ${cycleLabel}` : "Ciclo atual";
 }
 
-function row(key, title, subtitle, value) {
+function row(key, title, subtitle, value, muted = false) {
   const item = document.createElement("div");
   item.className = "energy-detail-row";
+  item.dataset.detailKey = key;
+
   const copy = document.createElement("div");
   copy.className = "energy-detail-copy";
+  const icon = document.createElement("span");
+  icon.className = "energy-detail-row-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = rowIcons[key] || "•";
   const strong = document.createElement("strong");
   strong.textContent = title;
   const small = document.createElement("small");
   small.textContent = subtitle;
-  copy.append(strong, small);
+  copy.append(icon, strong, small);
+
   const amount = document.createElement("div");
-  amount.className = "energy-detail-value";
+  amount.className = `energy-detail-value${muted ? " muted" : ""}`;
   amount.textContent = value;
+
   const info = document.createElement("button");
   info.type = "button";
   info.className = "energy-detail-info";
@@ -142,6 +377,7 @@ function row(key, title, subtitle, value) {
     event.stopPropagation();
     showExplanation(key, info);
   });
+
   item.append(copy, amount, info);
   return item;
 }
@@ -167,9 +403,13 @@ function flagLabel(flag) {
 }
 
 function currency(value) {
-  return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return Number(value || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+}
+
+function rateCurrency(value) {
+  return Number(value || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL", minimumFractionDigits:2, maximumFractionDigits:4 });
 }
 
 function formatNumber(value, digits = 0) {
-  return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: digits });
+  return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits:digits });
 }

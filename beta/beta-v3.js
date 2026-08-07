@@ -18,6 +18,7 @@
 import "./energy-detail.js";
 import "./locality-context.js";
 import "./platform-users.js";
+import "./hide-organization-context.js";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");

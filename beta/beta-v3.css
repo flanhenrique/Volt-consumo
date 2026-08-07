@@ -1434,6 +1434,7 @@ html[data-environment="beta"] .beta-dialog .dialog-card :where(input:not([type="
   min-height: 52px;
   margin: 0;
   padding: 0 var(--lm-space-4);
+  box-sizing: border-box;
   overflow: hidden;
   border-radius: var(--lm-radius-sm);
 }
@@ -1453,6 +1454,9 @@ html[data-environment="beta"] .beta-dialog .dialog-card
 html[data-environment="beta"] body > .reading-dialog input[type="datetime-local"],
 html[data-environment="beta"] .beta-dialog input[type="datetime-local"] {
   inline-size: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -1919,3 +1923,27 @@ html[data-environment="beta"] .privacy-section .secondary-button { width: 100%; 
 
   html[data-environment="beta"] .report-card::before { content: none; }
 }
+
+
+/* Onboarding, tutoriais e composição tarifária */
+html[data-environment="beta"] .tariff-info-card {
+  padding: var(--lm-space-5);
+  border: 1px solid var(--lm-glass-border);
+  border-radius: var(--lm-radius-xl);
+  background: var(--lm-glass-medium);
+  box-shadow: var(--lm-shadow-card);
+  backdrop-filter: var(--lm-glass-medium-filter);
+  -webkit-backdrop-filter: var(--lm-glass-medium-filter);
+}
+html[data-environment="beta"] .tariff-info-list { display: grid; gap: var(--lm-space-2); margin-top: var(--lm-space-4); }
+html[data-environment="beta"] .tariff-info-list button {
+  display: grid; grid-template-columns: minmax(0,1fr) auto 28px; align-items: center; gap: var(--lm-space-3);
+  width: 100%; padding: var(--lm-space-3); border: 1px solid var(--lm-glass-border); border-radius: var(--lm-radius-md);
+  color: var(--lm-ink); background: var(--lm-glass-thin); text-align: left;
+}
+html[data-environment="beta"] .tariff-info-list button strong { text-align: right; font-size: var(--lm-text-sm); }
+html[data-environment="beta"] .tariff-info-list button i { display:grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--lm-accent-soft); color:var(--lm-accent-ink); font-style:normal; font-weight:800; }
+html[data-environment="beta"] .tutorial-dialog { max-width: min(92vw, 560px); }
+html[data-environment="beta"] .tutorial-steps { display:grid; gap:var(--lm-space-3); margin-block:var(--lm-space-4); }
+html[data-environment="beta"] .tutorial-steps section { padding:var(--lm-space-4); border:1px solid var(--lm-glass-border); border-radius:var(--lm-radius-md); background:var(--lm-glass-thin); }
+html[data-environment="beta"] .tutorial-steps p { margin:var(--lm-space-2) 0 0; color:var(--lm-ink-soft); }

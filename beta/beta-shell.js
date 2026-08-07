@@ -34,6 +34,7 @@ function initializeBetaExperience() {
   bindPreferences(shell);
   bindNotifications(shell);
   bindPrivacy(shell);
+  bindHelp(shell);
   bindRestore(shell);
   bindReports(shell);
   bindAdministration(shell);
@@ -82,6 +83,16 @@ function betaShellMarkup() {
           <div class="summary-values" id="beta-summary-values"></div>
           <div class="financial-insights"><p id="beta-financial-comparison">Aguardando leituras para comparar os ciclos.</p><p id="beta-cycle-forecast">Aguardando leituras para prever o encerramento.</p></div>
         </article>
+        <article class="tariff-info-card">
+          <div class="summary-header"><div><p class="eyebrow">COMPOSIÇÃO DA CONTA</p><h2>Tarifas e encargos</h2></div></div>
+          <div class="tariff-info-list">
+            <button type="button" data-tariff-info="energy"><span>Tarifa de energia</span><strong id="beta-tariff-energy">—</strong><i aria-hidden="true">i</i></button>
+            <button type="button" data-tariff-info="flag"><span>Bandeira tarifária</span><strong id="beta-tariff-flag">—</strong><i aria-hidden="true">i</i></button>
+            <button type="button" data-tariff-info="lighting"><span>Iluminação pública</span><strong id="beta-tariff-lighting">—</strong><i aria-hidden="true">i</i></button>
+            <button type="button" data-tariff-info="sewer"><span>Taxa de esgoto</span><strong id="beta-tariff-sewer">Conforme cadastro</strong><i aria-hidden="true">i</i></button>
+            <button type="button" data-tariff-info="taxes"><span>Impostos</span><strong>Conforme fatura</strong><i aria-hidden="true">i</i></button>
+          </div>
+        </article>
       </section>
 
       <section class="beta-page" id="beta-readings" data-page="readings" aria-labelledby="beta-readings-title" hidden>
@@ -119,6 +130,7 @@ function betaShellMarkup() {
         <section class="settings-group"><h3>Preferências</h3><form id="beta-preferences-form" class="form compact-form"><label><span>Idioma</span><select id="beta-language"><option value="pt-BR">Português (Brasil)</option><option value="auto">Automático do dispositivo</option></select></label><label><span>Tema</span><select id="beta-theme"><option value="system">Usar padrão do dispositivo</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label><label><span>Formato de data</span><select id="beta-date-format"><option value="short">20/07/2026, 18:52</option><option value="long">20 de julho de 2026, 18:52</option></select></label><button class="secondary-button" type="submit">Salvar preferências</button></form></section>
         <section class="settings-group"><h3>Ciclo de Contagem</h3><form id="beta-cycle-form" class="form two-column-form"><label><span>Dia de início</span><input id="beta-cycle-start" type="number" min="1" max="31" inputmode="numeric" required></label><label><span>Dia de encerramento</span><input id="beta-cycle-end" type="number" min="1" max="31" inputmode="numeric" required></label><button class="secondary-button full-row" type="submit">Salvar ciclo</button></form><p class="note">Datas são ajustadas automaticamente ao último dia de cada mês.</p></section>
         <section class="settings-group"><h3>Notificações</h3><label class="toggle-row"><span><strong>Lembrete diário</strong><small>“Faça o registro do seu consumo.”</small></span><input id="beta-reminder-enabled" type="checkbox"></label><label class="field-row"><span>Horário</span><input id="beta-reminder-time" type="time" value="19:00"></label><p class="note">Se já houver uma leitura no dia, nenhum lembrete será exibido.</p></section>
+        <section class="settings-group"><h3>Ajuda e tutoriais</h3><p class="note">Aprenda a registrar corretamente a leitura e a identificar o ciclo na fatura.</p><div class="stack-actions"><button id="beta-onboarding-tutorial" class="secondary-button" type="button">Guia de boas-vindas</button><button id="beta-meter-tutorial" class="secondary-button" type="button">Como ler água e energia</button><button id="beta-bill-cycle-tutorial" class="secondary-button" type="button">Como identificar o ciclo da fatura</button></div></section>
         <section class="settings-group"><h3>Privacidade</h3><div class="stack-actions"><button id="beta-export-data" class="secondary-button" type="button">Exportar meus dados</button><button id="beta-lgpd" class="secondary-button" type="button">Privacidade e LGPD</button></div></section>
         <section class="settings-group"><div class="settings-row"><div><h3>Saúde do serviço</h3><small id="beta-health-status">Ainda não verificado</small></div><button id="beta-check-health" class="secondary-button compact-action" type="button">Verificar</button></div><p id="beta-health-details" class="note">Auth e banco serão testados sem enviar dados pessoais.</p></section>
         <details class="settings-group advanced-settings"><summary>Configurações Avançadas</summary><div id="beta-advanced-content" class="advanced-content"></div></details>
@@ -138,6 +150,9 @@ function betaShellMarkup() {
     <dialog id="beta-reading-type-dialog" class="beta-dialog"><form method="dialog" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">NOVA LEITURA</p><h2>O que deseja registrar?</h2></div><button class="icon-button" value="cancel" aria-label="Fechar">×</button></div><div class="reading-type-grid"><button class="utility-choice energy" type="button" data-reading-type="energy"><span aria-hidden="true">ϟ</span><strong>Energia</strong><small>Medidor em kWh</small></button><button class="utility-choice water" type="button" data-reading-type="water"><span aria-hidden="true">●</span><strong>Água</strong><small>Hidrômetro em m³</small></button></div></form></dialog>
     <dialog id="beta-edit-dialog" class="beta-dialog"><form id="beta-edit-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">EDITAR LEITURA</p><h2 id="beta-edit-title">Leitura</h2></div><button id="beta-close-edit" class="icon-button" type="button" aria-label="Fechar">×</button></div><input id="beta-edit-original-date" type="hidden"><input id="beta-edit-type" type="hidden"><label><span>Leitura</span><input id="beta-edit-value" type="number" min="0" step="0.001" required></label><label><span>Data e hora</span><input id="beta-edit-date" type="datetime-local" required></label><p id="beta-edit-message" class="note status-message" role="status"></p><button class="primary-button" type="submit">Salvar alteração</button></form></dialog>
     <dialog id="beta-delete-dialog" class="beta-dialog"><form method="dialog" class="dialog-card"><h2>Excluir esta leitura?</h2><p>Somente o registro selecionado será removido.</p><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button id="beta-confirm-delete" class="danger-button" value="confirm">Excluir leitura</button></div></form></dialog>
+
+    <dialog id="beta-help-dialog" class="beta-dialog"><div class="dialog-card tutorial-dialog"><div class="section-heading"><div><p class="eyebrow">GUIA RÁPIDO</p><h2 id="beta-help-title">Tutorial</h2></div><button id="beta-close-help" class="icon-button" type="button" aria-label="Fechar">×</button></div><div id="beta-help-content"></div><button id="beta-help-done" class="primary-button" type="button">Entendi</button></div></dialog>
+    <dialog id="beta-tariff-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">INFORMAÇÃO</p><h2 id="beta-tariff-dialog-title">Tarifa</h2></div><button id="beta-close-tariff" class="icon-button" type="button" aria-label="Fechar">×</button></div><p id="beta-tariff-dialog-text"></p><button id="beta-tariff-done" class="primary-button" type="button">Entendi</button></div></dialog>
     <dialog id="beta-reset-dialog" class="beta-dialog"><div class="dialog-card"><div id="beta-reset-step-one"><h2>Restaurar o aplicativo?</h2><p>Preferências e cópias locais deste dispositivo serão removidas. As leituras da sua conta não serão apagadas.</p><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-continue" class="danger-button" type="button">Continuar</button></div></div><div id="beta-reset-step-two" hidden><h2>Confirmação final</h2><label><span>Digite RESTAURAR para confirmar</span><input id="beta-reset-confirmation" autocomplete="off"></label><div class="dialog-actions"><button class="secondary-button" type="button" data-reset-cancel>Cancelar</button><button id="beta-reset-confirm" class="danger-button" type="button" disabled>Restaurar agora</button></div></div></div></dialog>
     <dialog id="beta-invite-dialog" class="beta-dialog"><form id="beta-invite-form" class="dialog-card"><div class="section-heading"><div><p class="eyebrow">NOVO ACESSO</p><h2>Convidar usuário</h2></div><button class="icon-button" type="button" data-close-admin-dialog aria-label="Fechar">×</button></div><label><span>E-mail</span><input id="beta-invite-email" type="email" autocomplete="email" required></label><label><span>Papel</span><select id="beta-invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><p class="note">O convite expira em 48 horas e fica restrito a esta organização.</p><button class="primary-button" type="submit">Registrar convite</button></form></dialog>
     <dialog id="beta-invite-created-dialog" class="beta-dialog"><div class="dialog-card"><div class="section-heading"><div><p class="eyebrow">CONVITE SEGURO</p><h2>Link criado</h2></div><button class="icon-button" type="button" data-close-invite-created aria-label="Fechar">×</button></div><p class="note">Envie este link apenas ao destinatário. O token aparece uma vez, expira em 48 horas e não é armazenado em texto aberto.</p><label><span>Link de uso único</span><input id="beta-created-invite-url" type="text" readonly aria-readonly="true"></label><div class="dialog-actions"><button id="beta-copy-invite-url" class="secondary-button" type="button">Copiar link</button><button class="primary-button" type="button" data-close-invite-created>Concluir</button></div><p id="beta-created-invite-status" class="note status-message" role="status" aria-live="polite"></p></div></dialog>
@@ -406,6 +421,39 @@ function bindPrivacy(shell) {
   shell.querySelector("#beta-export-data").addEventListener("click", () => api.exportData());
   shell.querySelector("#beta-lgpd").addEventListener("click", () => document.querySelector("#open-settings")?.click());
   shell.querySelector("#beta-logout").addEventListener("click", () => document.querySelector("#logout")?.click());
+}
+
+function bindHelp(shell) {
+  const dialog = shell.querySelector("#beta-help-dialog");
+  const tariffDialog = shell.querySelector("#beta-tariff-dialog");
+  const openHelp = (title, html) => {
+    setText("#beta-help-title", title);
+    shell.querySelector("#beta-help-content").innerHTML = html;
+    dialog.showModal();
+  };
+  shell.querySelector("#beta-onboarding-tutorial").addEventListener("click", () => {
+    if (typeof window.showOnboarding === "function") window.showOnboarding();
+    if (typeof window.resetOnboardingStatus === "function") window.resetOnboardingStatus();
+  });
+  shell.querySelector("#beta-meter-tutorial").addEventListener("click", () => openHelp("Como fazer a leitura", `
+    <div class="tutorial-steps"><section><strong>Energia</strong><p>Leia somente os dígitos que representam kWh. Ignore códigos do aparelho e símbolos. Fotografe o visor de frente, sem reflexo e com todos os números visíveis.</p></section><section><strong>Água</strong><p>Use os algarismos inteiros do hidrômetro. Em modelos com dígitos vermelhos ou ponteiros decimais, confirme na fatura qual parte representa m³.</p></section><section><strong>Antes de salvar</strong><p>Compare o número reconhecido pelo OCR com o visor. A leitura atual normalmente não pode ser menor que a anterior sem troca ou reinício do medidor.</p></section></div>`));
+  shell.querySelector("#beta-bill-cycle-tutorial").addEventListener("click", () => openHelp("Como identificar o ciclo", `
+    <div class="tutorial-steps"><section><strong>1. Encontre a data da leitura anterior</strong><p>Na fatura, procure “leitura anterior”, “data anterior” ou “período de consumo”.</p></section><section><strong>2. Encontre a última medição</strong><p>Procure “leitura atual” e use esse valor como primeira leitura no Volt. Não use o consumo faturado no lugar do número acumulado do medidor.</p></section><section><strong>3. Configure o ciclo</strong><p>Use os dias da leitura anterior e atual para definir o início e o encerramento do ciclo em Configurações.</p></section></div>`));
+  ["#beta-close-help", "#beta-help-done"].forEach((selector) => shell.querySelector(selector).addEventListener("click", () => dialog.close()));
+  const explanations = {
+    energy: ["Tarifa de energia", "Valor aplicado por kWh consumido. O Volt usa a tarifa cadastrada nas preferências para estimar a conta."],
+    flag: ["Bandeira tarifária", "Adicional definido para cada período. Verde não adiciona valor; amarela e vermelha acrescentam custo por kWh."],
+    lighting: ["Iluminação pública", "Contribuição municipal que pode ser fixa ou calculada por faixa. O valor exato depende do município e da fatura."],
+    sewer: ["Taxa de esgoto", "Normalmente é calculada como percentual do consumo de água, mas a regra varia por concessionária e localidade."],
+    taxes: ["Impostos", "Tributos como ICMS, PIS e COFINS podem compor a fatura. Percentuais e base de cálculo variam por local e período."]
+  };
+  shell.querySelectorAll("[data-tariff-info]").forEach((button) => button.addEventListener("click", () => {
+    const [title, text] = explanations[button.dataset.tariffInfo];
+    setText("#beta-tariff-dialog-title", title);
+    setText("#beta-tariff-dialog-text", text);
+    tariffDialog.showModal();
+  }));
+  ["#beta-close-tariff", "#beta-tariff-done"].forEach((selector) => shell.querySelector(selector).addEventListener("click", () => tariffDialog.close()));
 }
 
 function bindRestore(shell) {
@@ -780,6 +828,7 @@ function renderBetaExperience() {
   renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
   renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
+  renderTariffInformation();
   renderReadingHistory(snapshot);
   renderReports(snapshot, energyCurrent, waterCurrent);
   renderBetaMfa();
@@ -787,6 +836,15 @@ function renderBetaExperience() {
   renderOrganizationContext();
   renderInvitation();
   renderAdministration();
+}
+
+function renderTariffInformation() {
+  const rate = Number(document.querySelector("#rate")?.value || 0);
+  const lighting = Number(document.querySelector("#lighting-fee")?.value || 0);
+  const flagText = document.querySelector("#tariff-flag")?.selectedOptions?.[0]?.textContent || "Não configurada";
+  setText("#beta-tariff-energy", rate > 0 ? `${currency(rate)}/kWh` : "Não configurada");
+  setText("#beta-tariff-flag", flagText.split("—")[0].trim());
+  setText("#beta-tariff-lighting", lighting > 0 ? currency(lighting) : "Não configurada");
 }
 
 function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {

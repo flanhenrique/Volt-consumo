@@ -57,6 +57,7 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px #0
 .remember-option { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .remember-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--green); }
 .remember-option span { margin: 0; color: var(--ink); font-size: 13px; }
+.remember-option a, .privacy-policy-link a, .legal-page a { color: var(--green); }
 .primary-button, .secondary-button, .danger-button { padding: 15px; border: 0; border-radius: 15px; font-weight: 800; }
 .primary-button { color: #fff; background: var(--navy); }
 .primary-button:disabled { cursor: wait; opacity: .65; }
@@ -68,6 +69,7 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px #0
 .meter-tab { padding: 11px; border: 0; border-radius: 12px; color: var(--muted); background: transparent; font-weight: 800; }
 .meter-tab.active { color: #fff; background: var(--navy); box-shadow: 0 6px 18px var(--shadow); }
 .topbar .eyebrow { margin: 0 0 6px; }
+.environment-badge { display: inline-flex; margin-left: 5px; padding: 3px 6px; border-radius: 999px; color: #fff; background: var(--green); font-size: 9px; letter-spacing: .08em; vertical-align: middle; }
 .topbar h1 { margin: 0; font-size: 28px; }
 .icon-button { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: var(--surface); }
 .hero-card { padding: 24px; border-radius: 28px; color: #fff; background: linear-gradient(135deg, #17384b, #0d2432); box-shadow: 0 20px 42px #102f4040; }
@@ -123,11 +125,13 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px #0
 .empty { padding: 24px; border: 1px dashed var(--line); border-radius: 18px; color: var(--muted); text-align: center; font-size: 12px; }
 .reading-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
 .reading-list li { display: flex; justify-content: space-between; gap: 12px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.reading-list span { color: var(--muted); font-size: 11px; text-align: right; }
+.reading-list span, .reading-list time { color: var(--muted); font-size: 11px; text-align: right; }
 dialog { width: min(calc(100% - 40px), 420px); padding: 0; border: 1px solid var(--line); border-radius: 22px; color: var(--ink); background: var(--surface); }
 dialog::backdrop { background: #071015aa; backdrop-filter: blur(4px); }
 .dialog-card { padding: 24px; }
 .dialog-card p { color: var(--muted); }
+.reading-card .form :is(input, button) { width: 100%; min-width: 0; box-sizing: border-box; }
+.mfa-qr-code { width: min(240px, 100%); margin-inline: auto; border: 12px solid #fff; border-radius: 14px; background: #fff; }
 .dialog-actions { justify-content: flex-end; gap: 10px; }
 .scanner-card { display: grid; gap: 15px; }
 .scanner-card h2 { margin: 0; }
@@ -138,12 +142,139 @@ dialog::backdrop { background: #071015aa; backdrop-filter: blur(4px); }
 .scanner-progress { overflow: hidden; height: 7px; border-radius: 8px; background: var(--line); }
 .scanner-progress span { display: block; width: 0; height: 100%; background: var(--green); transition: width .2s; }
 .scanner-progress p { margin-top: 9px; color: var(--muted); font-size: 11px; }
+.privacy-dialog { width: min(calc(100% - 28px), 500px); max-height: calc(100dvh - 32px); overflow-y: auto; overflow-x: hidden; }
+.privacy-card { display: grid; gap: 18px; }
+.privacy-card .eyebrow { margin: 0 0 4px; }
+.privacy-card h2, .privacy-card h3 { margin: 0; }
+.privacy-card h3 { font-size: 15px; }
+.privacy-section { display: grid; gap: 11px; padding-top: 18px; border-top: 1px solid var(--line); }
+.privacy-section .form { margin-top: 0; }
+.privacy-section .secondary-button { width: 100%; }
+.engine-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.engine-row { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); }
+.engine-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 13px; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.engine-summary:hover { background: color-mix(in srgb, var(--green) 7%, transparent); }
+.engine-summary > div { min-width: 0; }
+.engine-summary-meta { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.engine-chevron { font-size: 20px; line-height: 1; transition: transform .2s ease; }
+.engine-row.expanded .engine-chevron { transform: rotate(180deg); }
+.engine-row .note { margin: 4px 0 0; }
+.engine-row .confidence { flex: 0 0 auto; }
+.engine-details { padding: 0 13px 13px; border-top: 1px solid var(--line); }
+.engine-detail-list { display: grid; gap: 10px; margin: 13px 0 0; padding: 0; list-style: none; }
+.engine-detail-list li { padding: 11px; border-radius: 11px; background: var(--surface); }
+.engine-detail-list h4 { margin: 7px 0 0; font-size: 14px; }
+.engine-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.engine-detail-header strong { color: var(--green); font-size: 12px; letter-spacing: .04em; }
+.engine-detail-status { color: var(--muted); font-size: 11px; font-weight: 800; }
+.privacy-policy-link { margin: 0; text-align: center; }
+.mfa-backup-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); }
+.mfa-backup-panel[hidden] { display: none; }
+.mfa-backup-codes { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-soft); color: inherit; font: 700 15px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; text-align: center; user-select: all; }
+.legal-page { width: min(calc(100% - 32px), 760px); margin: 0 auto; padding: 48px 0 64px; }
+.legal-page > h1 { font-size: clamp(36px, 8vw, 54px); }
+.legal-section { margin-top: 18px; }
+.legal-section h2 { font-size: 20px; }
+.legal-section p, .legal-section li { color: var(--muted); line-height: 1.65; }
+.legal-section li + li { margin-top: 8px; }
+.legal-back { margin-top: 28px; text-align: center; }
+
+/* Onboarding carousel */
+.onboarding-dialog { width: min(calc(100% - 40px), 500px); }
+.onboarding-card { display: flex; flex-direction: column; gap: 20px; max-height: 80vh; overflow: hidden; }
+.onboarding-content { flex: 1; overflow-y: auto; }
+.onboarding-slide { display: none; }
+.onboarding-slide.active { display: block; animation: slideIn 0.3s ease; }
+@keyframes slideIn { from { opacity: 0; } to { opacity: 1; } }
+.onboarding-slide h3 { margin: 0 0 12px; font-size: 18px; }
+.onboarding-slide p { margin: 0 0 10px; color: var(--muted); line-height: 1.5; }
+.onboarding-slide ul { margin: 10px 0; padding-left: 20px; color: var(--muted); }
+.onboarding-slide li { margin: 6px 0; }
+.onboarding-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.onboarding-indicators { display: flex; gap: 6px; }
+.onboarding-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--line); transition: background 0.2s; }
+.onboarding-indicator.active { background: var(--green); }
+.onboarding-footer button { flex: 0 0 auto; }
 
 @media (max-width: 390px) {
   .compact-form { grid-template-columns: 1fr; }
   .metrics { grid-template-columns: 1fr; }
+  .engine-summary { flex-wrap: wrap; align-items: flex-start; }
+  .engine-summary > div { flex: 1 1 130px; }
+  .engine-summary-meta { max-width: 100%; }
 }
 @media (min-width: 700px) {
   body { padding: 32px; }
   .shell { min-height: calc(100vh - 64px); border-radius: 34px; overflow: hidden; }
+  .screen { min-height: calc(100vh - 64px); }
+}
+
+/* ==========================================================================
+   Correções AUD-002 — acessibilidade e preferências do sistema
+   ========================================================================== */
+
+/* Skip link — permite pular a navegação com teclado (WCAG 2.4.1) */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 999;
+  padding: 0.75rem 1.25rem;
+  background: var(--accent, #1f6fb2);
+  color: #fff;
+  border-radius: 0 0 8px 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 0;
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Aviso quando o JavaScript está desativado */
+.noscript-warning {
+  margin: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #b3261e;
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: #fdf3f2;
+  color: #5c1a15;
+  line-height: 1.5;
+}
+
+/* Foco visível consistente em todos os elementos interativos (WCAG 2.4.7) */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--accent, #1f6fb2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respeita a preferência de movimento reduzido (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Suporte a alto contraste */
+@media (prefers-contrast: more) {
+  :where(a, button, input, select, textarea) {
+    border-width: 2px;
+  }
+}
+
+/* Alvos de toque com no mínimo 44x44 px (WCAG 2.5.8) */
+@media (pointer: coarse) {
+  :where(button, .icon-button, .meter-tab, a[role="button"]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }

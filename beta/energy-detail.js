@@ -1,7 +1,30 @@
-const utilityDetailStylesheet = document.createElement("link");
-utilityDetailStylesheet.rel = "stylesheet";
-utilityDetailStylesheet.href = "./energy-detail.css?v=53";
-document.head.append(utilityDetailStylesheet);
+installUtilityDetailStyles();
+
+async function installUtilityDetailStyles() {
+  const href = new URL("./energy-detail.css?v=54", import.meta.url);
+
+  // Safari/PWA no iOS pode ignorar um <link rel="stylesheet"> criado depois
+  // que o módulo já começou a executar. Preferimos uma folha construída pelo
+  // CSSOM; ela respeita o mesmo CSS externo e funciona dentro do WebKit/PWA.
+  try {
+    if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {
+      const response = await fetch(href, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Falha ao carregar estilos: ${response.status}`);
+      const sheet = new CSSStyleSheet();
+      await sheet.replace(await response.text());
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+      return;
+    }
+  } catch (error) {
+    console.warn("Volt: fallback de stylesheet do detalhamento", error);
+  }
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href.href;
+  link.dataset.voltUtilityDetail = "true";
+  document.head.append(link);
+}
 
 const explanations = {
   energyConsumption: ["Consumo", "Valor estimado da energia consumida no ciclo, calculado a partir dos kWh registrados e da tarifa configurada."],

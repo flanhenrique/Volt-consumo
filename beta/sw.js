@@ -8,7 +8,7 @@
 // Política atual: cache exclusivamente do shell estático same-origin,
 // declarado em ASSETS. Nenhuma outra requisição é armazenada.
 
-const CACHE = "volt-beta-shell-v51";
+const CACHE = "volt-beta-shell-v52";
 
 const ASSETS = [
   "./",
@@ -24,6 +24,7 @@ const ASSETS = [
   "./beta-v3.css",
   "./beta-v3.js",
   "./energy-detail.js",
+  "./energy-detail.css",
   "./packages/app-environment/browser/index.js",
   // O app.js importa este módulo no carregamento. Sem ele no cache, uma
   // abertura offline quebra antes da tela de entrada aparecer.

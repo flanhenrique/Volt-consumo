@@ -47,6 +47,7 @@ function initializeLocalityContext() {
   waterProvider.value = saved.waterProvider || "";
   updateStatus(saved, status);
   publish(saved);
+  renderHomeRuleContext(saved);
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -64,6 +65,7 @@ function initializeLocalityContext() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     updateStatus(next, status);
     publish(next);
+    renderHomeRuleContext(next);
     window.dispatchEvent(new CustomEvent("volt:locality-context", { detail: structuredClone(next) }));
   });
 }
@@ -83,6 +85,25 @@ function updateStatus(context, status) {
     return;
   }
   status.textContent = `Contexto regional: ${context.city} · ${context.state}. Tarifas continuam sendo usadas somente quando configuradas ou validadas para essa localidade.`;
+}
+
+function renderHomeRuleContext(context) {
+  const card = document.querySelector(".tariff-info-card");
+  if (!card) return;
+  let note = card.querySelector("#beta-local-rule-context");
+  if (!note) {
+    note = document.createElement("p");
+    note.id = "beta-local-rule-context";
+    note.className = "note";
+    card.prepend(note);
+  }
+  if (!context.state || !context.city) {
+    note.textContent = "Regras locais: região não configurada. O Volt não presume tarifas nacionais.";
+    return;
+  }
+  const providers = [context.energyProvider, context.waterProvider].filter(Boolean);
+  const providerText = providers.length ? ` · ${providers.join(" / ")}` : "";
+  note.textContent = `Regras locais: ${context.city} · ${context.state}${providerText}. Valores automáticos só serão aplicados quando houver regra validada para esta localidade.`;
 }
 
 function publish(context) {

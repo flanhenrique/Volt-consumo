@@ -3,7 +3,7 @@ import "./platform-users.js";
 installUtilityDetailStyles();
 
 async function installUtilityDetailStyles() {
-  const href = new URL("./energy-detail.css?v=62", import.meta.url);
+  const href = new URL("./energy-detail.css?v=63", import.meta.url);
 
   try {
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {
@@ -55,6 +55,7 @@ let activeMeter = "energy";
 
 queueMicrotask(initializeUtilityDetails);
 window.addEventListener("volt:beta-data", refreshUtilityDetail);
+window.addEventListener("volt:locality-context", refreshUtilityDetail);
 
 function initializeUtilityDetails() {
   if (!window.VOLT_BETA_API) return;
@@ -92,6 +93,7 @@ function ensureDialog() {
         <button class="icon-button" type="button" data-utility-detail-close aria-label="Fechar">×</button>
       </div>
       <p class="energy-detail-cycle" id="utility-detail-cycle">Ciclo atual</p>
+      <p class="energy-detail-context" id="utility-detail-context" hidden></p>
       <div class="energy-detail-list" id="utility-detail-list"></div>
       <div class="energy-detail-total"><div><span>TOTAL ESTIMADO</span></div><strong id="utility-detail-total">R$ 0,00</strong></div>
       <p class="energy-detail-note" id="utility-detail-note"></p>
@@ -118,6 +120,7 @@ function refreshUtilityDetail() {
 function renderUtilityDetail() {
   const snapshot = window.VOLT_BETA_API?.getSnapshot?.();
   if (!snapshot) return;
+  const locality = readLocalityContext();
   detailDialog.dataset.meter = activeMeter;
   const list = detailDialog.querySelector("#utility-detail-list");
   if (activeMeter === "water") {
@@ -125,10 +128,11 @@ function renderUtilityDetail() {
     const estimate = water.estimate || {};
     const settings = water.settings || {};
     const consumption = Number(water.summary?.consumption || 0);
+    const provider = locality.waterProvider || "Concessionária de água não informada";
     const rows = [
       row("waterConsumption", "Consumo", `${formatNumber(consumption, 3)} m³ × ${currency(Number(settings.rate || 0))}/m³`, currency(Number(estimate.waterCost || 0))),
-      row("sewer", "Taxa de esgoto", `${formatNumber(Number(settings.sewerPercent || 0), 0)}% sobre o consumo de água`, currency(Number(estimate.sewerCost || 0))),
-      row("fixedFee", "Taxa fixa", "Valor configurado", currency(Number(settings.fixedFee || 0))),
+      row("sewer", "Taxa de esgoto", `${formatNumber(Number(settings.sewerPercent || 0), 0)}% · ${provider}`, currency(Number(estimate.sewerCost || 0))),
+      row("fixedFee", "Taxa fixa", locality.waterProvider ? `Configuração para ${provider}` : "Valor configurado", currency(Number(settings.fixedFee || 0))),
       row("taxes", "Impostos", "Não identificado na estimativa atual", "—"),
       row("fine", "Multa", "Não identificada na estimativa atual", "—"),
       row("interest", "Juros", "Não identificados na estimativa atual", "—")
@@ -137,16 +141,19 @@ function renderUtilityDetail() {
     detailDialog.querySelector("#utility-detail-title").textContent = "Detalhamento de água";
     detailDialog.querySelector("#utility-detail-symbol").textContent = "●";
     detailDialog.querySelector("#utility-detail-total").textContent = currency(Number(estimate.totalCost || 0));
-    detailDialog.querySelector("#utility-detail-note").textContent = "Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.";
+    detailDialog.querySelector("#utility-detail-note").textContent = locality.waterProvider
+      ? `Contexto reconhecido: ${provider}. Os valores continuam sendo estimativas configuradas; nenhuma tarifa regional é inventada quando não há regra oficial validada no catálogo.`
+      : "Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.";
   } else {
     const energy = snapshot.energy || {};
     const estimate = energy.estimate || {};
     const settings = energy.settings || {};
     const consumption = Number(energy.summary?.consumption || 0);
+    const provider = locality.energyProvider || "Concessionária de energia não informada";
     const rows = [
       row("energyConsumption", "Consumo", `${formatNumber(consumption, 0)} kWh × ${currency(Number(settings.rate || 0))}/kWh`, currency(Number(estimate.baseCost || 0))),
-      row("flag", "Bandeira tarifária", flagLabel(settings.flag), currency(Number(estimate.flagCost || 0))),
-      row("lighting", "Taxa de iluminação pública", "Contribuição configurada", currency(Number(settings.lightingFee || 0))),
+      row("flag", "Bandeira tarifária", `${flagLabel(settings.flag)}${locality.energyProvider ? ` · ${provider}` : ""}`, currency(Number(estimate.flagCost || 0))),
+      row("lighting", "Taxa de iluminação pública", locality.city ? `Município: ${locality.city}/${locality.state || ""}` : "Contribuição configurada", currency(Number(settings.lightingFee || 0))),
       row("taxes", "Impostos", "Não identificado na estimativa atual", "—"),
       row("fine", "Multa", "Não identificada na estimativa atual", "—"),
       row("interest", "Juros", "Não identificados na estimativa atual", "—")
@@ -155,10 +162,33 @@ function renderUtilityDetail() {
     detailDialog.querySelector("#utility-detail-title").textContent = "Detalhamento de energia";
     detailDialog.querySelector("#utility-detail-symbol").textContent = "ϟ";
     detailDialog.querySelector("#utility-detail-total").textContent = currency(Number(estimate.totalCost || 0));
-    detailDialog.querySelector("#utility-detail-note").textContent = "Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.";
+    detailDialog.querySelector("#utility-detail-note").textContent = locality.energyProvider
+      ? `Contexto reconhecido: ${provider}. Os valores continuam sendo estimativas configuradas; nenhuma tarifa regional é inventada quando não há regra oficial validada no catálogo.`
+      : "Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.";
   }
+  renderLocalityContext(locality);
   const cycleLabel = document.querySelector("#beta-cycle-label")?.textContent?.trim();
   detailDialog.querySelector("#utility-detail-cycle").textContent = cycleLabel && cycleLabel !== "—" ? `Ciclo atual · ${cycleLabel}` : "Ciclo atual";
+}
+
+function readLocalityContext() {
+  const published = window.VOLT_LOCALITY_CONTEXT;
+  if (published && typeof published === "object") return published;
+  try {
+    const saved = JSON.parse(localStorage.getItem("volt:beta:locality-context-v1") || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function renderLocalityContext(locality) {
+  const context = detailDialog.querySelector("#utility-detail-context");
+  const provider = activeMeter === "water" ? locality.waterProvider : locality.energyProvider;
+  const place = [locality.city, locality.state].filter(Boolean).join(" · ");
+  const parts = [place, provider].filter(Boolean);
+  context.hidden = parts.length === 0;
+  context.textContent = parts.join(" · ");
 }
 
 function row(key, title, subtitle, value) {

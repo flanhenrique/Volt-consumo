@@ -57,6 +57,13 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
           sudo apt-get install --yes postgresql-client-17 age
+          test -x /usr/lib/postgresql/17/bin/pg_dump
+          test -x /usr/lib/postgresql/17/bin/pg_restore
+          sudo ln -sf /usr/lib/postgresql/17/bin/pg_dump /usr/local/bin/pg_dump
+          sudo ln -sf /usr/lib/postgresql/17/bin/pg_restore /usr/local/bin/pg_restore
+          sudo ln -sf /usr/lib/postgresql/17/bin/psql /usr/local/bin/psql
+          hash -r
+          /usr/lib/postgresql/17/bin/pg_dump --version
           pg_dump --version
 
       - name: Resolver destinatário age
@@ -90,8 +97,8 @@ jobs:
           plain="volt-beta-${stamp}.dump"
           encrypted="${plain}.age"
           manifest="${plain}.manifest.txt"
-          pg_dump --schema=public --format=custom --compress=9 --no-owner --no-privileges --file="$plain" "$SUPABASE_DB_URL"
-          pg_restore --list "$plain" > "$manifest"
+          /usr/lib/postgresql/17/bin/pg_dump --schema=public --format=custom --compress=9 --no-owner --no-privileges --file="$plain" "$SUPABASE_DB_URL"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" > "$manifest"
           test -s "$manifest"
           object_count="$(grep -Ec ' TABLE | TABLE DATA | FUNCTION ' "$manifest")"
           test "$object_count" -gt 0 || { echo "::error::Backup sem objetos restauráveis"; exit 1; }
@@ -160,7 +167,12 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
           sudo apt-get install --yes postgresql-client-17 age
-          pg_restore --version
+          test -x /usr/lib/postgresql/17/bin/pg_restore
+          sudo ln -sf /usr/lib/postgresql/17/bin/pg_dump /usr/local/bin/pg_dump
+          sudo ln -sf /usr/lib/postgresql/17/bin/pg_restore /usr/local/bin/pg_restore
+          sudo ln -sf /usr/lib/postgresql/17/bin/psql /usr/local/bin/psql
+          hash -r
+          /usr/lib/postgresql/17/bin/pg_restore --version
 
       - name: Descriptografar e restaurar em ambiente descartável
         shell: bash
@@ -175,11 +187,11 @@ jobs:
           age --decrypt --identity "$identity_file" --output "$plain" "$encrypted"
           rm -f "$identity_file"
           database="postgresql://postgres@127.0.0.1:5432/volt_restore"
-          psql "$database" -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create table auth.users (id uuid primary key);"
-          psql "$database" -v ON_ERROR_STOP=1 -c "create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';"
-          pg_restore --exit-on-error --section=pre-data --no-owner --no-privileges --dbname="$database" "$plain"
-          pg_restore --exit-on-error --section=data --disable-triggers --no-owner --no-privileges --dbname="$database" "$plain"
-          psql "$database" -v ON_ERROR_STOP=1 <<'SQL'
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create table auth.users (id uuid primary key);"
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -c "create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';"
+          /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --section=pre-data --no-owner --no-privileges --dbname="$database" "$plain"
+          /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --section=data --disable-triggers --no-owner --no-privileges --dbname="$database" "$plain"
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 <<'SQL'
           do $$
           declare item record;
           begin
@@ -193,7 +205,7 @@ jobs:
             end loop;
           end $$;
           SQL
-          pg_restore --exit-on-error --section=post-data --no-owner --no-privileges --dbname="$database" "$plain"
+          /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --section=post-data --no-owner --no-privileges --dbname="$database" "$plain"
           shred --remove "$plain"
 
       - name: Verificar schema e dados essenciais
@@ -201,7 +213,7 @@ jobs:
         run: |
           set -euo pipefail
           database="postgresql://postgres@127.0.0.1:5432/volt_restore"
-          psql "$database" -v ON_ERROR_STOP=1 -Atc "
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -Atc "
             select case when count(*) >= 8 then 'ok' else 'incomplete' end
             from information_schema.tables
             where table_schema = 'public'
@@ -215,7 +227,7 @@ jobs:
                 'beta_admin_audit',
                 'beta_feature_flags'
               );" | grep -qx ok
-          psql "$database" -v ON_ERROR_STOP=1 -Atc "
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -Atc "
             select case when count(*) >= 4 then 'ok' else 'incomplete' end
             from pg_policies
             where schemaname = 'public' and tablename like 'beta_%';" | grep -qx ok

@@ -5,6 +5,7 @@ const CONFIG = window.VOLT_SUPABASE_BETA || {};
 let tutorialClient = null;
 let mandatoryTour = false;
 let acknowledgementPending = false;
+let accountSyncPending = false;
 
 queueMicrotask(initializeTutorialAcknowledgement);
 
@@ -51,13 +52,25 @@ function getTutorialClient() {
 }
 
 async function requireCurrentTutorial(user) {
-  const acknowledged = user?.user_metadata?.guided_tutorial_notice_version === TUTORIAL_NOTICE_VERSION;
-  if (acknowledged) {
+  const acknowledgedInAccount = user?.user_metadata?.guided_tutorial_notice_version === TUTORIAL_NOTICE_VERSION;
+  const acknowledgedLocally = localStorage.getItem(LOCAL_ACK_KEY) === "true";
+
+  if (acknowledgedInAccount) {
     localStorage.setItem(LOCAL_ACK_KEY, "true");
+    mandatoryTour = false;
     return;
   }
+
+  // A confirmação local é suficiente para não bloquear a interface.
+  // A sincronização com a conta acontece em segundo plano e será tentada
+  // novamente nos próximos logins caso a rede esteja lenta ou indisponível.
+  if (acknowledgedLocally) {
+    mandatoryTour = false;
+    queueMicrotask(syncTutorialAckToAccount);
+    return;
+  }
+
   mandatoryTour = true;
-  localStorage.removeItem(LOCAL_ACK_KEY);
   await waitForDashboard();
   const dialog = document.querySelector("#guided-tour-dialog");
   if (!dialog || dialog.open) return;
@@ -114,7 +127,7 @@ function interceptTourActions(event) {
   confirmTutorialAcknowledgement(dialog, next);
 }
 
-async function confirmTutorialAcknowledgement(dialog, button) {
+function confirmTutorialAcknowledgement(dialog, button) {
   if (acknowledgementPending) return;
   const checkbox = dialog.querySelector("#guided-tour-ack-checkbox");
   if (!checkbox?.checked) {
@@ -124,45 +137,46 @@ async function confirmTutorialAcknowledgement(dialog, button) {
   }
 
   acknowledgementPending = true;
-  button.disabled = true;
-  button.textContent = "Salvando…";
-  const client = getTutorialClient();
-  let savedToAccount = false;
-  if (client) {
-    try {
-      const { data } = await client.auth.getUser();
-      const user = data?.user;
-      if (user) {
-        const { error } = await client.auth.updateUser({
-          data: {
-            ...(user.user_metadata || {}),
-            guided_tutorial_notice_version: TUTORIAL_NOTICE_VERSION,
-            guided_tutorial_acknowledged_at: new Date().toISOString()
-          }
-        });
-        savedToAccount = !error;
-      }
-    } catch {
-      savedToAccount = false;
-    }
-  }
 
-  if (!savedToAccount && mandatoryTour) {
-    acknowledgementPending = false;
-    button.disabled = false;
-    button.textContent = "Confirmar ciência";
-    showAckStatus("Não foi possível registrar a confirmação na conta. Verifique a conexão e tente novamente.");
-    return;
-  }
-
+  // Resposta imediata: registra localmente e libera a interface sem aguardar
+  // uma chamada de rede ao Supabase.
   localStorage.setItem(LOCAL_ACK_KEY, "true");
   localStorage.setItem("volt-beta-onboarding-complete", "true");
   mandatoryTour = false;
   dialog.dataset.mandatory = "false";
-  acknowledgementPending = false;
   button.disabled = false;
-  button.textContent = "Confirmar ciência";
+  button.textContent = "Confirmado";
   dialog.close();
+  acknowledgementPending = false;
+
+  // Persistência na conta é feita em segundo plano.
+  queueMicrotask(syncTutorialAckToAccount);
+}
+
+async function syncTutorialAckToAccount() {
+  if (accountSyncPending || localStorage.getItem(LOCAL_ACK_KEY) !== "true") return;
+  const client = getTutorialClient();
+  if (!client) return;
+
+  accountSyncPending = true;
+  try {
+    const { data } = await client.auth.getUser();
+    const user = data?.user;
+    if (!user || user.user_metadata?.guided_tutorial_notice_version === TUTORIAL_NOTICE_VERSION) return;
+
+    const { error } = await client.auth.updateUser({
+      data: {
+        ...(user.user_metadata || {}),
+        guided_tutorial_notice_version: TUTORIAL_NOTICE_VERSION,
+        guided_tutorial_acknowledged_at: new Date().toISOString()
+      }
+    });
+    if (error) console.warn("Volt: confirmação do tutorial pendente de sincronização", error);
+  } catch (error) {
+    console.warn("Volt: confirmação do tutorial pendente de sincronização", error);
+  } finally {
+    accountSyncPending = false;
+  }
 }
 
 function syncTourStep() {

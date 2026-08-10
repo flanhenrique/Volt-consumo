@@ -3,7 +3,7 @@ import "./platform-users.js";
 installUtilityDetailStyles();
 
 async function installUtilityDetailStyles() {
-  const href = new URL("./energy-detail.css?v=61", import.meta.url);
+  const href = new URL("./energy-detail.css?v=62", import.meta.url);
 
   try {
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {

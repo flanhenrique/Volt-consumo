@@ -1,0 +1,135 @@
+html[data-environment="beta"] dialog.guided-tour-dialog{
+  position:fixed;
+  inset:0;
+  width:min(92vw,620px);
+  max-width:620px;
+  max-height:min(88dvh,760px);
+  margin:auto;
+  border-radius:28px;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog[open]{
+  display:block;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog .guided-dialog-card{
+  max-height:min(88dvh,760px);
+  padding:20px;
+  overflow:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-media{
+  margin:8px 0 14px;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-media svg{
+  max-height:210px;
+  object-fit:contain;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-footer{
+  position:sticky;
+  bottom:0;
+  margin:14px -4px -4px;
+  padding:10px 4px 4px;
+  background:linear-gradient(180deg,rgba(8,22,31,0),rgba(8,22,31,.97) 32%);
+}
+
+html[data-environment="beta"] .guided-tour-step-counter{
+  color:var(--lm-text-muted,#aebbc5);
+  font-size:.78rem;
+  white-space:nowrap;
+}
+
+html[data-environment="beta"] .guided-tour-ack-panel{
+  margin-top:14px;
+  padding:13px 14px;
+  border:1px solid rgba(49,215,151,.28);
+  border-radius:16px;
+  background:rgba(49,215,151,.07);
+}
+
+html[data-environment="beta"] .guided-tour-ack-panel label{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:start;
+  gap:10px;
+  color:#dce8ed;
+  font-size:.84rem;
+  line-height:1.42;
+}
+
+html[data-environment="beta"] .guided-tour-ack-panel input{
+  width:19px;
+  height:19px;
+  margin-top:2px;
+  accent-color:#31d797;
+}
+
+html[data-environment="beta"] .guided-tour-ack-panel p,
+html[data-environment="beta"] .guided-tour-inline-status{
+  margin:8px 0 0;
+  color:#9fb1bb;
+  font-size:.8rem;
+}
+
+html[data-environment="beta"] dialog.guided-tour-dialog[data-mandatory="true"] .guided-tour-close{
+  opacity:.45;
+}
+
+@media(max-width:640px){
+  html[data-environment="beta"] dialog.guided-tour-dialog{
+    inset:max(env(safe-area-inset-top),12px) 12px max(env(safe-area-inset-bottom),12px);
+    width:auto;
+    max-width:none;
+    max-height:calc(100dvh - max(env(safe-area-inset-top),12px) - max(env(safe-area-inset-bottom),12px) - 24px);
+    margin:auto;
+    border-radius:26px;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-dialog-card{
+    max-height:inherit;
+    padding:17px 16px 16px;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-dialog-head{
+    margin-bottom:10px;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-media svg{
+    max-height:170px;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-copy{
+    gap:7px;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-copy p{
+    line-height:1.4;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-footer{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:8px 12px;
+    align-items:center;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-tour-progress{
+    grid-column:1;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-actions{
+    grid-column:2;
+    display:flex;
+    flex-direction:row;
+    justify-content:flex-end;
+  }
+
+  html[data-environment="beta"] dialog.guided-tour-dialog .guided-actions button{
+    width:auto;
+    min-width:112px;
+  }
+}

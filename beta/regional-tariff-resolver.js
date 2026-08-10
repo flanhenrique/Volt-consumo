@@ -2,6 +2,17 @@ import { findNationalEnergyRule, listNationalEnergyProviders } from "./national-
 import { findSouthTariffRule } from "./south-tariff-catalog.js";
 
 const LOCALITY_KEY = "volt:beta:locality-context-v1";
+const MANAUS_COSIP_SOURCE = "Município de Manaus — Lei 2.802/2021 e Decreto 6.036/2024";
+const MANAUS_RESIDENTIAL_COSIP = Object.freeze([
+  Object.freeze({ min: 0, max: 100, amount: 8.53 }),
+  Object.freeze({ min: 101, max: 200, amount: 10.67 }),
+  Object.freeze({ min: 201, max: 300, amount: 21.33 }),
+  Object.freeze({ min: 301, max: 500, amount: 32.00 }),
+  Object.freeze({ min: 501, max: 1000, amount: 53.33 }),
+  Object.freeze({ min: 1001, max: 1500, amount: 80.00 }),
+  Object.freeze({ min: 1501, max: 2000, amount: 106.65 }),
+  Object.freeze({ min: 2001, max: Number.POSITIVE_INFINITY, amount: 122.65 })
+]);
 
 queueMicrotask(initializeRegionalTariffResolver);
 window.addEventListener("volt:locality-context", (event) => applyRegionalTariffs(event.detail));
@@ -18,19 +29,35 @@ function initializeRegionalTariffResolver() {
 async function applyRegionalTariffs(context = readLocality()) {
   const energyRule = resolveEnergyRule(context);
   const waterRule = resolveWaterRule(context);
+  const snapshot = window.VOLT_BETA_API?.getSnapshot?.();
+  const consumption = Number(snapshot?.energy?.summary?.consumption || 0);
+  const lightingRule = resolveLightingRule(context, consumption);
 
-  if (energyRule?.automatic && Number.isFinite(energyRule.ratePerKwh)) {
-    const rateInput = document.querySelector("#rate");
-    const form = document.querySelector("#settings-form");
-    const currentRate = Number(rateInput?.value || 0);
-    if (rateInput && form && Math.abs(currentRate - Number(energyRule.ratePerKwh)) > 0.0000005) {
+  const rateInput = document.querySelector("#rate");
+  const lightingInput = document.querySelector("#lighting-fee");
+  const form = document.querySelector("#settings-form");
+  let needsSubmit = false;
+
+  if (energyRule?.automatic && Number.isFinite(energyRule.ratePerKwh) && rateInput && form) {
+    const currentRate = Number(rateInput.value || 0);
+    if (Math.abs(currentRate - Number(energyRule.ratePerKwh)) > 0.0000005) {
       rateInput.value = Number(energyRule.ratePerKwh).toFixed(6);
-      form.requestSubmit();
+      needsSubmit = true;
     }
   }
 
-  publishResolverSnapshot(context, energyRule, waterRule);
-  renderRegionalResolution(context, energyRule, waterRule);
+  if (lightingRule?.automatic && Number.isFinite(lightingRule.amount) && lightingInput && form) {
+    const currentLighting = Number(lightingInput.value || 0);
+    if (Math.abs(currentLighting - Number(lightingRule.amount)) > 0.005) {
+      lightingInput.value = Number(lightingRule.amount).toFixed(2);
+      needsSubmit = true;
+    }
+  }
+
+  if (needsSubmit && form) form.requestSubmit();
+
+  publishResolverSnapshot(context, energyRule, waterRule, lightingRule);
+  renderRegionalResolution(context, energyRule, waterRule, lightingRule);
   window.dispatchEvent(new CustomEvent("volt:tariff-resolution", {
     detail: structuredClone(window.VOLT_TARIFF_RESOLUTION)
   }));
@@ -45,7 +72,33 @@ function resolveWaterRule(context) {
   return findSouthTariffRule({ state: context.state, utility: "water", provider: context.waterProvider });
 }
 
-function publishResolverSnapshot(context, energyRule = resolveEnergyRule(context), waterRule = resolveWaterRule(context)) {
+function resolveLightingRule(context, consumption) {
+  const state = String(context.state || "").trim().toUpperCase();
+  const city = normalize(context.city);
+  const kwh = Math.max(0, Math.floor(Number(consumption) || 0));
+  if (state !== "AM" || city !== "manaus") return null;
+
+  const band = MANAUS_RESIDENTIAL_COSIP.find((item) => kwh >= item.min && kwh <= item.max);
+  if (!band) return null;
+
+  return {
+    id: `manaus-cosip-residencial-${band.min}-${Number.isFinite(band.max) ? band.max : "mais"}`,
+    utility: "lighting",
+    provider: "Município de Manaus",
+    customerClass: "Residencial comum",
+    pricingModel: "consumption-band-fixed-amount",
+    consumptionKwh: kwh,
+    minKwh: band.min,
+    maxKwh: Number.isFinite(band.max) ? band.max : null,
+    amount: band.amount,
+    automatic: true,
+    source: MANAUS_COSIP_SOURCE,
+    sourceUrl: "https://www.manaus.am.gov.br/noticia/iluminacao/metodo-de-cobranca-da-cosip-e-atualizado-pela-prefeitura/",
+    note: "Tabela residencial de Manaus por faixa de consumo. Tarifa Social não é inferida automaticamente."
+  };
+}
+
+function publishResolverSnapshot(context, energyRule = resolveEnergyRule(context), waterRule = resolveWaterRule(context), lightingRule = resolveLightingRule(context, Number(window.VOLT_BETA_API?.getSnapshot?.()?.energy?.summary?.consumption || 0))) {
   window.VOLT_TARIFF_RESOLUTION = Object.freeze({
     locality: Object.freeze({
       state: context.state || "",
@@ -55,11 +108,12 @@ function publishResolverSnapshot(context, energyRule = resolveEnergyRule(context
     }),
     energy: energyRule ? freezeRule(energyRule) : null,
     water: waterRule ? freezeRule(waterRule) : null,
+    lighting: lightingRule ? Object.freeze({ ...lightingRule }) : null,
     energyProviderCatalog: Object.freeze(listNationalEnergyProviders())
   });
 }
 
-function renderRegionalResolution(context, energyRule, waterRule) {
+function renderRegionalResolution(context, energyRule, waterRule, lightingRule) {
   const status = document.querySelector("#beta-locality-status");
   if (!status || !context.state || !context.city) return;
 
@@ -69,13 +123,17 @@ function renderRegionalResolution(context, energyRule, waterRule) {
       ? `Energia: ${context.energyProvider} · sem tarifa automática validada; mantendo valor manual.`
       : "Energia: concessionária não informada.";
 
+  const lightingText = lightingRule?.automatic
+    ? `Iluminação pública: ${lightingRule.consumptionKwh} kWh · faixa ${formatBand(lightingRule)} · ${currency(lightingRule.amount)} aplicada.`
+    : "Iluminação pública: mantendo valor manual; nenhuma regra municipal validada foi localizada para esta cidade.";
+
   const waterText = waterRule
     ? `Água: ${waterRule.provider} · regra regional identificada (${waterRule.pricingModel || "modelo local"}).`
     : context.waterProvider
       ? `Água: ${context.waterProvider} · sem regra tarifária local modelada; mantendo configuração manual.`
       : "Água: concessionária não informada.";
 
-  status.textContent = `${context.city} · ${context.state}. ${energyText} ${waterText}`;
+  status.textContent = `${context.city} · ${context.state}. ${energyText} ${lightingText} ${waterText}`;
 }
 
 function readLocality() {
@@ -101,6 +159,25 @@ function freezeRule(rule) {
     sourceUrl: rule.sourceUrl || "",
     components: rule.components ? Object.freeze({ ...rule.components }) : null
   });
+}
+
+function formatBand(rule) {
+  if (!rule) return "—";
+  if (rule.maxKwh == null) return `acima de ${Math.max(0, Number(rule.minKwh || 1) - 1)} kWh`;
+  return `${rule.minKwh}–${rule.maxKwh} kWh`;
+}
+
+function normalize(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function currency(value) {
+  return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function currencyPerKwh(value) {

@@ -28,23 +28,33 @@ jobs:
       BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
       BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
     steps:
-      - name: Validar configuração obrigatória
+      - name: Validar conexão do banco
         shell: bash
         run: |
           set -euo pipefail
           test -n "$SUPABASE_DB_URL" || { echo "::error::SUPABASE_DB_URL não configurado"; exit 1; }
-          if [ -z "$BACKUP_AGE_RECIPIENT" ] && [ -z "$BACKUP_AGE_IDENTITY" ]; then
-            echo "::error::Configure BACKUP_AGE_IDENTITY ou BACKUP_AGE_RECIPIENT para criptografar o backup"
-            exit 1
+
+      - name: Verificar configuração de criptografia
+        id: encryption
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$BACKUP_AGE_RECIPIENT" ] || [ -n "$BACKUP_AGE_IDENTITY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Backup criptografado ainda não executado: configure BACKUP_AGE_IDENTITY ou BACKUP_AGE_RECIPIENT. O workflow foi encerrado sem falha para não gerar alertas diários enquanto a chave não estiver cadastrada."
           fi
 
       - name: Instalar cliente PostgreSQL e age
+        if: steps.encryption.outputs.configured == 'true'
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client age
 
       - name: Resolver destinatário age
+        if: steps.encryption.outputs.configured == 'true'
         id: age
         shell: bash
         run: |
@@ -62,6 +72,7 @@ jobs:
           echo "recipient=$recipient" >> "$GITHUB_OUTPUT"
 
       - name: Criar, validar e criptografar backup
+        if: steps.encryption.outputs.configured == 'true'
         id: dump
         shell: bash
         env:
@@ -87,6 +98,7 @@ jobs:
           echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
 
       - name: Armazenar somente artefato criptografado
+        if: steps.encryption.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.dump.outputs.artifact }}

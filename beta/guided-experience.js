@@ -52,25 +52,44 @@ function buildSignupDialog() {
   dialog.id = "guided-signup-dialog";
   dialog.className = "guided-signup-dialog";
   dialog.innerHTML = `
-    <div class="guided-dialog-card">
-      <div class="guided-dialog-head">
-        <div><p class="eyebrow">CRIAR CONTA</p><h2>Configure seu acesso ao Volt</h2></div>
+    <div class="guided-dialog-card guided-signup-card">
+      <div class="guided-dialog-head guided-signup-head">
+        <div><p class="eyebrow">CRIAR CONTA</p><h2>Configure seu acesso</h2><small>Preencha os dados essenciais para personalizar o Volt.</small></div>
         <button class="icon-button guided-close" type="button" aria-label="Fechar">×</button>
       </div>
-      <form id="guided-signup-form" class="guided-form">
-        <label class="full"><span>Nome</span><input id="guided-name" type="text" maxlength="80" autocomplete="name" required></label>
-        <label><span>E-mail</span><input id="guided-email" type="email" autocomplete="email" required></label>
-        <label><span>Senha</span><input id="guided-password" type="password" minlength="${PASSWORD_POLICY.minLength}" maxlength="${PASSWORD_POLICY.maxLength}" autocomplete="new-password" required></label>
-        <label><span>Estado</span><select id="guided-state" autocomplete="address-level1" required><option value="">Selecione</option>${STATES.map(([uf,name]) => `<option value="${uf}">${uf} — ${name}</option>`).join("")}</select></label>
-        <label><span>Cidade</span><input id="guided-city" type="text" maxlength="80" autocomplete="address-level2" required></label>
-        <label><span>Concessionária de energia</span><input id="guided-energy-provider" type="text" maxlength="120" placeholder="Conforme a fatura" required></label>
-        <label><span>Concessionária de água</span><input id="guided-water-provider" type="text" maxlength="120" placeholder="Conforme a fatura" required></label>
-        <div class="guided-privacy">
-          <label><input id="guided-privacy" type="checkbox" required><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a> e entendi como meus dados serão usados para fornecer a conta, sincronização e contexto regional do Volt.</span></label>
-          <p>Coletamos apenas os dados necessários para o funcionamento solicitado. Telefone e idade não fazem parte deste cadastro.</p>
+      <form id="guided-signup-form" class="guided-form guided-card-form">
+        <section class="guided-field-card guided-card-account" aria-labelledby="guided-account-title">
+          <strong id="guided-account-title" class="guided-card-title">Conta</strong>
+          <label><span>Nome</span><input id="guided-name" type="text" maxlength="80" autocomplete="name" required></label>
+          <div class="guided-card-row">
+            <label><span>E-mail</span><input id="guided-email" type="email" autocomplete="email" required></label>
+            <label><span>Senha</span><input id="guided-password" type="password" minlength="${PASSWORD_POLICY.minLength}" maxlength="${PASSWORD_POLICY.maxLength}" autocomplete="new-password" required></label>
+          </div>
+        </section>
+
+        <section class="guided-field-card guided-card-region" aria-labelledby="guided-region-title">
+          <strong id="guided-region-title" class="guided-card-title">Região</strong>
+          <div class="guided-card-row guided-card-row-region">
+            <label><span>Estado</span><select id="guided-state" autocomplete="address-level1" required><option value="">UF</option>${STATES.map(([uf,name]) => `<option value="${uf}">${uf} — ${name}</option>`).join("")}</select></label>
+            <label><span>Cidade</span><input id="guided-city" type="text" maxlength="80" autocomplete="address-level2" required></label>
+          </div>
+        </section>
+
+        <section class="guided-field-card guided-provider-card energy" aria-labelledby="guided-energy-title">
+          <span class="guided-card-icon" aria-hidden="true">ϟ</span>
+          <label><strong id="guided-energy-title">Energia</strong><span>Concessionária</span><input id="guided-energy-provider" type="text" maxlength="120" placeholder="Conforme a fatura" required></label>
+        </section>
+
+        <section class="guided-field-card guided-provider-card water" aria-labelledby="guided-water-title">
+          <span class="guided-card-icon" aria-hidden="true">●</span>
+          <label><strong id="guided-water-title">Água</strong><span>Concessionária</span><input id="guided-water-provider" type="text" maxlength="120" placeholder="Conforme a fatura" required></label>
+        </section>
+
+        <div class="guided-privacy guided-privacy-compact">
+          <label><input id="guided-privacy" type="checkbox" required><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a> e entendi o uso dos dados para conta, sincronização e contexto regional.</span></label>
         </div>
         <p id="guided-signup-status" class="note guided-status" role="status" aria-live="polite"></p>
-        <div class="guided-actions"><button class="secondary-button" type="button" data-guided-cancel>Cancelar</button><button id="guided-create-account" class="primary-button" type="submit">Criar minha conta</button></div>
+        <div class="guided-actions guided-actions-compact"><button class="secondary-button" type="button" data-guided-cancel>Cancelar</button><button id="guided-create-account" class="primary-button" type="submit">Criar minha conta</button></div>
       </form>
     </div>`;
   document.body.append(dialog);
@@ -258,22 +277,18 @@ function bindAccountPersistence() {
         waterProvider: form.querySelector("#beta-locality-water-provider")?.value.trim() || "",
         updatedAt: new Date().toISOString()
       };
-      if (locality.state && locality.city) await persistMetadata({ locality });
+      await persistMetadata({ locality });
     }
-  });
+  }, true);
 }
 
 async function persistMetadata(partial) {
   const supabase = getClient();
   if (!supabase) return;
   const { data } = await supabase.auth.getUser();
-  if (!data?.user) return;
-  await supabase.auth.updateUser({ data: { ...(data.user.user_metadata || {}), ...partial } });
-}
-
-function exposeOnboarding() {
-  window.showOnboarding = () => openTour(buildWelcomeSlides());
-  window.resetOnboardingStatus = () => undefined;
+  const user = data?.user;
+  if (!user) return;
+  await supabase.auth.updateUser({ data: { ...(user.user_metadata || {}), ...partial } });
 }
 
 function buildTourDialog() {
@@ -281,19 +296,23 @@ function buildTourDialog() {
   const dialog = document.createElement("dialog");
   dialog.id = "guided-tour-dialog";
   dialog.className = "guided-tour-dialog";
-  dialog.innerHTML = `<div class="guided-dialog-card"><div class="guided-dialog-head"><div><p class="eyebrow">GUIA DO VOLT</p><h2 id="guided-tour-title">Bem-vindo</h2></div><button class="icon-button guided-close" type="button" aria-label="Fechar">×</button></div><div id="guided-tour-body"></div><div class="guided-tour-footer"><div id="guided-tour-progress" class="guided-tour-progress" aria-label="Progresso do tutorial"></div><div class="guided-inline-help"><button id="guided-tour-prev" class="secondary-button" type="button">Voltar</button><button id="guided-tour-next" class="primary-button" type="button">Próximo</button></div></div></div>`;
+  dialog.innerHTML = `<div class="guided-dialog-card"><div class="guided-dialog-head"><div><p class="eyebrow">GUIA DE BOAS-VINDAS</p><h2 id="guided-tour-title">Volt</h2></div><button class="icon-button guided-tour-close" type="button" aria-label="Fechar">×</button></div><div id="guided-tour-body"></div><div class="guided-tour-footer"><div id="guided-tour-progress" class="guided-tour-progress" aria-label="Progresso do tutorial"></div><div class="guided-actions"><button id="guided-tour-back" class="secondary-button" type="button">Voltar</button><button id="guided-tour-next" class="primary-button" type="button">Próximo</button></div></div></div>`;
   document.body.append(dialog);
-  dialog.querySelector(".guided-close").addEventListener("click", () => dialog.close());
-  dialog.querySelector("#guided-tour-prev").addEventListener("click", () => { if (tourIndex > 0) { tourIndex -= 1; renderTour(); } });
+  dialog.querySelector(".guided-tour-close").addEventListener("click", () => dialog.close());
+  dialog.querySelector("#guided-tour-back").addEventListener("click", () => { if (tourIndex > 0) { tourIndex -= 1; renderTour(); } });
   dialog.querySelector("#guided-tour-next").addEventListener("click", () => {
-    if (tourIndex >= tourSlides.length - 1) return dialog.close();
-    tourIndex += 1;
-    renderTour();
+    if (tourIndex >= tourSlides.length - 1) { dialog.close(); markOnboardingComplete(); return; }
+    tourIndex += 1; renderTour();
   });
 }
 
-function openTour(slides) {
-  tourSlides = slides;
+function exposeOnboarding() {
+  window.showOnboarding = () => openTour("welcome");
+  window.resetOnboardingStatus = () => localStorage.removeItem("volt-beta-onboarding-complete");
+}
+
+function openTour(kind = "welcome") {
+  tourSlides = createTourSlides(kind);
   tourIndex = 0;
   renderTour();
   document.querySelector("#guided-tour-dialog").showModal();
@@ -305,80 +324,45 @@ function renderTour() {
   document.querySelector("#guided-tour-title").textContent = slide.title;
   document.querySelector("#guided-tour-body").innerHTML = slide.html;
   const progress = document.querySelector("#guided-tour-progress");
-  progress.replaceChildren(...tourSlides.map((_item, index) => {
-    const dot = document.createElement("span");
-    if (index === tourIndex) dot.className = "active";
-    return dot;
-  }));
-  const prev = document.querySelector("#guided-tour-prev");
-  prev.disabled = tourIndex === 0;
+  progress.innerHTML = tourSlides.map((_, index) => `<span class="${index === tourIndex ? "active" : ""}"></span>`).join("");
+  document.querySelector("#guided-tour-back").hidden = tourIndex === 0;
   document.querySelector("#guided-tour-next").textContent = tourIndex === tourSlides.length - 1 ? "Concluir" : "Próximo";
 }
 
-function buildWelcomeSlides() {
-  return [
-    { title: "Bem-vindo ao Volt", html: `${heroSvg("ϟ", "●", "Energia e água em um só lugar")}<div class="guided-tour-copy"><h3>Acompanhe o ciclo real da sua casa</h3><p>Registre leituras, acompanhe consumo e veja estimativas de energia e água sem confundir estimativa com a fatura oficial.</p></div>` },
-    { title: "Configure sua região", html: `${locationSvg()}<div class="guided-tour-copy"><h3>UF, município e concessionárias</h3><p>Esses dados definem quais orientações e regras regionais podem ser exibidas. O Volt não presume tarifas nacionais.</p></div>` },
-    { title: "Defina o Ciclo de Contagem", html: `${cycleSvg()}<div class="guided-tour-copy"><h3>Use as datas de leitura da fatura</h3><p>O ciclo acompanha o período entre leituras, que pode começar e terminar em qualquer dia do mês. Depois de salvo, ele fica associado à sua conta.</p></div>` },
-    { title: "Registre leituras corretamente", html: `${meterSvg("Medidor / hidrômetro", "LEITURA DE CONSUMO", "CÓDIGO TÉCNICO")}<div class="guided-tour-copy"><h3>Nem todo número do visor é consumo</h3><p>Medidores digitais podem alternar telas técnicas e telas de consumo. Confira a orientação regional antes de registrar.</p></div>` },
-    { title: "Use relatórios como apoio", html: `${reportSvg()}<div class="guided-tour-copy"><h3>Estimativa, comparação e tendência</h3><p>Com mais leituras, o Volt melhora comparativos e projeções. A conta da concessionária continua sendo a referência oficial de cobrança.</p></div>` }
+function createTourSlides(kind) {
+  const locality = readJson(LOCALITY_KEY, {});
+  const context = `${locality.city || "sua cidade"}${locality.state ? ` · ${locality.state}` : ""}`;
+  const provider = [locality.energyProvider, locality.waterProvider].filter(Boolean).join(" / ");
+  const badge = `<span class="guided-context-badge">${escapeHtml(context)}${provider ? ` · ${escapeHtml(provider)}` : ""}</span>`;
+  const all = [
+    { title: "Bem-vindo ao Volt", html: `<div class="guided-tour-media">${welcomeSvg()}</div><div class="guided-tour-copy"><h3>Energia e água no mesmo lugar</h3><p>Registre leituras, acompanhe estimativas e veja a evolução do ciclo atual.</p></div>` },
+    { title: "Sua região importa", html: `${badge}<div class="guided-tour-media">${regionSvg()}</div><div class="guided-tour-copy"><p>Tarifas, concessionárias, faturas e equipamentos variam por localidade. O Volt usa o contexto salvo na sua conta e não inventa regras quando não há fonte validada.</p></div>` },
+    { title: "Ciclo de Contagem", html: `<div class="guided-tour-media">${billSvg()}</div><div class="guided-tour-copy"><p>Use as datas de leitura anterior e atual da fatura para definir o período acompanhado pelo Volt. O ciclo não precisa coincidir com o mês civil.</p></div>` },
+    { title: "Leia o medidor correto", html: `${badge}<div class="guided-tour-media">${meterSvg()}</div><div class="guided-tour-copy"><p>Medidores digitais podem alternar entre consumo, códigos técnicos e outros registros. Use a leitura de consumo indicada para faturamento pela sua concessionária; não copie automaticamente qualquer número exibido.</p></div>` },
+    { title: "Acompanhe e revise", html: `<div class="guided-tour-media">${reportSvg()}</div><div class="guided-tour-copy"><p>Leituras alimentam a Home e os Relatórios. Antes de salvar uma leitura reconhecida por foto, confira o número no visor.</p></div>` }
   ];
+  if (kind === "meter") return [all[3]];
+  if (kind === "cycle") return [all[2]];
+  return all;
 }
 
 function bindRegionalHelpOverrides() {
   document.addEventListener("click", (event) => {
-    const target = event.target.closest("#beta-meter-tutorial, #beta-bill-cycle-tutorial");
+    const target = event.target.closest("#beta-meter-tutorial,#beta-bill-cycle-tutorial");
     if (!target) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    const context = readContext();
-    if (target.id === "beta-meter-tutorial") openTour(buildMeterSlides(context));
-    else openTour(buildBillSlides(context));
+    openTour(target.id === "beta-meter-tutorial" ? "meter" : "cycle");
   }, true);
 }
 
-function readContext() {
-  return window.VOLT_LOCALITY_CONTEXT || readJson(LOCALITY_KEY, {}) || {};
-}
+function markOnboardingComplete() { localStorage.setItem("volt-beta-onboarding-complete", "true"); }
+function clampDay(value) { return Math.max(1, Math.min(31, Number(value) || 1)); }
+function readJson(key, fallback) { try { const value = JSON.parse(localStorage.getItem(key) || "null"); return value ?? fallback; } catch { return fallback; } }
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" })[char]); }
 
-function buildMeterSlides(context) {
-  const region = regionalBadge(context);
-  const energy = context.energyProvider || "sua concessionária de energia";
-  const water = context.waterProvider || "sua concessionária de água";
-  return [
-    { title: "Como ler energia", html: `${region}${meterSvg(energy, "CONSUMO kWh", "TELA / CÓDIGO TÉCNICO")}<div class="guided-tour-copy"><h3>Procure a leitura usada para faturamento</h3><p>Em medidores eletrônicos, o visor pode alternar registros. Use a leitura acumulada de energia ativa indicada para faturamento pela ${escapeHtml(energy)}; não copie automaticamente o primeiro número exibido.</p><div class="guided-provider-warning">O nome do registro e a sequência do visor variam por modelo e concessionária. Quando não houver orientação regional validada, confira a fatura ou o material oficial da distribuidora.</div></div>` },
-    { title: "Como ler água", html: `${region}${waterSvg(water)}<div class="guided-tour-copy"><h3>Registre o volume acumulado</h3><p>Use os dígitos que representam metros cúbicos conforme a orientação da ${escapeHtml(water)}. Dígitos coloridos, ponteiros ou casas decimais podem representar frações do m³.</p><div class="guided-provider-warning">O Volt não presume que cores ou posições sejam iguais em todos os hidrômetros.</div></div>` },
-    { title: "Confira antes de salvar", html: `${checkSvg()}<div class="guided-tour-copy"><ul><li>Compare com a leitura anterior.</li><li>Confira unidade: kWh para energia e m³ para água.</li><li>Se o visor alternar telas, aguarde aparecer o registro correto.</li><li>Use o OCR apenas como auxílio e confirme o número reconhecido.</li></ul></div>` }
-  ];
-}
-
-function buildBillSlides(context) {
-  const region = regionalBadge(context);
-  const provider = context.energyProvider || context.waterProvider || "sua concessionária";
-  return [
-    { title: "Localize o período na fatura", html: `${region}${billSvg(provider)}<div class="guided-tour-copy"><h3>Procure datas de leitura, não apenas o mês da conta</h3><p>Na fatura da ${escapeHtml(provider)}, procure campos equivalentes a leitura anterior, leitura atual, data da leitura anterior e data da leitura atual. Os nomes e posições podem mudar conforme a concessionária.</p></div>` },
-    { title: "Transforme em Ciclo de Contagem", html: `${cycleSvg()}<div class="guided-tour-copy"><p>Use o dia da leitura anterior como referência de início e o dia da leitura atual como encerramento. O Volt ajusta automaticamente meses com menos dias.</p><div class="guided-tour-note">Exemplo ilustrativo: leitura anterior em 12/07 e leitura atual em 11/08 → ciclo aproximado do dia 12 ao dia 11. Use sempre as datas reais da sua fatura.</div></div>` }
-  ];
-}
-
-function regionalBadge(context) {
-  const parts = [context.city, context.state].filter(Boolean).join(" · ");
-  const providers = [context.energyProvider, context.waterProvider].filter(Boolean).join(" / ");
-  if (!parts && !providers) return '<div class="guided-context-badge">Orientação geral — configure sua região para contextualizar</div>';
-  return `<div class="guided-context-badge">${escapeHtml(parts || "Região configurada")}${providers ? ` · ${escapeHtml(providers)}` : ""}</div>`;
-}
-
-function heroSvg(a,b,label){return `<div class="guided-tour-media"><svg viewBox="0 0 640 270" role="img" aria-label="${escapeHtml(label)}"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#31d797"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><rect width="640" height="270" fill="#081821"/><circle cx="250" cy="135" r="72" fill="url(#g1)" opacity=".17"/><circle cx="390" cy="135" r="72" fill="url(#g1)" opacity=".12"/><text x="250" y="157" text-anchor="middle" font-size="72" fill="#7fe8bd">${a}</text><text x="390" y="155" text-anchor="middle" font-size="62" fill="#74b9ff">${b}</text><text x="320" y="235" text-anchor="middle" font-family="system-ui" font-size="18" fill="#dce8ef">${escapeHtml(label)}</text></svg></div>`}
-function locationSvg(){return `<div class="guided-tour-media"><svg viewBox="0 0 640 270" role="img" aria-label="Ilustração de localização"><rect width="640" height="270" fill="#081821"/><path d="M100 70L230 35l180 45 130-30v155l-130 30-180-45-130 35z" fill="none" stroke="#3d5968" stroke-width="3"/><path d="M320 68c-38 0-68 29-68 65 0 51 68 101 68 101s68-50 68-101c0-36-30-65-68-65z" fill="#31d797" opacity=".22" stroke="#31d797" stroke-width="3"/><circle cx="320" cy="132" r="21" fill="#31d797"/></svg></div>`}
-function cycleSvg(){return `<div class="guided-tour-media"><svg viewBox="0 0 640 270" role="img" aria-label="Linha do tempo do ciclo de contagem"><rect width="640" height="270" fill="#081821"/><line x1="110" y1="145" x2="530" y2="145" stroke="#45606e" stroke-width="8" stroke-linecap="round"/><circle cx="150" cy="145" r="18" fill="#31d797"/><circle cx="490" cy="145" r="18" fill="#74b9ff"/><text x="150" y="105" text-anchor="middle" font-family="system-ui" font-size="18" fill="#dce8ef">Leitura anterior</text><text x="490" y="105" text-anchor="middle" font-family="system-ui" font-size="18" fill="#dce8ef">Leitura atual</text><text x="320" y="190" text-anchor="middle" font-family="system-ui" font-size="20" fill="#9fb1bc">Ciclo de Contagem</text></svg></div>`}
-function meterSvg(provider,primary,secondary){return `<div class="guided-tour-media"><svg viewBox="0 0 640 300" role="img" aria-label="Exemplo de visor de medidor"><rect width="640" height="300" fill="#081821"/><rect x="125" y="45" width="390" height="205" rx="30" fill="#132732" stroke="#4c6572" stroke-width="3"/><rect x="175" y="95" width="290" height="68" rx="12" fill="#d9f4df"/><text x="320" y="140" text-anchor="middle" font-family="monospace" font-size="38" fill="#10251b">028510</text><text x="320" y="188" text-anchor="middle" font-family="system-ui" font-size="16" fill="#7fe8bd">${escapeHtml(primary)}</text><text x="320" y="216" text-anchor="middle" font-family="system-ui" font-size="13" fill="#8fa4af">${escapeHtml(secondary)}</text><text x="320" y="278" text-anchor="middle" font-family="system-ui" font-size="14" fill="#8fa4af">${escapeHtml(provider)}</text></svg></div>`}
-function waterSvg(provider){return `<div class="guided-tour-media"><svg viewBox="0 0 640 300" role="img" aria-label="Exemplo de hidrômetro"><rect width="640" height="300" fill="#081821"/><circle cx="320" cy="145" r="105" fill="#142a35" stroke="#4d6876" stroke-width="4"/><rect x="210" y="105" width="220" height="62" rx="9" fill="#e7f3ed"/><text x="320" y="147" text-anchor="middle" font-family="monospace" font-size="34" fill="#12251b">00128.534</text><text x="320" y="207" text-anchor="middle" font-family="system-ui" font-size="15" fill="#74b9ff">m³ · leitura acumulada</text><text x="320" y="278" text-anchor="middle" font-family="system-ui" font-size="14" fill="#8fa4af">${escapeHtml(provider)}</text></svg></div>`}
-function billSvg(provider){return `<div class="guided-tour-media"><svg viewBox="0 0 640 340" role="img" aria-label="Exemplo ilustrativo de fatura"><rect width="640" height="340" fill="#081821"/><rect x="130" y="25" width="380" height="290" rx="18" fill="#eef5f2"/><rect x="165" y="62" width="160" height="18" rx="6" fill="#9cb0aa"/><rect x="165" y="102" width="310" height="44" rx="8" fill="#d8e3df"/><rect x="165" y="171" width="145" height="62" rx="10" fill="#d7f5e7" stroke="#31d797" stroke-width="3"/><rect x="330" y="171" width="145" height="62" rx="10" fill="#e0edfa" stroke="#74b9ff" stroke-width="3"/><text x="237" y="193" text-anchor="middle" font-family="system-ui" font-size="12" fill="#274238">Leitura anterior</text><text x="237" y="217" text-anchor="middle" font-family="system-ui" font-size="15" fill="#163026">12/07</text><text x="402" y="193" text-anchor="middle" font-family="system-ui" font-size="12" fill="#274238">Leitura atual</text><text x="402" y="217" text-anchor="middle" font-family="system-ui" font-size="15" fill="#163026">11/08</text><text x="320" y="285" text-anchor="middle" font-family="system-ui" font-size="13" fill="#526a61">Exemplo · ${escapeHtml(provider)}</text></svg></div>`}
-function reportSvg(){return `<div class="guided-tour-media"><svg viewBox="0 0 640 270" role="img" aria-label="Gráfico ilustrativo de consumo"><rect width="640" height="270" fill="#081821"/><path d="M90 210L170 170l80 18 80-85 80 34 120-78" fill="none" stroke="#31d797" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><line x1="90" y1="220" x2="550" y2="220" stroke="#3b5664" stroke-width="2"/></svg></div>`}
-function checkSvg(){return `<div class="guided-tour-media"><svg viewBox="0 0 640 250" role="img" aria-label="Confirmação de leitura"><rect width="640" height="250" fill="#081821"/><circle cx="320" cy="125" r="78" fill="#31d797" opacity=".12"/><path d="M275 126l30 31 63-72" fill="none" stroke="#31d797" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`}
-
-function readJson(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; } catch { return fallback; }
-}
-function clampDay(value) { const number = Number(value); return Math.min(31, Math.max(1, Number.isFinite(number) ? Math.round(number) : 1)); }
-function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char])); }
+function welcomeSvg(){return `<svg viewBox="0 0 760 260" role="img" aria-label="Ilustração de energia e água"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#31d797"/><stop offset="1" stop-color="#48a7ff"/></linearGradient></defs><rect width="760" height="260" rx="28" fill="#07151f"/><circle cx="270" cy="130" r="78" fill="#102a31"/><path d="M287 48l-68 100h54l-19 68 79-110h-55z" fill="url(#g)"/><path d="M505 58c-20 35-68 81-68 123a68 68 0 10136 0c0-42-48-88-68-123z" fill="#48a7ff" opacity=".9"/></svg>`}
+function regionSvg(){return `<svg viewBox="0 0 760 260" role="img" aria-label="Contexto regional"><rect width="760" height="260" rx="28" fill="#07151f"/><path d="M360 37c-54 0-98 43-98 96 0 69 98 103 98 103s98-34 98-103c0-53-44-96-98-96z" fill="#173d3d" stroke="#31d797" stroke-width="4"/><circle cx="360" cy="128" r="34" fill="#31d797"/><path d="M514 69h112M514 111h86M514 153h128M514 195h75" stroke="#48a7ff" stroke-width="12" stroke-linecap="round" opacity=".65"/><path d="M103 77h118M103 119h89M103 161h132" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".15"/></svg>`}
+function billSvg(){return `<svg viewBox="0 0 760 300" role="img" aria-label="Fatura ilustrativa com datas de leitura destacadas"><rect width="760" height="300" rx="28" fill="#07151f"/><rect x="155" y="24" width="450" height="252" rx="18" fill="#eff5f7"/><rect x="185" y="50" width="155" height="18" rx="7" fill="#14303c"/><rect x="185" y="85" width="390" height="8" rx="4" fill="#c3d0d5"/><rect x="185" y="106" width="390" height="8" rx="4" fill="#c3d0d5"/><rect x="185" y="140" width="178" height="62" rx="11" fill="#d9fff0" stroke="#31d797" stroke-width="3"/><text x="200" y="163" fill="#345" font-size="14">LEITURA ANTERIOR</text><text x="200" y="187" fill="#10242e" font-size="18" font-weight="700">12/07 · 28.425</text><rect x="397" y="140" width="178" height="62" rx="11" fill="#e3f3ff" stroke="#48a7ff" stroke-width="3"/><text x="412" y="163" fill="#345" font-size="14">LEITURA ATUAL</text><text x="412" y="187" fill="#10242e" font-size="18" font-weight="700">11/08 · 28.610</text><path d="M363 171h34" stroke="#10242e" stroke-width="4"/><path d="M388 162l10 9-10 9" fill="none" stroke="#10242e" stroke-width="4"/></svg>`}
+function meterSvg(){return `<svg viewBox="0 0 760 300" role="img" aria-label="Medidor digital ilustrativo"><rect width="760" height="300" rx="28" fill="#07151f"/><rect x="190" y="35" width="380" height="230" rx="30" fill="#d9e1e4"/><rect x="242" y="82" width="276" height="92" rx="12" fill="#a9c9b3" stroke="#20363b" stroke-width="5"/><text x="275" y="143" fill="#132522" font-family="monospace" font-size="56" font-weight="700">28610</text><text x="453" y="160" fill="#132522" font-size="18">kWh</text><rect x="238" y="76" width="284" height="104" rx="15" fill="none" stroke="#31d797" stroke-width="6"/><text x="247" y="216" fill="#20323a" font-size="16">REGISTRO DE CONSUMO</text><circle cx="535" cy="214" r="12" fill="#48a7ff"/></svg>`}
+function reportSvg(){return `<svg viewBox="0 0 760 260" role="img" aria-label="Relatório ilustrativo"><rect width="760" height="260" rx="28" fill="#07151f"/><path d="M118 198h525" stroke="#36515b" stroke-width="3"/><rect x="160" y="129" width="56" height="69" rx="8" fill="#31d797"/><rect x="258" y="92" width="56" height="106" rx="8" fill="#48a7ff"/><rect x="356" y="116" width="56" height="82" rx="8" fill="#31d797"/><rect x="454" y="60" width="56" height="138" rx="8" fill="#48a7ff"/><rect x="552" y="81" width="56" height="117" rx="8" fill="#31d797"/><path d="M157 106c70-9 109-46 157-39 66 10 92 20 143-7 51-27 91-37 154-18" fill="none" stroke="#fff" stroke-width="4" opacity=".55"/></svg>`}

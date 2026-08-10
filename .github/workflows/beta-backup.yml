@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 20
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+      BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT || 'age14p9mthagmqa9xgaujns6cy5kzspa2cpvecfeuh54ec9l7hky89vsyjjhmr' }}
       BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
     steps:
       - name: Validar conexão do banco

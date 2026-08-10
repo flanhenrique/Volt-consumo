@@ -17,6 +17,7 @@
 
 import "./energy-detail.js";
 import "./locality-context.js";
+import "./regional-tariff-resolver.js";
 import "./platform-users.js";
 import "./hide-organization-context.js";
 import "./guided-experience.js";

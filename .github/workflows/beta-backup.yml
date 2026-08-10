@@ -46,12 +46,18 @@ jobs:
             echo "::warning::Backup criptografado ainda não executado: configure BACKUP_AGE_IDENTITY ou BACKUP_AGE_RECIPIENT. O workflow foi encerrado sem falha para não gerar alertas diários enquanto a chave não estiver cadastrada."
           fi
 
-      - name: Instalar cliente PostgreSQL e age
+      - name: Instalar cliente PostgreSQL 17 e age
         if: steps.encryption.outputs.configured == 'true'
         shell: bash
         run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client age
+          sudo apt-get install --yes postgresql-client-17 age
+          pg_dump --version
 
       - name: Resolver destinatário age
         if: steps.encryption.outputs.configured == 'true'
@@ -116,7 +122,7 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: restore-only
           POSTGRES_DB: volt_restore
@@ -144,11 +150,17 @@ jobs:
           merge-multiple: true
           path: restore-input
 
-      - name: Instalar ferramentas
+      - name: Instalar ferramentas PostgreSQL 17 e age
         shell: bash
         run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client age
+          sudo apt-get install --yes postgresql-client-17 age
+          pg_restore --version
 
       - name: Descriptografar e restaurar em ambiente descartável
         shell: bash

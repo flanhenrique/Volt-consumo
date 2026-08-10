@@ -1,0 +1,54 @@
+name: Atualizar tarifas nacionais
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "25 8 * * 1"
+  push:
+    paths:
+      - "scripts/update-national-energy-tariffs.mjs"
+      - ".github/workflows/update-national-tariffs.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  aneel-energy:
+    name: Atualizar energia ANEEL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Gerar catálogo nacional B1 residencial
+        run: node scripts/update-national-energy-tariffs.mjs
+
+      - name: Validar catálogo gerado
+        run: |
+          node --input-type=module <<'NODE'
+          const mod = await import(`./beta/national-energy-catalog.js?${Date.now()}`)
+          if (!Array.isArray(mod.NATIONAL_ENERGY_CATALOG) || mod.NATIONAL_ENERGY_CATALOG.length === 0) {
+            throw new Error('Catálogo nacional vazio')
+          }
+          const invalid = mod.NATIONAL_ENERGY_CATALOG.filter((rule) => !rule.provider || !Number.isFinite(rule.ratePerKwh) || rule.ratePerKwh <= 0)
+          if (invalid.length) throw new Error(`Regras inválidas: ${invalid.length}`)
+          console.log(`Regras automáticas validadas: ${mod.NATIONAL_ENERGY_CATALOG.length}`)
+          NODE
+
+      - name: Commitar atualização quando houver mudança
+        run: |
+          if git diff --quiet -- beta/national-energy-catalog.js; then
+            echo "Sem alteração tarifária."
+            exit 0
+          fi
+          git config user.name "volt-tariff-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add beta/national-energy-catalog.js
+          git commit -m "data(beta): atualizar tarifas nacionais ANEEL"
+          git push

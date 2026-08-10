@@ -5,11 +5,12 @@ const LOCALITY_KEY = "volt:beta:locality-context-v1";
 
 queueMicrotask(initializeRegionalTariffResolver);
 window.addEventListener("volt:locality-context", (event) => applyRegionalTariffs(event.detail));
+window.addEventListener("volt:beta-data", () => applyRegionalTariffs(readLocality()));
 
 function initializeRegionalTariffResolver() {
   const context = readLocality();
   publishResolverSnapshot(context);
-  if (context.state || context.city || context.energyProvider || context.waterProvider) {
+  if (!document.querySelector("#dashboard")?.hidden && (context.state || context.city || context.energyProvider || context.waterProvider)) {
     applyRegionalTariffs(context);
   }
 }
@@ -36,17 +37,11 @@ async function applyRegionalTariffs(context = readLocality()) {
 }
 
 function resolveEnergyRule(context) {
-  // Catálogo nacional tem precedência para energia. O catálogo Sul continua
-  // como fallback enquanto a ingestão nacional é expandida/atualizada.
   return findNationalEnergyRule({ provider: context.energyProvider, date: new Date() })
     || findSouthTariffRule({ state: context.state, utility: "energy", provider: context.energyProvider });
 }
 
 function resolveWaterRule(context) {
-  // Água/esgoto não possui uma tabela tarifária nacional única equivalente à
-  // ANEEL. Só aplicamos automaticamente quando a regra local modelada estiver
-  // validada. Regras por faixa/fórmula permanecem identificadas, mas não são
-  // reduzidas artificialmente a um R$/m³ linear.
   return findSouthTariffRule({ state: context.state, utility: "water", provider: context.waterProvider });
 }
 

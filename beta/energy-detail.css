@@ -6,11 +6,21 @@ html[data-environment="beta"] .utility-card.water:focus-visible { outline:3px so
 html[data-environment="beta"] .tariff-info-card { display:none; }
 
 html[data-environment="beta"] dialog.energy-detail-dialog {
-  position:fixed; inset:auto 10px max(env(safe-area-inset-bottom),10px) 10px;
-  width:auto; max-width:560px; max-height:min(82dvh,680px); margin:0 auto; padding:0;
-  overflow:hidden; border:1px solid rgba(255,255,255,.14); border-radius:28px;
-  color:#f5f8fa; background:rgba(8,18,25,.90); box-shadow:0 28px 90px rgba(0,0,0,.46);
-  backdrop-filter:blur(30px) saturate(155%); -webkit-backdrop-filter:blur(30px) saturate(155%);
+  position:fixed;
+  inset:0;
+  width:min(calc(100vw - 20px),560px);
+  max-width:560px;
+  max-height:min(82dvh,680px);
+  margin:auto;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:28px;
+  color:#f5f8fa;
+  background:rgba(8,18,25,.90);
+  box-shadow:0 28px 90px rgba(0,0,0,.46);
+  backdrop-filter:blur(30px) saturate(155%);
+  -webkit-backdrop-filter:blur(30px) saturate(155%);
 }
 html[data-environment="beta"] dialog.energy-detail-dialog[open]{display:block}
 html[data-environment="beta"] dialog.energy-detail-dialog::backdrop{background:rgba(2,8,12,.58);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
@@ -27,7 +37,6 @@ html[data-environment="beta"] .energy-detail-title h2{margin:0;color:#f7fafc;fon
 html[data-environment="beta"] .energy-detail-heading .icon-button{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;border:1px solid rgba(255,255,255,.12);border-radius:50%;color:#eef4f7;background:rgba(255,255,255,.07);font-size:22px;line-height:1}
 html[data-environment="beta"] .energy-detail-cycle{margin:-3px 0 0;color:#91a5b2;font-size:11.5px;line-height:1.2}
 
-/* Em vez de uma lista alta, os componentes da conta viram pequenos cards. */
 html[data-environment="beta"] .energy-detail-list{
   display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
   overflow:visible; border:0; border-radius:0; background:transparent;
@@ -61,8 +70,11 @@ html[data-environment="beta"] .energy-detail-popover strong{display:block;margin
 html[data-environment="beta"] .energy-detail-popover p{margin:0;color:#9eb0ba;font-size:13px;line-height:1.4}
 
 @media(max-width:360px){
-  html[data-environment="beta"] dialog.energy-detail-dialog{inset-inline:6px}
-  html[data-environment="beta"] .energy-detail-sheet{gap:8px;padding:8px 9px 10px}
+  html[data-environment="beta"] dialog.energy-detail-dialog{
+    width:calc(100vw - 12px);
+    max-height:calc(100dvh - max(env(safe-area-inset-top),6px) - max(env(safe-area-inset-bottom),6px) - 12px);
+  }
+  html[data-environment="beta"] .energy-detail-sheet{gap:8px;padding:8px 9px 10px;max-height:inherit}
   html[data-environment="beta"] .energy-detail-list{gap:6px}
   html[data-environment="beta"] .energy-detail-row{grid-template-columns:28px minmax(0,1fr) 22px;min-height:86px;padding:8px;gap:5px 6px;border-radius:14px}
   html[data-environment="beta"] .energy-detail-icon{width:28px;height:28px;border-radius:9px;font-size:14px}

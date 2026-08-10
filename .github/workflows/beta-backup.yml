@@ -26,13 +26,17 @@ jobs:
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+      BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
     steps:
       - name: Validar configuração obrigatória
         shell: bash
         run: |
           set -euo pipefail
           test -n "$SUPABASE_DB_URL" || { echo "::error::SUPABASE_DB_URL não configurado"; exit 1; }
-          test -n "$BACKUP_AGE_RECIPIENT" || { echo "::error::BACKUP_AGE_RECIPIENT não configurado"; exit 1; }
+          if [ -z "$BACKUP_AGE_RECIPIENT" ] && [ -z "$BACKUP_AGE_IDENTITY" ]; then
+            echo "::error::Configure BACKUP_AGE_IDENTITY ou BACKUP_AGE_RECIPIENT para criptografar o backup"
+            exit 1
+          fi
 
       - name: Instalar cliente PostgreSQL e age
         shell: bash
@@ -40,9 +44,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client age
 
+      - name: Resolver destinatário age
+        id: age
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$BACKUP_AGE_RECIPIENT" ]; then
+            recipient="$BACKUP_AGE_RECIPIENT"
+          else
+            identity_file="$(mktemp)"
+            trap 'rm -f "$identity_file"' EXIT
+            printf '%s\n' "$BACKUP_AGE_IDENTITY" > "$identity_file"
+            chmod 600 "$identity_file"
+            recipient="$(age-keygen -y "$identity_file")"
+          fi
+          test -n "$recipient"
+          echo "recipient=$recipient" >> "$GITHUB_OUTPUT"
+
       - name: Criar, validar e criptografar backup
         id: dump
         shell: bash
+        env:
+          AGE_RECIPIENT: ${{ steps.age.outputs.recipient }}
         run: |
           set -euo pipefail
           umask 077
@@ -56,7 +79,7 @@ jobs:
           object_count="$(grep -Ec ' TABLE | TABLE DATA | FUNCTION ' "$manifest")"
           test "$object_count" -gt 0 || { echo "::error::Backup sem objetos restauráveis"; exit 1; }
           sha256sum "$plain" >> "$manifest"
-          age --recipient "$BACKUP_AGE_RECIPIENT" --output "$encrypted" "$plain"
+          age --recipient "$AGE_RECIPIENT" --output "$encrypted" "$plain"
           test -s "$encrypted"
           shred --remove "$plain"
           echo "artifact=volt-beta-backup-${stamp}" >> "$GITHUB_OUTPUT"

@@ -189,6 +189,7 @@ jobs:
           database="postgresql://postgres@127.0.0.1:5432/volt_restore"
           /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create table auth.users (id uuid primary key);"
           /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -c "create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';"
+          /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 -c "drop schema public cascade;"
           /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --section=pre-data --no-owner --no-privileges --dbname="$database" "$plain"
           /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --section=data --disable-triggers --no-owner --no-privileges --dbname="$database" "$plain"
           /usr/lib/postgresql/17/bin/psql "$database" -v ON_ERROR_STOP=1 <<'SQL'

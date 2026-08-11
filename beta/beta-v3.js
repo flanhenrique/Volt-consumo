@@ -8,7 +8,7 @@ import "./energy-detail.js";
 import "./locality-context.js";
 import "./regional-tariff-resolver.js";
 import "./platform-users.js";
-import "./home-cleanup.js?v=78";
+import "./home-cleanup.js?v=80";
 import "./guided-experience.js";
 import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";

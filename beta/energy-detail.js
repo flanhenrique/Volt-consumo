@@ -3,7 +3,7 @@ import "./platform-users.js";
 installUtilityDetailStyles();
 
 async function installUtilityDetailStyles() {
-  const href = new URL("./energy-detail.css?v=65", import.meta.url);
+  const href = new URL("./energy-detail.css?v=66", import.meta.url);
 
   try {
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {
@@ -57,6 +57,7 @@ let activeMeter = "energy";
 queueMicrotask(initializeUtilityDetails);
 window.addEventListener("volt:beta-data", refreshUtilityDetail);
 window.addEventListener("volt:locality-context", refreshUtilityDetail);
+window.addEventListener("volt:cycle-context", refreshUtilityDetail);
 
 function initializeUtilityDetails() {
   if (!window.VOLT_BETA_API) return;
@@ -110,6 +111,7 @@ function ensureDialog() {
 
 function openUtilityDetail(meter) {
   activeMeter = meter;
+  window.dispatchEvent(new CustomEvent("volt:cycle-context-request"));
   ensureDialog();
   renderUtilityDetail();
   if (!detailDialog.open) detailDialog.showModal();
@@ -169,8 +171,49 @@ function renderUtilityDetail() {
       : "Valores estimados com base nas leituras e configurações atuais. Impostos, multa e juros só entram no total quando houver dado confiável identificado.";
   }
   renderLocalityContext(locality);
-  const cycleLabel = document.querySelector("#beta-cycle-label")?.textContent?.trim();
-  detailDialog.querySelector("#utility-detail-cycle").textContent = cycleLabel && cycleLabel !== "—" ? `Ciclo atual · ${cycleLabel}` : "Ciclo atual";
+  renderOwnCycle();
+}
+
+function renderOwnCycle() {
+  const cycle = window.VOLT_CYCLE_CONTEXT?.[activeMeter] || readCycleFallback(activeMeter);
+  const label = cycle?.label || cycle?.labelCompact || "não configurado";
+  detailDialog.querySelector("#utility-detail-cycle").textContent = `Ciclo atual · ${label}`;
+}
+
+function readCycleFallback(type) {
+  const key = type === "energy" ? "volt-beta-energy-cycle-v1" : "volt-beta-water-cycle-v1";
+  try {
+    const preference = JSON.parse(localStorage.getItem(key) || "null");
+    if (!preference || !Number.isInteger(Number(preference.start)) || !Number.isInteger(Number(preference.end))) return null;
+    const range = calculateRange({ start: Number(preference.start), end: Number(preference.end) });
+    return { label: formatCycleRange(range.current) };
+  } catch {
+    return null;
+  }
+}
+
+function calculateRange(preference) {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  let start = cycleDate(today.getFullYear(), today.getMonth(), preference.start, false);
+  if (start > today) start = cycleDate(today.getFullYear(), today.getMonth() - 1, preference.start, false);
+  let end = cycleDate(start.getFullYear(), start.getMonth(), preference.end, true);
+  if (end <= start) end = cycleDate(start.getFullYear(), start.getMonth() + 1, preference.end, true);
+  return { current: { start, end } };
+}
+
+function cycleDate(year, month, day, endOfDay) {
+  const last = new Date(year, month + 1, 0).getDate();
+  const value = new Date(year, month, Math.min(day, last));
+  value.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return value;
+}
+
+function formatCycleRange(range) {
+  const formatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+  const clean = (value) => formatter.format(value).replace(".", "");
+  return `${clean(range.start)}–${clean(range.end)}`;
 }
 
 function readLocalityContext() {
@@ -243,10 +286,6 @@ function showExplanation(key, anchor) {
   const paragraph = document.createElement("p");
   paragraph.textContent = text;
   detailPopover.append(heading, paragraph);
-
-  // O dialog modal vive na top layer do navegador. Um aviso anexado ao body
-  // fica atrás dessa camada independentemente do z-index. Mantê-lo como filho
-  // do próprio dialog garante visibilidade em Android, iOS e desktop.
   ensureDialog().append(detailPopover);
   detailPopoverTimer = window.setTimeout(clearExplanation, 6500);
   anchor.focus();

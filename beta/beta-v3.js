@@ -8,7 +8,7 @@ import "./energy-detail.js";
 import "./locality-context.js";
 import "./regional-tariff-resolver.js";
 import "./platform-users.js";
-import "./home-cleanup.js?v=80";
+import "./home-cleanup.js?v=81";
 import "./guided-experience.js";
 import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
@@ -37,7 +37,7 @@ function attachCycleStyles() {
   if (document.querySelector('link[href*="cycle-authority.css"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./cycle-authority.css?v=78";
+  link.href = "./cycle-authority.css?v=81";
   document.head.append(link);
 }
 

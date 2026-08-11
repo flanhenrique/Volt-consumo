@@ -5,8 +5,12 @@ function cleanHome() {
   document.querySelector(".organization-context")?.remove();
   document.querySelector(".tariff-info-card")?.remove();
 
+  const heading = document.querySelector(".cycle-heading");
+  const eyebrow = heading?.querySelector(".eyebrow");
+  if (eyebrow) eyebrow.textContent = "CICLOS DE CONTAGEM";
+
   const title = document.querySelector("#beta-home-title");
-  if (title && title.textContent.trim() === "Ciclo atual") title.textContent = "Ciclos atuais";
+  if (title) title.textContent = "Ciclos";
 
   const label = document.querySelector("#beta-cycle-label");
   const context = window.VOLT_CYCLE_CONTEXT;

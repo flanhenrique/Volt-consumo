@@ -21,7 +21,7 @@ import "./regional-tariff-resolver.js";
 import "./platform-users.js";
 import "./hide-organization-context.js";
 import "./guided-experience.js";
-import "./tutorial-ack.js";
+import "./tutorial-ack.js?v=68";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");

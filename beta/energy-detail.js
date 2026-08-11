@@ -3,7 +3,7 @@ import "./platform-users.js";
 installUtilityDetailStyles();
 
 async function installUtilityDetailStyles() {
-  const href = new URL("./energy-detail.css?v=64", import.meta.url);
+  const href = new URL("./energy-detail.css?v=65", import.meta.url);
 
   try {
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet !== "undefined" && "replace" in CSSStyleSheet.prototype) {
@@ -51,6 +51,7 @@ const icons = {
 
 let detailDialog;
 let detailPopover;
+let detailPopoverTimer;
 let activeMeter = "energy";
 
 queueMicrotask(initializeUtilityDetails);
@@ -103,6 +104,7 @@ function ensureDialog() {
   detailDialog.addEventListener("click", (event) => {
     if (event.target === detailDialog) detailDialog.close();
   });
+  detailDialog.addEventListener("close", clearExplanation);
   return detailDialog;
 }
 
@@ -222,19 +224,31 @@ function row(key, title, subtitle, value) {
   return item;
 }
 
-function showExplanation(key, anchor) {
+function clearExplanation() {
+  if (detailPopoverTimer) window.clearTimeout(detailPopoverTimer);
+  detailPopoverTimer = null;
   detailPopover?.remove();
+  detailPopover = null;
+}
+
+function showExplanation(key, anchor) {
+  clearExplanation();
   const [title, text] = explanations[key] || ["Informação", "Detalhe indisponível."];
   detailPopover = document.createElement("div");
   detailPopover.className = "energy-detail-popover";
   detailPopover.setAttribute("role", "status");
+  detailPopover.setAttribute("aria-live", "polite");
   const heading = document.createElement("strong");
   heading.textContent = title;
   const paragraph = document.createElement("p");
   paragraph.textContent = text;
   detailPopover.append(heading, paragraph);
-  document.body.append(detailPopover);
-  window.setTimeout(() => detailPopover?.remove(), 6500);
+
+  // O dialog modal vive na top layer do navegador. Um aviso anexado ao body
+  // fica atrás dessa camada independentemente do z-index. Mantê-lo como filho
+  // do próprio dialog garante visibilidade em Android, iOS e desktop.
+  ensureDialog().append(detailPopover);
+  detailPopoverTimer = window.setTimeout(clearExplanation, 6500);
   anchor.focus();
 }
 

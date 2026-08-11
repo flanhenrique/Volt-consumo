@@ -3,6 +3,7 @@
  * A sincronização funcional fica nos módulos de domínio; esta camada é visual.
  */
 
+import "./startup-runtime.js?v=79";
 import "./energy-detail.js";
 import "./locality-context.js";
 import "./regional-tariff-resolver.js";

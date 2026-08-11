@@ -22,6 +22,7 @@ import "./startup-data-sync.js";
 import "./platform-users.js";
 import "./hide-organization-context.js";
 import "./guided-experience.js";
+import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");

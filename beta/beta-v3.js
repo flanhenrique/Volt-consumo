@@ -26,6 +26,8 @@ import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
 import "./initial-bill-setup.js?v=71";
 import "./separate-cycles.js?v=72";
+import "./cycle-authority.js?v=76";
+import "./detail-cycle-consistency.js?v=76";
 import "./test-account-reset.js?v=73";
 import "./test-account-onboarding-prefill.js?v=74";
 

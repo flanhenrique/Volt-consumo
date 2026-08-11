@@ -1,14 +1,5 @@
-// VOLT Service Worker
-// Hotfix SEC-002 / TECH-004 — 2026-07-31
-//
-// Correção: a versão anterior armazenava em cache QUALQUER resposta GET,
-// incluindo respostas autenticadas do Supabase. Em dispositivo compartilhado
-// isso permitia que dados de um usuário fossem servidos a outro.
-//
-// Política atual: cache exclusivamente do shell estático same-origin,
-// declarado em ASSETS. Nenhuma outra requisição é armazenada.
-
-const CACHE = "volt-beta-shell-v76";
+// VOLT Service Worker — cache exclusivo do shell estático same-origin.
+const CACHE = "volt-beta-shell-v77";
 
 const ASSETS = [
   "./",
@@ -32,9 +23,7 @@ const ASSETS = [
   "./initial-bill-setup.js",
   "./initial-bill-setup.css",
   "./separate-cycles.js",
-  "./cycle-authority.js",
   "./cycle-authority.css",
-  "./detail-cycle-consistency.js",
   "./test-account-reset.js",
   "./test-account-onboarding-prefill.js",
   "./energy-detail.js",
@@ -43,7 +32,6 @@ const ASSETS = [
   "./platform-users.css",
   "./locality-context.js",
   "./regional-tariff-resolver.js",
-  "./startup-data-sync.js",
   "./national-energy-catalog.js",
   "./south-tariff-catalog.js",
   "./hide-organization-context.js",
@@ -57,83 +45,42 @@ const ASSETS = [
   "./icon-512.png"
 ];
 
-const SHELL_PATHS = new Set(
-  ASSETS.map((asset) => new URL(asset, self.registration.scope).pathname)
-);
+const SHELL_PATHS = new Set(ASSETS.map((asset) => new URL(asset, self.registration.scope).pathname));
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
-      )
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
 function isCacheableShellRequest(request) {
   if (request.method !== "GET") return false;
-
   let url;
-  try {
-    url = new URL(request.url);
-  } catch {
-    return false;
-  }
-
-  if (url.origin !== self.location.origin) return false;
-  if (!SHELL_PATHS.has(url.pathname)) return false;
+  try { url = new URL(request.url); } catch { return false; }
+  if (url.origin !== self.location.origin || !SHELL_PATHS.has(url.pathname)) return false;
   if (request.credentials === "include") return false;
-  if (/\/(auth|rest|realtime|storage|functions)\//i.test(url.pathname)) return false;
-
-  return true;
+  return !/\/(auth|rest|realtime|storage|functions)\//i.test(url.pathname);
 }
 
 function isCacheableResponse(response) {
-  if (!response || !response.ok) return false;
-  if (response.type !== "basic") return false;
-  if (response.headers.has("set-cookie")) return false;
-
-  const cacheControl = response.headers.get("cache-control") || "";
-  if (/no-store|private/i.test(cacheControl)) return false;
-
-  return true;
+  if (!response?.ok || response.type !== "basic" || response.headers.has("set-cookie")) return false;
+  return !/no-store|private/i.test(response.headers.get("cache-control") || "");
 }
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
   if (!isCacheableShellRequest(request)) return;
-
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (isCacheableResponse(response)) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      })
-      .catch(() =>
-        caches
-          .match(request)
-          .then((cached) => cached || caches.match("./index.html"))
-      )
-  );
+  event.respondWith(fetch(request).then((response) => {
+    if (isCacheableResponse(response)) caches.open(CACHE).then((cache) => cache.put(request, response.clone()));
+    return response;
+  }).catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html"))));
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "VOLT_CLEAR_CACHE") {
-    event.waitUntil(
-      caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
-    );
+  if (event.data?.type === "VOLT_CLEAR_CACHE") {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))));
   }
 });

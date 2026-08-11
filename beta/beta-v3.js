@@ -26,6 +26,7 @@ import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
 import "./initial-bill-setup.js?v=71";
 import "./separate-cycles.js?v=72";
+import "./test-account-reset.js?v=73";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");

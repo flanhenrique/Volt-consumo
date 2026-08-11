@@ -8,7 +8,7 @@
 // Política atual: cache exclusivamente do shell estático same-origin,
 // declarado em ASSETS. Nenhuma outra requisição é armazenada.
 
-const CACHE = "volt-beta-shell-v75";
+const CACHE = "volt-beta-shell-v76";
 
 const ASSETS = [
   "./",
@@ -32,6 +32,9 @@ const ASSETS = [
   "./initial-bill-setup.js",
   "./initial-bill-setup.css",
   "./separate-cycles.js",
+  "./cycle-authority.js",
+  "./cycle-authority.css",
+  "./detail-cycle-consistency.js",
   "./test-account-reset.js",
   "./test-account-onboarding-prefill.js",
   "./energy-detail.js",

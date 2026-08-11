@@ -17,6 +17,12 @@ function initializeTutorialAcknowledgement() {
   dialog.addEventListener("click", interceptTourActions, true);
   dialog.addEventListener("cancel", interceptMandatoryClose, true);
 
+  const nextButton = dialog.querySelector("#guided-tour-next");
+  if (nextButton) {
+    nextButton.addEventListener("click", interceptConfirmButton, true);
+    nextButton.addEventListener("touchend", interceptConfirmTouch, { capture: true, passive: false });
+  }
+
   const body = dialog.querySelector("#guided-tour-body");
   const progress = dialog.querySelector("#guided-tour-progress");
   if (body) new MutationObserver(syncTourStep).observe(body, { childList: true, subtree: true });
@@ -53,17 +59,14 @@ function getTutorialClient() {
 
 async function requireCurrentTutorial(user) {
   const acknowledgedInAccount = user?.user_metadata?.guided_tutorial_notice_version === TUTORIAL_NOTICE_VERSION;
-  const acknowledgedLocally = localStorage.getItem(LOCAL_ACK_KEY) === "true";
+  const acknowledgedLocally = safeGet(LOCAL_ACK_KEY) === "true";
 
   if (acknowledgedInAccount) {
-    localStorage.setItem(LOCAL_ACK_KEY, "true");
+    safeSet(LOCAL_ACK_KEY, "true");
     mandatoryTour = false;
     return;
   }
 
-  // A confirmação local é suficiente para não bloquear a interface.
-  // A sincronização com a conta acontece em segundo plano e será tentada
-  // novamente nos próximos logins caso a rede esteja lenta ou indisponível.
   if (acknowledgedLocally) {
     mandatoryTour = false;
     queueMicrotask(syncTutorialAckToAccount);
@@ -110,8 +113,9 @@ function interceptMandatoryClose(event) {
 }
 
 function interceptTourActions(event) {
-  const dialog = document.querySelector("#guided-tour-dialog");
-  const close = event.target.closest(".guided-tour-close");
+  const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+  if (!target) return;
+  const close = target.closest(".guided-tour-close");
   if (close && mandatoryTour) {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -119,16 +123,30 @@ function interceptTourActions(event) {
     return;
   }
 
-  const next = event.target.closest("#guided-tour-next");
+  const next = target.closest("#guided-tour-next");
   if (!next || !isLastStep()) return;
+  interceptConfirmationEvent(event, next);
+}
 
+function interceptConfirmButton(event) {
+  if (!isLastStep()) return;
+  interceptConfirmationEvent(event, event.currentTarget);
+}
+
+function interceptConfirmTouch(event) {
+  if (!isLastStep()) return;
+  interceptConfirmationEvent(event, event.currentTarget);
+}
+
+function interceptConfirmationEvent(event, button) {
   event.preventDefault();
-  event.stopImmediatePropagation();
-  confirmTutorialAcknowledgement(dialog, next);
+  event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  confirmTutorialAcknowledgement(document.querySelector("#guided-tour-dialog"), button);
 }
 
 function confirmTutorialAcknowledgement(dialog, button) {
-  if (acknowledgementPending) return;
+  if (acknowledgementPending || !dialog) return;
   const checkbox = dialog.querySelector("#guided-tour-ack-checkbox");
   if (!checkbox?.checked) {
     showAckStatus("Marque a confirmação de ciência para concluir o guia.");
@@ -137,24 +155,40 @@ function confirmTutorialAcknowledgement(dialog, button) {
   }
 
   acknowledgementPending = true;
-
-  // Resposta imediata: registra localmente e libera a interface sem aguardar
-  // uma chamada de rede ao Supabase.
-  localStorage.setItem(LOCAL_ACK_KEY, "true");
-  localStorage.setItem("volt-beta-onboarding-complete", "true");
   mandatoryTour = false;
   dialog.dataset.mandatory = "false";
-  button.disabled = false;
-  button.textContent = "Confirmado";
-  dialog.close();
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Confirmado";
+  }
+
+  // Fecha primeiro. Nenhuma operação de storage ou rede pode bloquear o toque
+  // no Android/Chrome/WebView.
+  closeDialogImmediately(dialog);
+
+  safeSet(LOCAL_ACK_KEY, "true");
+  safeSet("volt-beta-onboarding-complete", "true");
   acknowledgementPending = false;
 
-  // Persistência na conta é feita em segundo plano.
-  queueMicrotask(syncTutorialAckToAccount);
+  window.setTimeout(() => {
+    if (button) button.disabled = false;
+    queueMicrotask(syncTutorialAckToAccount);
+  }, 0);
+}
+
+function closeDialogImmediately(dialog) {
+  try {
+    if (dialog.open && typeof dialog.close === "function") dialog.close();
+  } catch {
+    // fallback abaixo
+  }
+  if (dialog.open || dialog.hasAttribute("open")) dialog.removeAttribute("open");
+  document.documentElement.classList.remove("guided-tour-open");
+  document.body?.classList.remove("guided-tour-open");
 }
 
 async function syncTutorialAckToAccount() {
-  if (accountSyncPending || localStorage.getItem(LOCAL_ACK_KEY) !== "true") return;
+  if (accountSyncPending || safeGet(LOCAL_ACK_KEY) !== "true") return;
   const client = getTutorialClient();
   if (!client) return;
 
@@ -245,4 +279,12 @@ function isLastStep() {
   if (!dots.length) return false;
   const active = dots.findIndex((dot) => dot.classList.contains("active"));
   return active === dots.length - 1;
+}
+
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
 }

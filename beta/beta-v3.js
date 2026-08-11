@@ -1,33 +1,18 @@
 /**
- * Volt Consumo — Beta v3.1 · camada de microinterações e layout dinâmico
- * ---------------------------------------------------------------------------
- * Estritamente visual. Este módulo não lê, calcula, valida nem persiste dado
- * algum: apenas observa o que a aplicação já faz e ajusta a apresentação.
- *
- * Responsabilidades:
- *   1. Cor da barra de status acompanhando o tema
- *   2. Altura real da navegação devolvida ao sistema de layout
- *   3. Material do cabeçalho conforme a rolagem
- *   4. Cápsula deslizante da navegação inferior
- *   5. Estado de carregamento dos botões de envio
- *
- * Se qualquer elemento esperado não existir, o módulo simplesmente não age —
- * nenhuma funcionalidade do produto depende dele.
+ * Volt Consumo — Beta v3.1 · microinterações e layout.
+ * A sincronização funcional fica nos módulos de domínio; esta camada é visual.
  */
 
 import "./energy-detail.js";
 import "./locality-context.js";
 import "./regional-tariff-resolver.js";
-import "./startup-data-sync.js";
 import "./platform-users.js";
 import "./hide-organization-context.js";
 import "./guided-experience.js";
 import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
 import "./initial-bill-setup.js?v=71";
-import "./separate-cycles.js?v=72";
-import "./cycle-authority.js?v=76";
-import "./detail-cycle-consistency.js?v=76";
+import "./separate-cycles.js?v=77";
 import "./test-account-reset.js?v=73";
 import "./test-account-onboarding-prefill.js?v=74";
 
@@ -37,48 +22,45 @@ const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
 start();
 
 function start() {
+  attachCycleStyles();
   syncStatusBarColor();
-
   const shell = document.querySelector(".beta-v2-shell");
   if (!shell) return;
-
   measureNavigationHeight(shell);
   enhanceHeader(shell);
   enhanceNavigation(shell);
   enhanceSubmitFeedback();
 }
 
+function attachCycleStyles() {
+  if (document.querySelector('link[href*="cycle-authority.css"]')) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "./cycle-authority.css?v=77";
+  document.head.append(link);
+}
+
 function syncStatusBarColor() {
   const apply = () => {
-    const canvas = getComputedStyle(document.documentElement)
-      .getPropertyValue("--lm-canvas")
-      .trim();
+    const canvas = getComputedStyle(document.documentElement).getPropertyValue("--lm-canvas").trim();
     if (!canvas) return;
     for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
       meta.removeAttribute("media");
       meta.setAttribute("content", canvas);
     }
   };
-
   apply();
-  new MutationObserver(apply).observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"]
-  });
+  new MutationObserver(apply).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   DARK_SCHEME.addEventListener("change", apply);
 }
 
 function measureNavigationHeight(shell) {
   const navigation = shell.querySelector(".bottom-navigation");
   if (!navigation || typeof ResizeObserver === "undefined") return;
-
   const publish = () => {
     const height = Math.round(navigation.getBoundingClientRect().height);
-    if (height > 0) {
-      document.documentElement.style.setProperty("--lm-nav-height", `${height}px`);
-    }
+    if (height > 0) document.documentElement.style.setProperty("--lm-nav-height", `${height}px`);
   };
-
   new ResizeObserver(publish).observe(navigation);
   publish();
 }
@@ -87,11 +69,7 @@ function enhanceHeader(shell) {
   const header = shell.querySelector(".beta-header");
   const content = shell.querySelector("#beta-content");
   if (!header || !content) return;
-
-  const sync = () => {
-    header.dataset.scrolled = String(content.scrollTop > 4 || window.scrollY > 4);
-  };
-
+  const sync = () => { header.dataset.scrolled = String(content.scrollTop > 4 || window.scrollY > 4); };
   content.addEventListener("scroll", sync, { passive: true });
   window.addEventListener("scroll", sync, { passive: true });
   sync();
@@ -100,7 +78,6 @@ function enhanceHeader(shell) {
 function enhanceNavigation(shell) {
   const navigation = shell.querySelector(".bottom-navigation");
   if (!navigation) return;
-
   const indicator = document.createElement("span");
   indicator.className = "nav-indicator";
   indicator.dataset.ready = "false";
@@ -112,51 +89,31 @@ function enhanceNavigation(shell) {
     if (!active) return;
     const bounds = active.getBoundingClientRect();
     const reference = navigation.getBoundingClientRect();
-    if (bounds.width === 0) return;
+    if (!bounds.width) return;
     indicator.style.setProperty("--nav-indicator-width", `${bounds.width}px`);
     indicator.style.setProperty("--nav-indicator-x", `${bounds.left - reference.left}px`);
   };
-
   const release = () => {
     move();
-    requestAnimationFrame(() => {
-      indicator.dataset.ready = "true";
-    });
+    requestAnimationFrame(() => { indicator.dataset.ready = "true"; });
   };
-
   navigation.addEventListener("click", () => requestAnimationFrame(move));
   window.addEventListener("resize", move, { passive: true });
-
   const dashboard = document.querySelector("#dashboard");
-  if (dashboard) {
-    new MutationObserver(() => {
-      if (!dashboard.hidden) release();
-    }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
-    if (!dashboard.hidden) release();
-    return;
-  }
-
-  release();
+  if (!dashboard) return release();
+  new MutationObserver(() => { if (!dashboard.hidden) release(); }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
+  if (!dashboard.hidden) release();
 }
 
 function enhanceSubmitFeedback() {
-  document.addEventListener(
-    "submit",
-    (event) => {
-      const form = event.target;
-      if (!(form instanceof HTMLFormElement) || form.method === "dialog") return;
-
-      const button = event.submitter;
-      if (!(button instanceof HTMLButtonElement) || button.dataset.loading === "true") return;
-
-      button.dataset.loading = "true";
-      const settle = () => {
-        delete button.dataset.loading;
-      };
-
-      window.addEventListener("volt:beta-data", settle, { once: true });
-      window.setTimeout(settle, REDUCED_MOTION.matches ? 240 : 900);
-    },
-    true
-  );
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.method === "dialog") return;
+    const button = event.submitter;
+    if (!(button instanceof HTMLButtonElement) || button.dataset.loading === "true") return;
+    button.dataset.loading = "true";
+    const settle = () => { delete button.dataset.loading; };
+    window.addEventListener("volt:beta-data", settle, { once: true });
+    window.setTimeout(settle, REDUCED_MOTION.matches ? 240 : 700);
+  }, true);
 }

@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.15 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.16 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -85,9 +85,6 @@ async function loadCoreModules() {
   coreModulesPromise = (async () => {
     attachCycleStyles();
 
-    // A Home só pode ser revelada depois das autoridades que alteram estrutura
-    // e valores terem estabilizado. Isso evita mostrar o snapshot provisório,
-    // inserir o seletor de organização depois e trocar o total várias vezes.
     const initialTariffSettled = waitForStartupEvent("volt:tariff-resolution", 1600);
     const initialCycleSettled = waitForStartupEvent("volt:cycle-context", 1600);
 
@@ -103,19 +100,7 @@ async function loadCoreModules() {
       import("./regional-home.js?v=97")
     ]);
 
-    // O contexto de organização modifica a altura da tela. Resolve-o ainda com
-    // o shell oculto para que o bloco não apareça alguns segundos depois.
-    await Promise.resolve(window.VOLT_BETA_API?.refreshOrganizations?.()).catch(() => undefined);
-
-    // O resolvedor regional atualiza os inputs automáticos e envia o form de
-    // configurações. O evento tariff-resolution pode chegar antes do upsert
-    // terminar; portanto a Home só é liberada quando o snapshot da conta já
-    // contém a mesma tarifa e COSIP resolvidas.
     await waitForTariffSettingsApplied(3600);
-
-    // Algumas resoluções regionais publicam beta-data em sequência. Espera uma
-    // pequena janela sem novos eventos antes de expor a Home, com limite para
-    // nunca transformar uma falha de integração em tela permanentemente oculta.
     await waitForStartupQuiet(["volt:beta-data", "volt:tariff-resolution", "volt:cycle-context"], 320, 2400);
     await settleVisualFrame();
     scheduleSecondaryModules();
@@ -249,19 +234,12 @@ function bindLazyPageModules(shell) {
 }
 
 async function loadPageModules(page) {
-  if (!page || !["reports", "users"].includes(page)) return;
+  if (page !== "users") return;
   if (pageModulePromises.has(page)) return pageModulePromises.get(page);
 
   const promise = (async () => {
     await loadCoreModules();
-    if (page === "reports") {
-      await Promise.all([
-        import("./closed-cycle-report.js?v=91"),
-        import("./mobile-reports-v2.js?v=94")
-      ]);
-      return;
-    }
-    if (page === "users") await import("./platform-users.js");
+    await import("./platform-users.js");
   })().catch((error) => {
     pageModulePromises.delete(page);
     reportModuleFailure(error);

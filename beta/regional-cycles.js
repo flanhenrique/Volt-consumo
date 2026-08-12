@@ -2,6 +2,8 @@ import { normalizeRegionalContext } from "./mercosur-region.js";
 
 const LOCALITY_KEY = "volt:beta:locality-context-v1";
 let renderScheduled = false;
+let lastSignature = "";
+let lastCountry = null;
 
 queueMicrotask(scheduleRegionalCycles);
 ["volt:cycle-context", "volt:locality-context"].forEach((eventName) => {
@@ -19,7 +21,22 @@ function scheduleRegionalCycles() {
 
 function applyRegionalCycles() {
   const context = readContext();
-  if (context.country !== "UY") return;
+  const cycle = window.VOLT_CYCLE_CONTEXT || {};
+  const signature = JSON.stringify({
+    country: context.country,
+    locale: context.locale,
+    energy: cycle.energy?.current || null,
+    water: cycle.water?.current || null
+  });
+  if (signature === lastSignature) return;
+  lastSignature = signature;
+
+  if (context.country !== "UY") {
+    if (lastCountry === "UY") restoreBrazilLabels();
+    lastCountry = context.country;
+    return;
+  }
+  lastCountry = "UY";
   localizeCycleHeader(context);
   localizeCycleSettings();
   localizeReadingHistory(context);
@@ -116,6 +133,20 @@ function localizeReports() {
   const notes = document.querySelectorAll("#beta-reports .report-card > .note");
   if (notes[0]) notes[0].textContent = "Evolución entre registros consecutivos.";
   if (notes[1]) notes[1].textContent = "Variación entre lecturas del medidor de agua.";
+}
+
+function restoreBrazilLabels() {
+  setText(".cycle-heading .eyebrow", "CICLO DE CONTAGEM");
+  setText("#beta-home-title", "Ciclo atual");
+  const label = document.querySelector("#beta-cycle-label");
+  if (label) label.classList.remove("cycle-lines");
+  setText("#beta-readings .eyebrow", "HISTÓRICO");
+  setText("#beta-readings-title", "Leituras");
+  const action = document.querySelector("#beta-readings [data-new-reading]");
+  if (action) action.textContent = "Nova leitura";
+  setText("#beta-reading-empty", "Nenhuma leitura registrada ainda.");
+  setText("#beta-reports .eyebrow", "ANÁLISE");
+  setText("#beta-reports-title", "Relatórios");
 }
 
 function formatRange(range, context) {

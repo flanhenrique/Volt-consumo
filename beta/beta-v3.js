@@ -4,9 +4,10 @@
  */
 
 import "./startup-runtime.js?v=79";
+import "./mercosur-region.js?v=82";
 import "./energy-detail.js";
-import "./locality-context.js";
-import "./regional-tariff-resolver.js";
+import "./locality-context.js?v=82";
+import "./regional-tariff-resolver.js?v=82";
 import "./platform-users.js";
 import "./home-cleanup.js?v=81";
 import "./guided-experience.js";

@@ -27,6 +27,7 @@ const CORE_ACCOUNT_TABLES = new Set([
   "water_settings"
 ]);
 const DATA_REFRESH_COOLDOWN_MS = 1500;
+const REDUNDANT_AUTH_EVENTS = new Set(["INITIAL_SESSION", "TOKEN_REFRESHED"]);
 
 let apiTarget = null;
 let apiFacade = null;
@@ -70,6 +71,7 @@ function installSupabaseSingleton() {
       ...options,
       global: { ...(options.global || {}), fetch: trackedFetch }
     });
+    wrapAuthEvents(client);
     wrapHeavyRpc(client);
     clients.set(cacheKey, client);
     return client;
@@ -99,6 +101,28 @@ function markCoreTableComplete(table) {
   if (startupReady || !CORE_ACCOUNT_TABLES.has(table)) return;
   completedCoreTables.add(table);
   coreDataFetched = completedCoreTables.size === CORE_ACCOUNT_TABLES.size;
+}
+
+function wrapAuthEvents(client) {
+  const auth = client?.auth;
+  if (!auth || typeof auth.onAuthStateChange !== "function" || auth.onAuthStateChange.__voltAuthDeduped) return;
+  const original = auth.onAuthStateChange.bind(auth);
+  const wrapped = function voltOnAuthStateChange(callback) {
+    if (typeof callback !== "function") return original(callback);
+    return original((event, session) => {
+      // Todos os consumidores atuais também consultam getSession() no bootstrap.
+      // INITIAL_SESSION repetia a carga inicial; TOKEN_REFRESHED repetia a carga
+      // completa dos dados sem qualquer mudança de identidade ou conteúdo.
+      if (REDUNDANT_AUTH_EVENTS.has(event)) return;
+      return callback(event, session);
+    });
+  };
+  Object.defineProperty(wrapped, "__voltAuthDeduped", { value: true });
+  try {
+    auth.onAuthStateChange = wrapped;
+  } catch {
+    // SDK não gravável: preserva o comportamento original.
+  }
 }
 
 function wrapHeavyRpc(client) {

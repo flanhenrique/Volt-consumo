@@ -2,7 +2,7 @@ const LOCALITY_KEY = "volt:beta:locality-context-v1";
 
 export const MERCOSUR_COUNTRIES = Object.freeze([
   Object.freeze({ code: "BR", name: "Brasil", currency: "BRL", locale: "pt-BR", enabled: true, subdivisionLabel: "UF", cityLabel: "Município" }),
-  Object.freeze({ code: "UY", name: "Uruguai", currency: "UYU", locale: "es-UY", enabled: false, subdivisionLabel: "Departamento", cityLabel: "Localidad" }),
+  Object.freeze({ code: "UY", name: "Uruguai", currency: "UYU", locale: "es-UY", enabled: true, pilot: true, subdivisionLabel: "Departamento", cityLabel: "Localidad" }),
   Object.freeze({ code: "PY", name: "Paraguai", currency: "PYG", locale: "es-PY", enabled: false, subdivisionLabel: "Departamento", cityLabel: "Ciudad" }),
   Object.freeze({ code: "AR", name: "Argentina", currency: "ARS", locale: "es-AR", enabled: false, subdivisionLabel: "Provincia", cityLabel: "Localidad" }),
   Object.freeze({ code: "BO", name: "Bolívia", currency: "BOB", locale: "es-BO", enabled: false, subdivisionLabel: "Departamento", cityLabel: "Municipio" })
@@ -22,17 +22,20 @@ export function buildJurisdiction(context = {}) {
 
 export function normalizeRegionalContext(context = {}) {
   const country = getCountry(context.country || "BR");
-  return {
+  const normalized = {
     ...context,
     country: country.code,
     currency: country.currency,
     locale: country.locale,
-    jurisdiction: context.jurisdiction || buildJurisdiction({ ...context, country: country.code }),
     state: String(context.state || context.subdivision || "").trim().toUpperCase(),
     city: String(context.city || "").trim(),
     energyProvider: String(context.energyProvider || "").trim(),
-    waterProvider: String(context.waterProvider || "").trim()
+    waterProvider: String(context.waterProvider || "").trim(),
+    energyPlan: String(context.energyPlan || "").trim(),
+    contractedPowerKw: Number.isFinite(Number(context.contractedPowerKw)) && Number(context.contractedPowerKw) > 0 ? Number(context.contractedPowerKw) : null
   };
+  normalized.jurisdiction = buildJurisdiction(normalized);
+  return normalized;
 }
 
 export function formatMoney(value, context = {}) {
@@ -57,10 +60,7 @@ function migrateLegacyLocality() {
     const current = JSON.parse(localStorage.getItem(LOCALITY_KEY) || "{}");
     if (!current || typeof current !== "object") return;
     const normalized = normalizeRegionalContext(current);
-    const changed = current.country !== normalized.country
-      || current.currency !== normalized.currency
-      || current.locale !== normalized.locale
-      || current.jurisdiction !== normalized.jurisdiction;
+    const changed = JSON.stringify(current) !== JSON.stringify(normalized);
     if (changed) localStorage.setItem(LOCALITY_KEY, JSON.stringify(normalized));
     window.VOLT_REGION_CONTEXT = Object.freeze({ ...normalized });
   } catch {

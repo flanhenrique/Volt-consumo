@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.11 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.12 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -58,8 +58,6 @@ function stageAuthenticatedRuntime() {
     void loadCoreModules().finally(releaseFinancialStartup);
   };
 
-  // Escuta desde o início. Antes, o listener só era instalado depois de o
-  // dashboard aparecer e podia perder o primeiro volt:account-data-ready.
   window.addEventListener("volt:account-data-ready", loadAfterAccountData, { once: true });
 
   const armFallback = () => {
@@ -82,29 +80,51 @@ async function loadCoreModules() {
   if (coreModulesPromise) return coreModulesPromise;
   coreModulesPromise = (async () => {
     attachCycleStyles();
-    const initialTariffSettled = waitForInitialTariffResolution(700);
-    await import("./regional-tariff-resolver.js?v=96");
-    await initialTariffSettled;
+
+    // O valor financeiro só pode aparecer depois de duas autoridades terem
+    // estabilizado: o ciclo efetivo e a resolução tarifária. Antes, o ciclo
+    // ainda era carregado na fase secundária, o que explicava a sequência
+    // visual de valores intermediários antes do total correto.
+    const initialTariffSettled = waitForStartupEvent("volt:tariff-resolution", 1100);
+    const initialCycleSettled = waitForStartupEvent("volt:cycle-context", 1100);
+
+    await Promise.all([
+      import("./regional-tariff-resolver.js?v=96"),
+      import("./separate-cycles.js?v=77")
+    ]);
+
+    await Promise.all([initialTariffSettled, initialCycleSettled]);
+
     await Promise.all([
       import("./regional-cycles.js?v=96"),
       import("./regional-home.js?v=97")
     ]);
+
+    // Dá uma janela curta para os renderizadores reagirem ao contexto já
+    // consolidado antes de revelar os números ao usuário.
+    await settleVisualFrame();
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
   return coreModulesPromise;
 }
 
-function waitForInitialTariffResolution(timeout) {
+function waitForStartupEvent(eventName, timeout) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
-      window.removeEventListener("volt:tariff-resolution", finish);
+      window.removeEventListener(eventName, finish);
       resolve();
     };
-    window.addEventListener("volt:tariff-resolution", finish, { once: true });
+    window.addEventListener(eventName, finish, { once: true });
     window.setTimeout(finish, timeout);
+  });
+}
+
+function settleVisualFrame() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
 }
 
@@ -121,8 +141,7 @@ function scheduleSecondaryModules() {
     secondaryModulesPromise = Promise.all([
       import("./guided-experience.js"),
       import("./tutorial-ack.js?v=68"),
-      import("./initial-bill-setup.js?v=71"),
-      import("./separate-cycles.js?v=77")
+      import("./initial-bill-setup.js?v=71")
     ]).then(scheduleDeferredModules).catch(reportModuleFailure);
     return secondaryModulesPromise;
   };

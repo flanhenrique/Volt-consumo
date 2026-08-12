@@ -72,9 +72,36 @@ jobs:
               }
             }
           }
+
+          // O service worker declara assets em arrays, não via import/src/href.
+          // Cada caminho local listado para cache precisa existir fisicamente.
+          const sw = await readFile('beta/sw.js', 'utf8');
+          for (const match of sw.matchAll(/["'](\.\/[^"'?#]+)(?:\?[^"']*)?["']/g)) {
+            const relative = match[1];
+            if (!relative || relative === './' || relative.endsWith('/')) continue;
+            references.add(resolve('beta', relative));
+          }
+
           for (const target of references) {
             await access(target).catch(() => { throw new Error(`Referência local ausente: ${target}`); });
           }
+
+          const betaV3 = await readFile('beta/beta-v3.js', 'utf8');
+          assert.match(betaV3, /\[hidden\]\s*\{\s*display:\s*none\s*!important/, 'proteção global de [hidden] ausente');
+          assert.match(betaV3, /data-volt-financial-ready/, 'barreira de valores financeiros intermediários ausente');
+
+          const cycles = await readFile('beta/separate-cycles.js', 'utf8');
+          assert.doesNotMatch(cycles, /setTimeout\s*\(\s*\(\)\s*=>\s*waitForUi/, 'polling de UI dos ciclos reapareceu');
+          assert.match(cycles, /MutationObserver/, 'separate-cycles perdeu observer de montagem sob demanda');
+
+          const guided = await readFile('beta/guided-experience.js', 'utf8');
+          assert.doesNotMatch(guided, /form\.dispatchEvent\(new Event\(["']submit["']/, 'onboarding voltou a submeter localidade durante sync de metadata');
+          assert.match(guided, /meaningfulPartial/, 'onboarding perdeu deduplicação de metadata');
+
+          const startup = await readFile('beta/startup-runtime.js', 'utf8');
+          assert.match(startup, /INITIAL_SESSION/, 'runtime perdeu deduplicação de INITIAL_SESSION');
+          assert.match(startup, /TOKEN_REFRESHED/, 'runtime perdeu deduplicação de TOKEN_REFRESHED');
+          assert.match(startup, /__voltCoalesced/, 'runtime perdeu coalescência de volt:beta-data');
           NODE
       - name: Verify health endpoint semantics
         run: |

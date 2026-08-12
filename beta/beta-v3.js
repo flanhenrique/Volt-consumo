@@ -1,7 +1,9 @@
-/** Volt Consumo — Beta v3.3 · bootstrap progressivo sem tempestade de módulos. */
+/** Volt Consumo — Beta v3.4 · bootstrap progressivo sem tempestade de módulos. */
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
+import "./locality-context.js?v=84";
+import "./regional-onboarding.js?v=88";
 import "./signup-confirmation.js";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -42,11 +44,9 @@ async function loadCoreModules() {
   if (coreModulesPromise) return coreModulesPromise;
   coreModulesPromise = (async () => {
     attachCycleStyles();
-    await import("./locality-context.js?v=84");
     await import("./regional-tariff-resolver.js?v=84");
     await import("./regional-cycles.js?v=87");
     await import("./regional-home.js?v=86");
-    await import("./regional-onboarding.js?v=88");
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
   return coreModulesPromise;

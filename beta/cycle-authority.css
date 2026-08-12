@@ -1,11 +1,30 @@
 html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"]{
-  align-items:flex-start;
-  gap:12px;
+  display:grid;
+  grid-template-columns:minmax(118px,.82fr) minmax(0,1.48fr);
+  align-items:center;
+  gap:16px;
+  width:100%;
+}
+html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] .section-copy{
+  min-width:0;
+  align-self:center;
+}
+html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] .section-copy .eyebrow{
+  margin:0 0 5px;
+  line-height:1.45;
+}
+html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] #beta-home-title{
+  margin:0;
+  font-size:clamp(1.65rem,7.3vw,2.25rem);
+  line-height:1.02;
+  letter-spacing:-.035em;
 }
 html[data-environment="beta"] #beta-cycle-label.cycle-lines{
   display:grid;
-  gap:6px;
-  min-width:min(58vw,280px);
+  grid-template-columns:1fr;
+  gap:8px;
+  width:100%;
+  min-width:0;
   padding:0;
   border:0;
   border-radius:0;
@@ -15,64 +34,73 @@ html[data-environment="beta"] #beta-cycle-label.cycle-lines{
   white-space:normal;
 }
 html[data-environment="beta"] .cycle-line{
-  display:flex;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
   align-items:center;
-  gap:8px;
+  gap:10px;
   min-width:0;
-  padding:8px 10px;
-  border:1px solid var(--lm-glass-border,#ffffff9e);
-  border-radius:14px;
-  background:color-mix(in srgb,var(--lm-surface-raised,#fff) 72%,transparent);
-  box-shadow:var(--lm-shadow-1);
+  min-height:64px;
+  padding:9px 12px;
+  box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--lm-glass-border,#ffffff9e) 70%,transparent);
+  border-radius:17px;
+  background:color-mix(in srgb,var(--lm-surface-raised,#10242d) 76%,transparent);
+  box-shadow:0 4px 12px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.025);
 }
 html[data-environment="beta"] .cycle-line-icon{
   display:grid;
   place-items:center;
-  flex:0 0 28px;
-  width:28px;
-  height:28px;
-  border-radius:9px;
-  font-size:15px;
+  width:38px;
+  height:38px;
+  border-radius:11px;
+  font-size:21px;
+  font-weight:900;
   line-height:1;
 }
 html[data-environment="beta"] .cycle-line.water .cycle-line-icon{
-  color:var(--lm-water,#0b7ca4);
-  background:var(--lm-water-soft,#dff3fb);
+  color:#59c8e9;
+  background:rgba(4,106,139,.22);
 }
 html[data-environment="beta"] .cycle-line.energy .cycle-line-icon{
-  color:var(--lm-accent-ink,#0a6b4e);
-  background:var(--lm-positive-soft,#d6f2e6);
+  color:#48d7a5;
+  background:rgba(0,111,73,.25);
 }
 html[data-environment="beta"] .cycle-line>span:last-child{
   display:grid;
-  gap:1px;
+  gap:0;
   min-width:0;
   text-align:left;
 }
 html[data-environment="beta"] .cycle-line strong{
-  color:var(--lm-ink,#12202b);
-  font-size:11px;
-  line-height:1.1;
-}
-html[data-environment="beta"] .cycle-line small{
   overflow:hidden;
-  color:var(--lm-ink-muted,#596b78);
-  font-size:11.5px;
-  line-height:1.2;
+  color:var(--lm-ink,#f5f8f9);
+  font-size:14px;
+  font-weight:850;
+  line-height:1.05;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-@media(max-width:640px){
+html[data-environment="beta"] .cycle-line small{
+  overflow:hidden;
+  color:var(--lm-ink-muted,#a8b5bc);
+  font-size:12.5px;
+  font-weight:700;
+  line-height:1.12;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+@media(max-width:380px){
   html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"]{
-    display:grid;
-    grid-template-columns:1fr;
-  }
-  html[data-environment="beta"] #beta-cycle-label.cycle-lines{
-    width:100%;
-    min-width:0;
+    grid-template-columns:minmax(104px,.72fr) minmax(0,1.45fr);
+    gap:10px;
   }
   html[data-environment="beta"] .cycle-line{
-    width:100%;
-    box-sizing:border-box;
+    grid-template-columns:34px minmax(0,1fr);
+    min-height:58px;
+    gap:8px;
+    padding:8px 9px;
   }
+  html[data-environment="beta"] .cycle-line-icon{width:34px;height:34px;font-size:19px}
+  html[data-environment="beta"] .cycle-line strong{font-size:13px}
+  html[data-environment="beta"] .cycle-line small{font-size:11.5px}
 }

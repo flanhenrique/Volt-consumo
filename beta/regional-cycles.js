@@ -4,7 +4,7 @@ const LOCALITY_KEY = "volt:beta:locality-context-v1";
 let renderScheduled = false;
 
 queueMicrotask(scheduleRegionalCycles);
-["volt:beta-data", "volt:cycle-context", "volt:locality-context"].forEach((eventName) => {
+["volt:cycle-context", "volt:locality-context"].forEach((eventName) => {
   window.addEventListener(eventName, scheduleRegionalCycles);
 });
 

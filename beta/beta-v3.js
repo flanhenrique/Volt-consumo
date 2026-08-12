@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.10 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.11 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -11,11 +11,13 @@ let coreModulesPromise = null;
 let secondaryModulesPromise = null;
 let deferredModulesPromise = null;
 let authenticatedRuntimeArmed = false;
+let financialStartupReleased = false;
 const pageModulePromises = new Map();
 
 start();
 
 function start() {
+  installRuntimeVisibilityGuards();
   syncStatusBarColor();
   const shell = document.querySelector(".beta-v2-shell");
   if (shell) {
@@ -28,22 +30,50 @@ function start() {
   stageAuthenticatedRuntime();
 }
 
+function installRuntimeVisibilityGuards() {
+  if (!document.querySelector("style[data-volt-runtime-visibility]")) {
+    const style = document.createElement("style");
+    style.dataset.voltRuntimeVisibility = "true";
+    style.textContent = `
+      html[data-environment="beta"] [hidden] { display: none !important; }
+      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-home .financial-preview strong,
+      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-financial-total,
+      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-summary-values strong {
+        visibility: hidden !important;
+      }
+    `;
+    document.head.append(style);
+  }
+  document.documentElement.dataset.voltFinancialReady = "false";
+  document.querySelector("#beta-home")?.setAttribute("aria-busy", "true");
+}
+
 function stageAuthenticatedRuntime() {
   const dashboard = document.querySelector("#dashboard");
-  if (!dashboard) return queueMicrotask(loadCoreModules);
-  const arm = () => {
+  if (!dashboard) return queueMicrotask(() => void loadCoreModules().finally(releaseFinancialStartup));
+
+  const loadAfterAccountData = () => {
     if (authenticatedRuntimeArmed) return;
     authenticatedRuntimeArmed = true;
-    // startup-runtime só publica este evento depois que as quatro consultas da
-    // conta terminaram e o app emitiu seu render de dados correspondente.
-    window.addEventListener("volt:account-data-ready", loadCoreModules, { once: true });
-    window.setTimeout(loadCoreModules, 5200);
+    void loadCoreModules().finally(releaseFinancialStartup);
   };
-  if (!dashboard.hidden) return arm();
+
+  // Escuta desde o início. Antes, o listener só era instalado depois de o
+  // dashboard aparecer e podia perder o primeiro volt:account-data-ready.
+  window.addEventListener("volt:account-data-ready", loadAfterAccountData, { once: true });
+
+  const armFallback = () => {
+    if (dashboard.hidden) return;
+    window.setTimeout(() => {
+      if (!authenticatedRuntimeArmed) loadAfterAccountData();
+    }, 5200);
+  };
+
+  if (!dashboard.hidden) armFallback();
   const observer = new MutationObserver(() => {
     if (dashboard.hidden) return;
     observer.disconnect();
-    arm();
+    armFallback();
   });
   observer.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
 }
@@ -52,7 +82,9 @@ async function loadCoreModules() {
   if (coreModulesPromise) return coreModulesPromise;
   coreModulesPromise = (async () => {
     attachCycleStyles();
+    const initialTariffSettled = waitForInitialTariffResolution(700);
     await import("./regional-tariff-resolver.js?v=96");
+    await initialTariffSettled;
     await Promise.all([
       import("./regional-cycles.js?v=96"),
       import("./regional-home.js?v=97")
@@ -60,6 +92,27 @@ async function loadCoreModules() {
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
   return coreModulesPromise;
+}
+
+function waitForInitialTariffResolution(timeout) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener("volt:tariff-resolution", finish);
+      resolve();
+    };
+    window.addEventListener("volt:tariff-resolution", finish, { once: true });
+    window.setTimeout(finish, timeout);
+  });
+}
+
+function releaseFinancialStartup() {
+  if (financialStartupReleased) return;
+  financialStartupReleased = true;
+  document.documentElement.dataset.voltFinancialReady = "true";
+  document.querySelector("#beta-home")?.removeAttribute("aria-busy");
 }
 
 function scheduleSecondaryModules() {
@@ -138,6 +191,7 @@ async function loadTestAccountModules() {
 
 function reportModuleFailure(error) {
   console.error("Volt: falha ao carregar módulo pós-login", error);
+  releaseFinancialStartup();
 }
 
 function attachCycleStyles() {

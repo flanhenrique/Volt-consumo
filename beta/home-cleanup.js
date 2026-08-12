@@ -1,11 +1,14 @@
 queueMicrotask(cleanHome);
 window.addEventListener("volt:beta-data", cleanHome);
+window.addEventListener("volt:cycle-context", cleanHome);
 
 function cleanHome() {
   const home = document.querySelector("#beta-home");
-  if (!home) return;
+  const shell = document.querySelector(".beta-v2-shell");
+  if (!home || !shell) return;
 
-  home.querySelector(".organization-context")?.remove();
+  /* Organization context is a shell sibling, not a child of #beta-home. */
+  shell.querySelector(":scope > .organization-context")?.remove();
   home.querySelector(".tariff-info-card")?.remove();
 
   const heading = home.querySelector(".cycle-heading");

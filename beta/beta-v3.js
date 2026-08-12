@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.13 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.14 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -36,6 +36,9 @@ function installRuntimeVisibilityGuards() {
     style.dataset.voltRuntimeVisibility = "true";
     style.textContent = `
       html[data-environment="beta"] [hidden] { display: none !important; }
+      html[data-environment="beta"][data-volt-home-ready="false"] .beta-v2-shell {
+        visibility: hidden !important;
+      }
       html[data-environment="beta"][data-volt-financial-ready="false"] #beta-home .financial-preview strong,
       html[data-environment="beta"][data-volt-financial-ready="false"] #beta-financial-total,
       html[data-environment="beta"][data-volt-financial-ready="false"] #beta-summary-values strong {
@@ -44,6 +47,7 @@ function installRuntimeVisibilityGuards() {
     `;
     document.head.append(style);
   }
+  document.documentElement.dataset.voltHomeReady = "false";
   document.documentElement.dataset.voltFinancialReady = "false";
   document.querySelector("#beta-home")?.setAttribute("aria-busy", "true");
 }
@@ -81,12 +85,11 @@ async function loadCoreModules() {
   coreModulesPromise = (async () => {
     attachCycleStyles();
 
-    // O valor financeiro só pode aparecer depois de duas autoridades terem
-    // estabilizado: o ciclo efetivo e a resolução tarifária. Antes, o ciclo
-    // ainda era carregado na fase secundária, o que explicava a sequência
-    // visual de valores intermediários antes do total correto.
-    const initialTariffSettled = waitForStartupEvent("volt:tariff-resolution", 1100);
-    const initialCycleSettled = waitForStartupEvent("volt:cycle-context", 1100);
+    // A Home só pode ser revelada depois das autoridades que alteram estrutura
+    // e valores terem estabilizado. Isso evita mostrar o snapshot provisório,
+    // inserir o seletor de organização depois e trocar o total várias vezes.
+    const initialTariffSettled = waitForStartupEvent("volt:tariff-resolution", 1600);
+    const initialCycleSettled = waitForStartupEvent("volt:cycle-context", 1600);
 
     await Promise.all([
       import("./regional-tariff-resolver.js?v=96"),
@@ -100,8 +103,14 @@ async function loadCoreModules() {
       import("./regional-home.js?v=97")
     ]);
 
-    // Dá uma janela curta para os renderizadores reagirem ao contexto já
-    // consolidado antes de revelar os números ao usuário.
+    // O contexto de organização modifica a altura da tela. Resolve-o ainda com
+    // o shell oculto para que o bloco não apareça alguns segundos depois.
+    await Promise.resolve(window.VOLT_BETA_API?.refreshOrganizations?.()).catch(() => undefined);
+
+    // Algumas resoluções regionais publicam beta-data em sequência. Espera uma
+    // pequena janela sem novos eventos antes de expor a Home, com limite para
+    // nunca transformar uma falha de integração em tela permanentemente oculta.
+    await waitForStartupQuiet(["volt:beta-data", "volt:tariff-resolution", "volt:cycle-context"], 320, 2400);
     await settleVisualFrame();
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
@@ -122,6 +131,32 @@ function waitForStartupEvent(eventName, timeout) {
   });
 }
 
+function waitForStartupQuiet(eventNames, quietMs, maxMs) {
+  return new Promise((resolve) => {
+    let quietTimer = 0;
+    let maxTimer = 0;
+    let finished = false;
+    const cleanup = () => {
+      for (const eventName of eventNames) window.removeEventListener(eventName, reschedule);
+      clearTimeout(quietTimer);
+      clearTimeout(maxTimer);
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      resolve();
+    };
+    const reschedule = () => {
+      clearTimeout(quietTimer);
+      quietTimer = window.setTimeout(finish, quietMs);
+    };
+    for (const eventName of eventNames) window.addEventListener(eventName, reschedule);
+    maxTimer = window.setTimeout(finish, maxMs);
+    reschedule();
+  });
+}
+
 function settleVisualFrame() {
   return new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
@@ -132,6 +167,7 @@ function releaseFinancialStartup() {
   if (financialStartupReleased) return;
   financialStartupReleased = true;
   document.documentElement.dataset.voltFinancialReady = "true";
+  document.documentElement.dataset.voltHomeReady = "true";
   document.querySelector("#beta-home")?.removeAttribute("aria-busy");
 }
 

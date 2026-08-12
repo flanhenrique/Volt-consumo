@@ -26,7 +26,6 @@ function initializeBetaExperience() {
   removeLegacyDestructiveControls();
   bindNavigation(shell);
   bindReadingFlow(shell, energyDialog, waterDialog);
-  bindOrganizationContext(shell);
   bindInvitation(shell);
   bindAccount(shell);
   bindMfa(shell);
@@ -36,7 +35,6 @@ function initializeBetaExperience() {
   bindPrivacy(shell);
   bindHelp(shell);
   bindRestore(shell);
-  bindReports(shell);
   bindAdministration(shell);
 
   window.setInterval(() => {
@@ -67,10 +65,6 @@ function betaShellMarkup() {
       <div><p class="eyebrow">VOLT CONSUMO <span class="environment-badge">BETA v3</span></p><h1 id="beta-greeting">Olá!</h1></div>
       <button id="beta-theme-shortcut" class="icon-button" type="button" aria-label="Alternar tema">☾</button>
     </header>
-    <section class="organization-context" aria-labelledby="beta-organization-context-label">
-      <label for="beta-organization-context"><span id="beta-organization-context-label">Organização ativa</span><select id="beta-organization-context" aria-describedby="beta-organization-context-status"></select></label>
-      <p id="beta-organization-context-status" class="note status-message" role="status" aria-live="polite"></p>
-    </section>
     <main class="beta-content" id="beta-content">
       <section class="beta-page active" id="beta-home" data-page="home" aria-labelledby="beta-home-title">
         <div class="cycle-heading"><div><p class="eyebrow">CICLO DE CONTAGEM</p><h2 id="beta-home-title">Ciclo atual</h2></div><span id="beta-cycle-label" class="cycle-chip">—</span></div>
@@ -102,12 +96,7 @@ function betaShellMarkup() {
         <ul id="beta-reading-list" class="beta-reading-list"></ul>
       </section>
 
-      <section class="beta-page" id="beta-reports" data-page="reports" aria-labelledby="beta-reports-title" hidden>
-        <div class="page-heading"><div><p class="eyebrow">ANÁLISE</p><h2 id="beta-reports-title">Relatórios</h2></div><button id="beta-export-pdf" class="secondary-button compact-action pdf-action" type="button">Exportar PDF</button></div>
-        <article class="report-card"><h3>Consumo por leitura</h3><p class="note">Evolução entre registros consecutivos.</p><div id="beta-energy-chart" class="bar-chart" aria-label="Gráfico de consumo de energia"></div><div id="beta-energy-stats" class="report-stats"></div></article>
-        <article class="report-card compact-comparison-card"><h3>Comparativo atual</h3><div id="beta-report-comparison" class="report-comparison"></div></article>
-        <article class="report-card"><h3>Evolução da água</h3><p class="note">Variação entre leituras do hidrômetro.</p><div id="beta-water-chart" class="bar-chart water-chart" aria-label="Gráfico de consumo de água"></div></article>
-      </section>
+      <section class="beta-page" id="beta-reports" data-page="reports" hidden></section>
 
       <section class="beta-page" id="beta-users" data-page="users" aria-labelledby="beta-users-title" hidden>
         <div class="page-heading"><div><p class="eyebrow">ORGANIZAÇÃO</p><h2 id="beta-users-title">Controle de usuários</h2></div><button id="beta-invite-user" class="primary-button compact-action" type="button">Convidar usuário</button></div>
@@ -189,7 +178,7 @@ function showPage(pageName) {
     button.classList.toggle("active", active);
     active ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
   });
-  document.querySelector("#beta-reading-fab").hidden = pageName === "settings" || pageName === "users";
+  document.querySelector("#beta-reading-fab").hidden = ["reports", "settings", "users"].includes(pageName);
   requestAnimationFrame(resetPageScroll);
 }
 
@@ -219,42 +208,6 @@ function bindAccount(shell) {
     button.disabled = false;
     setText("#beta-account-status", result.message);
   });
-}
-
-function bindOrganizationContext(shell) {
-  const selector = shell.querySelector("#beta-organization-context");
-  selector.addEventListener("change", async () => {
-    const previous = api.getOrganizationSnapshot().activeOrganizationId;
-    selector.disabled = true;
-    setText("#beta-organization-context-status", "Validando acesso e limpando os dados do contexto anterior…");
-    const result = await api.switchOrganization(selector.value);
-    selector.disabled = false;
-    if (!result.ok) selector.value = previous || "";
-    setText("#beta-organization-context-status", result.message);
-    renderOrganizationContext();
-  });
-  Promise.resolve(api.refreshOrganizations()).then(renderOrganizationContext).catch(renderOrganizationContext);
-}
-
-function renderOrganizationContext() {
-  const snapshot = api.getOrganizationSnapshot();
-  const container = document.querySelector(".organization-context");
-  const selector = document.querySelector("#beta-organization-context");
-  if (!container || !selector) return;
-  container.hidden = !snapshot.available || snapshot.organizations.length === 0;
-  if (container.hidden) return;
-  const currentOptions = [...selector.options].map((option) => option.value).join(",");
-  const nextOptions = snapshot.organizations.map((organization) => organization.id).join(",");
-  if (currentOptions !== nextOptions) {
-    selector.replaceChildren(...snapshot.organizations.map((organization) => {
-      const option = document.createElement("option");
-      option.value = organization.id;
-      option.textContent = `${organization.name} · ${roleLabel(organization.role)}`;
-      return option;
-    }));
-  }
-  selector.value = snapshot.activeOrganizationId || "";
-  selector.disabled = snapshot.organizations.length < 2;
 }
 
 function bindInvitation(shell) {
@@ -477,10 +430,6 @@ function bindRestore(shell) {
   shell.querySelectorAll("[data-reset-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   confirmation.addEventListener("input", () => { confirmButton.disabled = confirmation.value !== "RESTAURAR"; });
   confirmButton.addEventListener("click", () => api.resetApplication());
-}
-
-function bindReports(shell) {
-  shell.querySelector("#beta-export-pdf").addEventListener("click", () => window.print());
 }
 
 function bindAdministration(shell) {
@@ -830,10 +779,8 @@ function renderBetaExperience() {
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
   renderTariffInformation();
   renderReadingHistory(snapshot);
-  renderReports(snapshot, energyCurrent, waterCurrent);
   renderBetaMfa();
   renderOperationalHealth();
-  renderOrganizationContext();
   renderInvitation();
   renderAdministration();
 }
@@ -970,34 +917,6 @@ async function handleDeleteConfirm() {
   pendingDeletion = null;
 }
 
-function renderReports(snapshot, energyCurrent, waterCurrent) {
-  const energyDeltas = deltas(snapshot.energy.readings);
-  renderBarChart("#beta-energy-chart", energyDeltas, "kWh");
-  renderBarChart("#beta-water-chart", deltas(snapshot.water.readings), "m³");
-  renderConsumptionStats("#beta-energy-stats", energyDeltas, "kWh");
-  const comparison = document.querySelector("#beta-report-comparison");
-  renderStatGrid(comparison, [
-    ["Energia", `${formatNumber(energyCurrent.consumption)} kWh`],
-    ["Água", `${formatNumber(waterCurrent.consumption, 3)} m³`],
-    ["Valor estimado", currency(api.estimateEnergy(energyCurrent.consumption).totalCost + api.estimateWater(waterCurrent.consumption).totalCost)]
-  ]);
-}
-
-function renderConsumptionStats(selector, values, unit) {
-  const container = document.querySelector(selector);
-  if (!values.length) {
-    renderStatGrid(container, [["Maior consumo", `0 ${unit}`], ["Menor consumo", `0 ${unit}`], ["Consumo médio", `0 ${unit}`]]);
-    return;
-  }
-  const numericValues = values.map((item) => item.value);
-  const digits = unit === "m³" ? 3 : 1;
-  renderStatGrid(container, [
-    ["Maior consumo", `${formatNumber(Math.max(...numericValues), digits)} ${unit}`],
-    ["Menor consumo", `${formatNumber(Math.min(...numericValues), digits)} ${unit}`],
-    ["Consumo médio", `${formatNumber(numericValues.reduce((total, value) => total + value, 0) / numericValues.length, digits)} ${unit}`]
-  ]);
-}
-
 function renderStatGrid(container, items) {
   container.replaceChildren(...items.map(([label, value]) => {
     const item = document.createElement("div");
@@ -1008,35 +927,6 @@ function renderStatGrid(container, items) {
     item.append(caption, strong);
     return item;
   }));
-}
-
-function renderBarChart(selector, values, unit) {
-  const container = document.querySelector(selector);
-  if (!values.length) {
-    container.innerHTML = '<p class="empty">Adicione ao menos duas leituras para visualizar a evolução.</p>';
-    return;
-  }
-  const max = Math.max(...values.map((item) => item.value), 1);
-  container.replaceChildren(...values.slice(-10).map((item) => {
-    const bar = document.createElement("div");
-    bar.className = "bar-column";
-    const value = document.createElement("small");
-    value.textContent = `${formatNumber(item.value, unit === "m³" ? 3 : 0)} ${unit}`;
-    const track = document.createElement("span");
-    track.className = "bar-track";
-    const fill = document.createElement("span");
-    fill.style.height = `${Math.max(8, (item.value / max) * 100)}%`;
-    track.append(fill);
-    const date = document.createElement("time");
-    date.dateTime = item.date;
-    date.textContent = new Date(item.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    bar.append(value, track, date);
-    return bar;
-  }));
-}
-
-function deltas(items) {
-  return items.slice(1).map((item, index) => ({ date: item.date, value: Math.max(0, item.value - items[index].value) }));
 }
 
 function getCycleRanges() {

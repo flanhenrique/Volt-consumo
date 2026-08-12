@@ -6,7 +6,9 @@ let renderScheduled = false;
 let lastCountry = null;
 
 queueMicrotask(scheduleRegionalHome);
-["volt:beta-data", "volt:locality-context", "volt:tariff-resolution", "volt:cycle-context"].forEach((eventName) => {
+// tariff-resolution cobre alterações financeiras derivadas de beta-data/localidade;
+// cycle-context é mantido porque o resumo regional também exibe consumo do ciclo.
+["volt:locality-context", "volt:tariff-resolution", "volt:cycle-context"].forEach((eventName) => {
   window.addEventListener(eventName, scheduleRegionalHome);
 });
 

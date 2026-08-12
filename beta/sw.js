@@ -1,5 +1,5 @@
 // VOLT Service Worker — shell same-origin com cache sob demanda para módulos secundários.
-const CACHE="volt-beta-shell-v94";
+const CACHE="volt-beta-shell-v95";
 const CORE_ASSETS=[
   "./",
   "./index.html",
@@ -50,8 +50,6 @@ const OPTIONAL_ASSETS=[
   "./platform-users.css",
   "./national-energy-catalog.js",
   "./uruguay-water-detail.js",
-  "./closed-cycle-report.js",
-  "./mobile-reports-v2.js",
   "./vendor/tesseract/tesseract.min.js",
   "./vendor/tesseract/worker.min.js",
   "./icon-192.png",
@@ -62,8 +60,8 @@ const SHELL_PATHS=new Set(ASSETS.map(asset=>new URL(asset,self.registration.scop
 
 self.addEventListener("install",event=>{
   // CORE inclui todas as dependências estáticas necessárias para analisar e
-  // inicializar app.js/beta-v3.js. Relatórios, OCR e telas secundárias continuam
-  // fora do precache e entram no cache somente quando forem requisitados.
+  // inicializar app.js/beta-v3.js. OCR e telas secundárias continuam fora do
+  // precache e entram no cache somente quando forem requisitados.
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE_ASSETS)));
   self.skipWaiting();
 });
@@ -100,8 +98,6 @@ self.addEventListener("fetch",event=>{
         return response;
       })
       .catch(async()=>{
-        // Os assets usam ?v=... para bust de cache. O precache guarda a URL
-        // canônica sem query, então o fallback offline precisa ignorar a busca.
         const cached=await caches.match(request,{ignoreSearch:true});
         if(cached)return cached;
         if(request.mode==="navigate")return caches.match("./index.html",{ignoreSearch:true});

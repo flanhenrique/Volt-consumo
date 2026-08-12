@@ -35,6 +35,8 @@ let coreDataFetched = false;
 let idleScheduled = false;
 let dataRefreshPromise = null;
 let lastDataRefreshAt = 0;
+let betaDataFramePending = false;
+let latestBetaDataDetail = null;
 const completedCoreTables = new Set();
 const deferredCalls = new Map();
 const deferredRpcGroups = new Set();
@@ -43,6 +45,7 @@ const heavyMethodInFlight = new Map();
 
 installSupabaseSingleton();
 installBetaApiFacade();
+installBetaDataCoalescer();
 observeStartupReady();
 
 function installSupabaseSingleton() {
@@ -203,6 +206,31 @@ function readSnapshotFor(method, api) {
     return undefined;
   }
   return undefined;
+}
+
+function installBetaDataCoalescer() {
+  window.addEventListener("volt:beta-data", (event) => {
+    if (event.detail?.__voltCoalesced === true) return;
+
+    // Todos os módulos publicam o mesmo sinal global. Sem esta barreira, uma
+    // única alteração pode fazer beta-shell, ciclos e módulos regionais
+    // renderizarem várias vezes no mesmo frame.
+    event.stopImmediatePropagation();
+    latestBetaDataDetail = event.detail && typeof event.detail === "object"
+      ? { ...event.detail }
+      : {};
+    if (betaDataFramePending) return;
+    betaDataFramePending = true;
+
+    const publish = () => {
+      betaDataFramePending = false;
+      const detail = { ...(latestBetaDataDetail || {}), __voltCoalesced: true };
+      latestBetaDataDetail = null;
+      window.dispatchEvent(new CustomEvent("volt:beta-data", { detail }));
+    };
+    if (document.hidden) queueMicrotask(publish);
+    else requestAnimationFrame(publish);
+  });
 }
 
 function observeStartupReady() {

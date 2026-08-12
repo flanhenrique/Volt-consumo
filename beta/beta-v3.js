@@ -1,5 +1,5 @@
-/** Volt Consumo — Beta v3.8 · runtime por prioridade e página ativa. */
-import "./startup-runtime.js?v=97";
+/** Volt Consumo — Beta v3.9 · runtime por prioridade e página ativa. */
+import "./startup-runtime.js?v=98";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -35,10 +35,10 @@ function stageAuthenticatedRuntime() {
   const arm = () => {
     if (authenticatedRuntimeArmed) return;
     authenticatedRuntimeArmed = true;
-    // updateAuthScreen exibe o dashboard antes de terminar as consultas da
-    // conta. O primeiro evento de dados é a barreira para trabalho visual.
-    window.addEventListener("volt:beta-data", loadCoreModules, { once: true });
-    window.setTimeout(loadCoreModules, 1800);
+    // startup-runtime só publica este evento depois que as quatro consultas da
+    // conta terminaram e o app emitiu seu render de dados correspondente.
+    window.addEventListener("volt:account-data-ready", loadCoreModules, { once: true });
+    window.setTimeout(loadCoreModules, 5200);
   };
   if (!dashboard.hidden) return arm();
   const observer = new MutationObserver(() => {

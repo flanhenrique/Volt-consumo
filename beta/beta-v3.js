@@ -19,6 +19,7 @@ import "./separate-cycles.js?v=77";
 import "./test-account-reset.js?v=73";
 import "./test-account-onboarding-prefill.js?v=74";
 import "./closed-cycle-report.js?v=91";
+import "./mobile-reports-v2.js?v=92";
 const REDUCED_MOTION=window.matchMedia("(prefers-reduced-motion: reduce)"),DARK_SCHEME=window.matchMedia("(prefers-color-scheme: dark)");start();
 function start(){attachCycleStyles();syncStatusBarColor();const shell=document.querySelector(".beta-v2-shell");if(!shell)return;measureNavigationHeight(shell);enhanceHeader(shell);enhanceNavigation(shell);enhanceSubmitFeedback();}
 function attachCycleStyles(){if(document.querySelector('link[href*="cycle-authority.css"]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="./cycle-authority.css?v=81";document.head.append(link);}

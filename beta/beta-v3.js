@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.5 · bootstrap progressivo com fases paralelas controladas. */
+/** Volt Consumo — Beta v3.6 · bootstrap pós-login sem competir com a carga dos dados. */
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
@@ -11,6 +11,7 @@ const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
 let coreModulesPromise = null;
 let secondaryModulesPromise = null;
 let deferredModulesPromise = null;
+let authenticatedRuntimeArmed = false;
 
 start();
 
@@ -28,14 +29,21 @@ function start() {
 
 function stageAuthenticatedRuntime() {
   const dashboard = document.querySelector("#dashboard");
-  if (!dashboard || !dashboard.hidden) {
-    queueMicrotask(loadCoreModules);
-    return;
-  }
+  if (!dashboard) return queueMicrotask(loadCoreModules);
+  const arm = () => {
+    if (authenticatedRuntimeArmed) return;
+    authenticatedRuntimeArmed = true;
+    // updateAuthScreen torna o dashboard visível antes de loadUserData terminar.
+    // Esperar o primeiro volt:beta-data impede imports regionais/relatórios de
+    // disputar CPU e rede com as quatro consultas que pintam a primeira tela.
+    window.addEventListener("volt:beta-data", loadCoreModules, { once: true });
+    window.setTimeout(loadCoreModules, 1800);
+  };
+  if (!dashboard.hidden) return arm();
   const observer = new MutationObserver(() => {
     if (dashboard.hidden) return;
     observer.disconnect();
-    loadCoreModules();
+    arm();
   });
   observer.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
 }
@@ -44,9 +52,7 @@ async function loadCoreModules() {
   if (coreModulesPromise) return coreModulesPromise;
   coreModulesPromise = (async () => {
     attachCycleStyles();
-    // O resolvedor publica o contexto tarifário usado pelos renderizadores.
     await import("./regional-tariff-resolver.js?v=84");
-    // Ciclos e Home são independentes entre si depois que o resolvedor existe.
     await Promise.all([
       import("./regional-cycles.js?v=87"),
       import("./regional-home.js?v=86")
@@ -65,12 +71,10 @@ function scheduleSecondaryModules() {
       import("./tutorial-ack.js?v=68"),
       import("./initial-bill-setup.js?v=71"),
       import("./separate-cycles.js?v=77")
-    ]).then(() => {
-      scheduleDeferredModules();
-    }).catch(reportModuleFailure);
+    ]).then(scheduleDeferredModules).catch(reportModuleFailure);
     return secondaryModulesPromise;
   };
-  scheduleIdle(run, 500);
+  scheduleIdle(run, 650);
   return null;
 }
 
@@ -86,13 +90,13 @@ function scheduleDeferredModules() {
     ]).then(loadTestAccountModules).catch(reportModuleFailure);
     return deferredModulesPromise;
   };
-  scheduleIdle(run, 1400);
+  scheduleIdle(run, 1600);
   return null;
 }
 
 function scheduleIdle(callback, timeout) {
   if ("requestIdleCallback" in window) window.requestIdleCallback(callback, { timeout });
-  else window.setTimeout(callback, Math.min(timeout, 350));
+  else window.setTimeout(callback, Math.min(timeout, 400));
 }
 
 async function loadTestAccountModules() {

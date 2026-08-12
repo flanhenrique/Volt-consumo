@@ -7,6 +7,12 @@ const STARTUP_HEAVY_METHODS = new Set([
   "refreshOperationalMetrics",
   "refreshOrganizations"
 ]);
+const HEAVY_METHOD_MIN_INTERVAL_MS = Object.freeze({
+  refreshAdmin: 60_000,
+  refreshOrganizations: 60_000,
+  refreshOperationalMetrics: 60_000,
+  refreshFeatureFlags: 300_000
+});
 const DEFERRED_RPC_GROUP = Object.freeze({
   beta_admin_bootstrap: "admin",
   beta_organization_context: "admin",
@@ -32,6 +38,8 @@ let lastDataRefreshAt = 0;
 const completedCoreTables = new Set();
 const deferredCalls = new Map();
 const deferredRpcGroups = new Set();
+const heavyMethodLastRun = new Map();
+const heavyMethodInFlight = new Map();
 
 installSupabaseSingleton();
 installBetaApiFacade();
@@ -142,14 +150,32 @@ function setApi(value) {
       if (typeof member !== "function") return member;
       if (method === "refreshData") return (...args) => runDataRefresh(member, args);
       if (!STARTUP_HEAVY_METHODS.has(method)) return member;
-      return (...args) => {
-        if (startupReady) return member(...args);
-        deferredCalls.set(method, { member, args });
-        scheduleDeferredWork();
-        return Promise.resolve(readSnapshotFor(method, target));
-      };
+      return (...args) => runHeavyMethod(method, member, args, target);
     }
   });
+}
+
+function runHeavyMethod(method, member, args, api) {
+  if (!startupReady) {
+    deferredCalls.set(method, { member, args });
+    scheduleDeferredWork();
+    return Promise.resolve(readSnapshotFor(method, api));
+  }
+  if (heavyMethodInFlight.has(method)) return heavyMethodInFlight.get(method);
+  const now = performance.now();
+  const minimumInterval = HEAVY_METHOD_MIN_INTERVAL_MS[method] || 60_000;
+  const lastRun = heavyMethodLastRun.get(method) || 0;
+  if (now - lastRun < minimumInterval) return Promise.resolve(readSnapshotFor(method, api));
+
+  heavyMethodLastRun.set(method, now);
+  const promise = Promise.resolve()
+    .then(() => member(...args))
+    .finally(() => {
+      heavyMethodLastRun.set(method, performance.now());
+      heavyMethodInFlight.delete(method);
+    });
+  heavyMethodInFlight.set(method, promise);
+  return promise;
 }
 
 function runDataRefresh(member, args) {
@@ -220,9 +246,9 @@ function scheduleDeferredWork() {
 
 function flushDeferredWork() {
   if (!startupReady || !deferredCalls.size) return;
-  const tasks = [...deferredCalls.values()];
+  const tasks = [...deferredCalls.entries()];
   deferredCalls.clear();
-  Promise.allSettled(tasks.map(({ member, args }) => Promise.resolve().then(() => member(...args))));
+  Promise.allSettled(tasks.map(([method, { member, args }]) => runHeavyMethod(method, member, args, apiTarget || {})));
 }
 
 function flushDeferredRpcGroups() {

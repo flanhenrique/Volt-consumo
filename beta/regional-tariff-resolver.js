@@ -1,5 +1,6 @@
 import { findNationalEnergyRule, listNationalEnergyProviders } from "./national-energy-catalog.js";
 import { findSouthTariffRule } from "./south-tariff-catalog.js";
+import { normalizeRegionalContext, formatMoney } from "./mercosur-region.js";
 
 const LOCALITY_KEY = "volt:beta:locality-context-v1";
 const MANAUS_COSIP_SOURCE = "Município de Manaus — Lei 2.802/2021 e Decreto 6.036/2024";
@@ -21,12 +22,15 @@ window.addEventListener("volt:beta-data", () => applyRegionalTariffs(readLocalit
 function initializeRegionalTariffResolver() {
   const context = readLocality();
   publishResolverSnapshot(context);
-  if (!document.querySelector("#dashboard")?.hidden && (context.state || context.city || context.energyProvider || context.waterProvider)) {
-    applyRegionalTariffs(context);
-  }
+  if (!document.querySelector("#dashboard")?.hidden && hasRegionalData(context)) applyRegionalTariffs(context);
 }
 
-async function applyRegionalTariffs(context = readLocality()) {
+function hasRegionalData(context) {
+  return Boolean(context.state || context.city || context.energyProvider || context.waterProvider);
+}
+
+async function applyRegionalTariffs(rawContext = readLocality()) {
+  const context = normalizeRegionalContext(rawContext);
   const energyRule = resolveEnergyRule(context);
   const waterRule = resolveWaterRule(context);
   const snapshot = window.VOLT_BETA_API?.getSnapshot?.();
@@ -55,34 +59,32 @@ async function applyRegionalTariffs(context = readLocality()) {
   }
 
   if (needsSubmit && form) form.requestSubmit();
-
   publishResolverSnapshot(context, energyRule, waterRule, lightingRule);
   renderRegionalResolution(context, energyRule, waterRule, lightingRule);
-  window.dispatchEvent(new CustomEvent("volt:tariff-resolution", {
-    detail: structuredClone(window.VOLT_TARIFF_RESOLUTION)
-  }));
+  window.dispatchEvent(new CustomEvent("volt:tariff-resolution", { detail: structuredClone(window.VOLT_TARIFF_RESOLUTION) }));
 }
 
 function resolveEnergyRule(context) {
+  if (context.country !== "BR") return null;
   return findNationalEnergyRule({ provider: context.energyProvider, date: new Date() })
     || findSouthTariffRule({ state: context.state, utility: "energy", provider: context.energyProvider });
 }
 
 function resolveWaterRule(context) {
+  if (context.country !== "BR") return null;
   return findSouthTariffRule({ state: context.state, utility: "water", provider: context.waterProvider });
 }
 
 function resolveLightingRule(context, consumption) {
+  if (context.country !== "BR") return null;
   const state = String(context.state || "").trim().toUpperCase();
   const city = normalize(context.city);
   const kwh = Math.max(0, Math.floor(Number(consumption) || 0));
   if (state !== "AM" || city !== "manaus") return null;
-
   const band = MANAUS_RESIDENTIAL_COSIP.find((item) => kwh >= item.min && kwh <= item.max);
   if (!band) return null;
-
   return {
-    id: `manaus-cosip-residencial-${band.min}-${Number.isFinite(band.max) ? band.max : "mais"}`,
+    id: `BR:AM:manaus:cosip:${band.min}-${Number.isFinite(band.max) ? band.max : "mais"}`,
     utility: "lighting",
     provider: "Município de Manaus",
     customerClass: "Residencial comum",
@@ -99,50 +101,48 @@ function resolveLightingRule(context, consumption) {
 }
 
 function publishResolverSnapshot(context, energyRule = resolveEnergyRule(context), waterRule = resolveWaterRule(context), lightingRule = resolveLightingRule(context, Number(window.VOLT_BETA_API?.getSnapshot?.()?.energy?.summary?.consumption || 0))) {
+  const normalized = normalizeRegionalContext(context);
   window.VOLT_TARIFF_RESOLUTION = Object.freeze({
+    jurisdiction: normalized.jurisdiction,
+    country: normalized.country,
+    currency: normalized.currency,
+    locale: normalized.locale,
     locality: Object.freeze({
-      state: context.state || "",
-      city: context.city || "",
-      energyProvider: context.energyProvider || "",
-      waterProvider: context.waterProvider || ""
+      state: normalized.state,
+      city: normalized.city,
+      energyProvider: normalized.energyProvider,
+      waterProvider: normalized.waterProvider
     }),
     energy: energyRule ? freezeRule(energyRule) : null,
     water: waterRule ? freezeRule(waterRule) : null,
     lighting: lightingRule ? Object.freeze({ ...lightingRule }) : null,
-    energyProviderCatalog: Object.freeze(listNationalEnergyProviders())
+    energyProviderCatalog: Object.freeze(normalized.country === "BR" ? listNationalEnergyProviders() : [])
   });
 }
 
 function renderRegionalResolution(context, energyRule, waterRule, lightingRule) {
   const status = document.querySelector("#beta-locality-status");
   if (!status || !context.state || !context.city) return;
+  if (context.country !== "BR") {
+    status.textContent = `${context.jurisdiction}. País preparado na arquitetura, mas regras tarifárias ainda não estão ativadas.`;
+    return;
+  }
 
   const energyText = energyRule?.automatic && Number.isFinite(energyRule.ratePerKwh)
-    ? `Energia: ${energyRule.provider} · tarifa-base oficial ${currencyPerKwh(energyRule.ratePerKwh)} aplicada.`
-    : context.energyProvider
-      ? `Energia: ${context.energyProvider} · sem tarifa automática validada; mantendo valor manual.`
-      : "Energia: concessionária não informada.";
-
+    ? `Energia: ${energyRule.provider} · tarifa-base oficial ${currencyPerKwh(energyRule.ratePerKwh, context)} aplicada.`
+    : context.energyProvider ? `Energia: ${context.energyProvider} · sem tarifa automática validada; mantendo valor manual.` : "Energia: concessionária não informada.";
   const lightingText = lightingRule?.automatic
-    ? `Iluminação pública: ${lightingRule.consumptionKwh} kWh · faixa ${formatBand(lightingRule)} · ${currency(lightingRule.amount)} aplicada.`
+    ? `Iluminação pública: ${lightingRule.consumptionKwh} kWh · faixa ${formatBand(lightingRule)} · ${formatMoney(lightingRule.amount, context)} aplicada.`
     : "Iluminação pública: mantendo valor manual; nenhuma regra municipal validada foi localizada para esta cidade.";
-
   const waterText = waterRule
     ? `Água: ${waterRule.provider} · regra regional identificada (${waterRule.pricingModel || "modelo local"}).`
-    : context.waterProvider
-      ? `Água: ${context.waterProvider} · sem regra tarifária local modelada; mantendo configuração manual.`
-      : "Água: concessionária não informada.";
-
+    : context.waterProvider ? `Água: ${context.waterProvider} · sem regra tarifária local modelada; mantendo configuração manual.` : "Água: concessionária não informada.";
   status.textContent = `${context.city} · ${context.state}. ${energyText} ${lightingText} ${waterText}`;
 }
 
 function readLocality() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LOCALITY_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  try { return normalizeRegionalContext(JSON.parse(localStorage.getItem(LOCALITY_KEY) || "{}")); }
+  catch { return normalizeRegionalContext({}); }
 }
 
 function freezeRule(rule) {
@@ -168,18 +168,9 @@ function formatBand(rule) {
 }
 
 function normalize(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .trim()
-    .toLowerCase();
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, " ").trim().toLowerCase();
 }
 
-function currency(value) {
-  return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function currencyPerKwh(value) {
-  return `${Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 5, maximumFractionDigits: 5 })}/kWh`;
+function currencyPerKwh(value, context) {
+  return `${Number(value || 0).toLocaleString(context.locale || "pt-BR", { style: "currency", currency: context.currency || "BRL", minimumFractionDigits: 5, maximumFractionDigits: 5 })}/kWh`;
 }

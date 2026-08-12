@@ -4,7 +4,9 @@ const KEY = "volt:beta:locality-context-v1";
 let renderScheduled = false;
 
 queueMicrotask(scheduleRender);
-["volt:beta-data", "volt:locality-context", "volt:tariff-resolution", "volt:cycle-context"].forEach((eventName) => {
+// O detalhe depende da localidade e da resolução tarifária. beta-data e
+// cycle-context já convergem para tariff-resolution no resolvedor regional.
+["volt:locality-context", "volt:tariff-resolution"].forEach((eventName) => {
   window.addEventListener(eventName, scheduleRender);
 });
 

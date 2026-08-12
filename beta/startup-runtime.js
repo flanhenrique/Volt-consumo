@@ -7,11 +7,14 @@ const STARTUP_HEAVY_METHODS = new Set([
   "refreshOperationalMetrics",
   "refreshOrganizations"
 ]);
+const DATA_REFRESH_COOLDOWN_MS = 1500;
 
 let apiTarget = null;
 let apiFacade = null;
 let startupReady = false;
 let idleScheduled = false;
+let dataRefreshPromise = null;
+let lastDataRefreshAt = 0;
 const deferredCalls = new Map();
 
 installSupabaseSingleton();
@@ -60,15 +63,35 @@ function setApi(value) {
   apiFacade = new Proxy(value, {
     get(target, property, receiver) {
       const member = Reflect.get(target, property, receiver);
-      if (typeof member !== "function" || !STARTUP_HEAVY_METHODS.has(String(property))) return member;
+      const method = String(property);
+      if (typeof member !== "function") return member;
+      if (method === "refreshData") return (...args) => runDataRefresh(member, args);
+      if (!STARTUP_HEAVY_METHODS.has(method)) return member;
       return (...args) => {
         if (startupReady) return member(...args);
-        deferredCalls.set(String(property), { member, args });
+        deferredCalls.set(method, { member, args });
         scheduleDeferredWork();
-        return Promise.resolve(readSnapshotFor(String(property), target));
+        return Promise.resolve(readSnapshotFor(method, target));
       };
     }
   });
+}
+
+function runDataRefresh(member, args) {
+  // A carga inicial pertence ao app.js. Chamadas de focus/visibility do shell
+  // antes do primeiro render só criavam uma segunda rodada de consultas.
+  if (!startupReady) return Promise.resolve(false);
+  if (dataRefreshPromise) return dataRefreshPromise;
+  const now = performance.now();
+  if (now - lastDataRefreshAt < DATA_REFRESH_COOLDOWN_MS) return Promise.resolve(false);
+  lastDataRefreshAt = now;
+  dataRefreshPromise = Promise.resolve()
+    .then(() => member(...args))
+    .finally(() => {
+      lastDataRefreshAt = performance.now();
+      dataRefreshPromise = null;
+    });
+  return dataRefreshPromise;
 }
 
 function readSnapshotFor(method, api) {
@@ -87,16 +110,14 @@ function observeStartupReady() {
   const finish = () => {
     if (startupReady) return;
     startupReady = true;
+    lastDataRefreshAt = performance.now();
     performance.mark?.("volt-account-load-ready");
     window.dispatchEvent(new CustomEvent("volt:startup-ready"));
     flushDeferredWork();
   };
 
   // app.js é a única autoridade para buscar os dados iniciais da conta.
-  // Antes este módulo chamava refreshData() ao detectar o dashboard visível,
-  // disparando uma segunda leitura de energia/água enquanto o login ainda
-  // concluía. O primeiro volt:beta-data agora apenas sinaliza que a carga
-  // prioritária terminou.
+  // O primeiro volt:beta-data apenas sinaliza que a carga prioritária terminou.
   window.addEventListener("volt:beta-data", finish, { once: true });
 
   // Fail-safe: se um erro de renderização impedir o evento, não mantenha as

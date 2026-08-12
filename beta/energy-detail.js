@@ -1,4 +1,3 @@
-import "./platform-users.js";
 import { formatMoney, normalizeRegionalContext } from "./mercosur-region.js";
 
 installUtilityDetailStyles();
@@ -46,14 +45,14 @@ function renderUruguayDetail(snapshot,values,locality,resolution,list){
   }
   const estimate=resolution?.internationalEstimate; const rule=resolution?.energy; const consumption=Number(estimate?.consumptionKwh ?? values?.consumption ?? 0); const rows=[];
   if(rule?.id==="uy-ute-trs-2026"&&estimate?.valid){
-    rows.push(row("energyConsumption","Energía",`${formatNumber(consumption,0,locality)} kWh · bloques UTE`,formatMoney(estimate.energyCost,locality)));
-    rows.push(row("contractedPower","Potencia contratada",`${formatNumber(locality.contractedPowerKw,1,locality)} kW × ${formatMoney(rule.contractedPowerRatePerKw,locality)}/kW`,formatMoney(estimate.powerCost,locality)));
-    rows.push(row("fixedEnergy","Cargo fijo","Tarifa Residencial Simple",formatMoney(estimate.fixedCost,locality)));
-    rows.push(row("taxes","IVA","No incluido todavía en el cálculo piloto","—"));
+    rows.push(row("energyConsumption","Energía",`${formatNumber(consumption,0,locality)} kWh · bloques UTE`,formatMoney(estimate.energyCharge,locality)));
+    rows.push(row("contractedPower","Potencia contratada",`${formatNumber(locality.contractedPowerKw,1,locality)} kW × ${formatMoney(rule.contractedPowerRatePerKw,locality)}/kW`,formatMoney(estimate.powerCharge,locality)));
+    rows.push(row("fixedEnergy","Cargo fijo","Tarifa Residencial Simple",formatMoney(estimate.fixedCharge,locality)));
+    rows.push(row("taxes",`IVA ${Math.round(Number(estimate.vatRate||0)*100)}%`,`Sobre energía y potencia · cargo fijo exento`,formatMoney(estimate.vatAmount,locality)));
   } else {
     rows.push(row("energyConsumption","Energía",`${formatNumber(consumption,0,locality)} kWh · ${rule?.customerClass||"UTE"}`,"—")); rows.push(row("taxes","Impuestos","Cálculo automático pendiente","—"));
   }
-  list.replaceChildren(...rows); setText("#utility-detail-title","Detalle de energía"); setText("#utility-detail-symbol","ϟ"); setText("#utility-detail-total-label","SUBTOTAL SIN IVA"); setText("#utility-detail-total",estimate?.valid?formatMoney(estimate.subtotalBeforeTax,locality):"—"); setText("#utility-detail-note",estimate?.valid?"Estimación piloto UTE. El subtotal no incluye IVA ni conceptos aún no modelados.":"La tarifa seleccionada requiere datos que el Volt todavía no calcula automáticamente.");
+  list.replaceChildren(...rows); setText("#utility-detail-title","Detalle de energía"); setText("#utility-detail-symbol","ϟ"); setText("#utility-detail-total-label","TOTAL CON IVA"); setText("#utility-detail-total",estimate?.valid?formatMoney(estimate.totalWithVat,locality):"—"); setText("#utility-detail-note",estimate?.valid?"Estimación UTE con IVA modelado sobre energía y potencia; el cargo fijo residencial permanece exento.":"La tarifa seleccionada requiere datos que el Volt todavía no calcula automáticamente.");
 }
 
 function renderBrazilDetail(snapshot,values,locality,list){

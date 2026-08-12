@@ -1,5 +1,5 @@
 // VOLT Service Worker — shell same-origin com cache sob demanda para módulos secundários.
-const CACHE="volt-beta-shell-v92";
+const CACHE="volt-beta-shell-v93";
 const CORE_ASSETS=[
   "./",
   "./index.html",
@@ -17,6 +17,16 @@ const CORE_ASSETS=[
   "./mercosur-region.js",
   "./regional-auth.js",
   "./locality-context.js",
+  "./regional-onboarding.js",
+  "./signup-confirmation.js",
+  "./signup-confirmation.css",
+  "./south-tariff-catalog.js",
+  "./uruguay-tariff-catalog.js",
+  "./packages/app-environment/browser/index.js",
+  "./packages/auth-client/browser/index.js",
+  "./packages/consumption-domain/browser/index.js",
+  "./packages/engine-core/browser/index.js",
+  "./vendor/supabase/supabase.js",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
@@ -24,11 +34,8 @@ const OPTIONAL_ASSETS=[
   "./regional-tariff-resolver.js",
   "./regional-home.js",
   "./regional-cycles.js",
-  "./uruguay-tariff-catalog.js",
   "./guided-experience.js",
   "./guided-experience.css",
-  "./signup-confirmation.js",
-  "./signup-confirmation.css",
   "./tutorial-ack.js",
   "./tutorial-ack.css",
   "./initial-bill-setup.js",
@@ -41,16 +48,12 @@ const OPTIONAL_ASSETS=[
   "./energy-detail.css",
   "./platform-users.js",
   "./platform-users.css",
-  "./regional-onboarding.js",
   "./national-energy-catalog.js",
-  "./south-tariff-catalog.js",
   "./uruguay-water-detail.js",
   "./closed-cycle-report.js",
   "./mobile-reports-v2.js",
-  "./packages/app-environment/browser/index.js",
-  "./packages/auth-client/browser/index.js",
-  "./packages/consumption-domain/browser/index.js",
-  "./packages/engine-core/browser/index.js",
+  "./vendor/tesseract/tesseract.min.js",
+  "./vendor/tesseract/worker.min.js",
   "./icon-192.png",
   "./icon-512.png"
 ];
@@ -58,9 +61,9 @@ const ASSETS=[...CORE_ASSETS,...OPTIONAL_ASSETS];
 const SHELL_PATHS=new Set(ASSETS.map(asset=>new URL(asset,self.registration.scope).pathname));
 
 self.addEventListener("install",event=>{
-  // Apenas o shell necessário para abrir o Volt é baixado na instalação.
-  // Módulos de relatórios, tarifas e onboarding entram no cache somente quando
-  // forem realmente requisitados, evitando competir com o primeiro login.
+  // CORE inclui todas as dependências estáticas necessárias para analisar e
+  // inicializar app.js/beta-v3.js. Relatórios, OCR e telas secundárias continuam
+  // fora do precache e entram no cache somente quando forem requisitados.
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE_ASSETS)));
   self.skipWaiting();
 });

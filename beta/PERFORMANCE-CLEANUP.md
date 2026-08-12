@@ -4,9 +4,9 @@
 
 Branch de trabalho: `fix/sequential-beta-corrections`.
 
-Progresso estimado desta rodada de estabilização: **75% concluído / 25% restante**.
+Progresso estimado desta rodada de estabilização: **90% concluído / 10% restante**.
 
-A porcentagem mede os blocos de trabalho conhecidos da estabilização Beta, não uma contagem literal de bugs.
+A porcentagem mede os blocos de trabalho conhecidos da estabilização Beta, não uma contagem literal de bugs. Os 10% finais são principalmente validação funcional em navegador/dispositivo real antes de merge.
 
 ## Concluído
 
@@ -27,18 +27,23 @@ A porcentagem mede os blocos de trabalho conhecidos da estabilização Beta, nã
 - `uruguay-water-detail.js` e Home regional tiveram listeners redundantes removidos.
 - `platform-users.js` permanece lazy e não é mais importado indiretamente pelo detalhe de energia.
 - `separate-cycles.js` deixou de fazer polling a cada 100 ms; usa observer, coalescência por frame e só publica `cycle-context` quando o estado muda.
+- Sincronização do onboarding deixou de disparar `submit` artificial da localidade; metadados recebidos da conta não são persistidos de volta apenas por sincronização de UI.
+- Sincronização de perfil do onboarding é coalescida por usuário e ignora refresh de token.
+- `persistMetadata()` evita `updateUser` quando o valor persistido já é equivalente ao solicitado.
+- O render global de `beta-shell.js` continua preservado por segurança visual, mas agora recebe eventos coalescidos e somente quando o snapshot global realmente muda; renderizadores de Home/ciclo também possuem assinatura própria.
 - Service Worker v94 resolve offline assets versionados com `?v=...` usando `ignoreSearch`.
+- O quality gate valida que todos os assets locais declarados pelo Service Worker existem, além das referências de HTML/imports.
+- Auditoria atual não identificou arquivo seguro para nova exclusão; nenhuma remoção foi feita por aparência/nome.
 - Workflows GitHub Actions foram atualizados para actions atuais e o atualizador tarifário foi protegido contra corrida de push em branches.
-- Quality gate foi reforçado contra regressões destrutivas de `app.js`, `index.html` e referências locais inexistentes.
-- Quality gates mais recentes passaram após as correções de autenticação, eventos e ciclos.
+- Quality gate foi reforçado contra regressões destrutivas de `app.js`, `index.html`, `hidden`, valores financeiros intermediários, polling de ciclos, ressincronização circular do onboarding e referências locais inexistentes.
+- Quality gates mais recentes passaram após as correções de autenticação, eventos, ciclos e onboarding.
 
-## Restante, por risco
+## Restante antes do merge
 
-1. **Onboarding e metadados** — eliminar o `submit` artificial de localidade e impedir `updateUser` quando os metadados efetivos não mudaram.
-2. **Renderização por área** — reduzir o alcance de `renderBetaExperience()` para que atualizações da Home não reconstruam administração, MFA, convites e relatórios sem necessidade.
-3. **Auditoria de órfãos/dependências** — cruzar todos os arquivos Beta com imports estáticos, imports dinâmicos, HTML e Service Worker antes de qualquer exclusão.
-4. **Cache/offline final** — confirmar dependências transitivas do conjunto CORE e comportamento offline dos módulos lazy.
-5. **Smoke/regressão final** — login, sessão restaurada, MFA, Home, Energia, Água, nova leitura, configurações, relatórios, Usuários, onboarding BR/UY, tema claro/escuro e Android/PWA.
+1. **Smoke/regressão em navegador real** — login, sessão restaurada, MFA, Home, Energia, Água, nova leitura, edição/exclusão, configurações, relatórios, Usuários e logout.
+2. **Regional** — validar onboarding e cálculos BR/UY com dados reais de teste, incluindo UTE/OSE.
+3. **PWA/dispositivo** — validar tema claro/escuro, instalação/atualização do Service Worker, recarga offline e Android.
+4. **Home** — confirmar visualmente que não há sobreposição de telas e que os valores financeiros aparecem uma única vez já consolidados.
 
 ## Regra de segurança
 

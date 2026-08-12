@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.14 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.15 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -107,6 +107,12 @@ async function loadCoreModules() {
     // o shell oculto para que o bloco não apareça alguns segundos depois.
     await Promise.resolve(window.VOLT_BETA_API?.refreshOrganizations?.()).catch(() => undefined);
 
+    // O resolvedor regional atualiza os inputs automáticos e envia o form de
+    // configurações. O evento tariff-resolution pode chegar antes do upsert
+    // terminar; portanto a Home só é liberada quando o snapshot da conta já
+    // contém a mesma tarifa e COSIP resolvidas.
+    await waitForTariffSettingsApplied(3600);
+
     // Algumas resoluções regionais publicam beta-data em sequência. Espera uma
     // pequena janela sem novos eventos antes de expor a Home, com limite para
     // nunca transformar uma falha de integração em tela permanentemente oculta.
@@ -128,6 +134,40 @@ function waitForStartupEvent(eventName, timeout) {
     };
     window.addEventListener(eventName, finish, { once: true });
     window.setTimeout(finish, timeout);
+  });
+}
+
+function tariffSettingsApplied() {
+  const resolution = window.VOLT_TARIFF_RESOLUTION;
+  if (!resolution || resolution.country !== "BR") return true;
+  const settings = window.VOLT_BETA_API?.getSnapshot?.()?.energy?.settings;
+  if (!settings) return false;
+  const expectedRate = resolution.energy?.automatic ? Number(resolution.energy.ratePerKwh) : NaN;
+  const expectedLighting = resolution.lighting?.automatic ? Number(resolution.lighting.amount) : NaN;
+  if (Number.isFinite(expectedRate) && Math.abs(Number(settings.rate) - expectedRate) > 0.0000005) return false;
+  if (Number.isFinite(expectedLighting) && Math.abs(Number(settings.lightingFee) - expectedLighting) > 0.005) return false;
+  return true;
+}
+
+function waitForTariffSettingsApplied(maxMs) {
+  if (tariffSettingsApplied()) return Promise.resolve();
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.removeEventListener("volt:beta-data", check);
+      window.removeEventListener("volt:tariff-resolution", check);
+      clearTimeout(timeout);
+      resolve();
+    };
+    const check = () => {
+      if (tariffSettingsApplied()) finish();
+    };
+    const timeout = window.setTimeout(finish, maxMs);
+    window.addEventListener("volt:beta-data", check);
+    window.addEventListener("volt:tariff-resolution", check);
+    queueMicrotask(check);
   });
 }
 

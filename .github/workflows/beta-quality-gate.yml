@@ -41,8 +41,13 @@ jobs:
           const appStat = await stat(appPath);
           assert.ok(appStat.size > 40_000, `beta/app.js pequeno demais (${appStat.size} bytes)`);
           assert.doesNotMatch(app, /^\s*PLACEHOLDER\s*$/m, 'beta/app.js contém PLACEHOLDER');
-          for (const signature of ['function initializeAuth()', 'async function loadUserData()', 'function exposeBetaApi()']) {
-            assert.ok(app.includes(signature), `beta/app.js perdeu assinatura crítica: ${signature}`);
+          const criticalSignatures = [
+            [/\basync\s+function\s+initializeAuth\s*\(/, 'initializeAuth'],
+            [/\basync\s+function\s+loadUserData\s*\(/, 'loadUserData'],
+            [/\bfunction\s+exposeBetaApi\s*\(/, 'exposeBetaApi']
+          ];
+          for (const [pattern, name] of criticalSignatures) {
+            assert.match(app, pattern, `beta/app.js perdeu assinatura crítica: ${name}`);
           }
 
           const index = await readFile('beta/index.html', 'utf8');

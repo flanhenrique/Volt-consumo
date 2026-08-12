@@ -9,6 +9,7 @@ import "./platform-users.js";
 import "./home-cleanup.js?v=81";
 import "./regional-home.js?v=86";
 import "./regional-cycles.js?v=87";
+import "./regional-onboarding.js?v=88";
 import "./guided-experience.js";
 import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";

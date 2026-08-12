@@ -1,6 +1,7 @@
 import { formatMoney, normalizeRegionalContext } from "./mercosur-region.js";
 
 const LOCALITY_KEY = "volt:beta:locality-context-v1";
+const VERIFIED_WATER_TAX_STATES = new Set(["verified", "verified-excess-only", "residential-exempt"]);
 let renderScheduled = false;
 let lastCountry = null;
 
@@ -23,9 +24,6 @@ function renderRegionalHome() {
   document.documentElement.lang = context.locale || "pt-BR";
 
   if (context.country !== "UY") {
-    // No Brasil, a Home base/separate-cycles é a autoridade. Restauramos os
-    // rótulos apenas quando o usuário realmente sai do contexto uruguaio;
-    // antes este módulo reescrevia a Home brasileira a cada evento de dados.
     if (lastCountry === "UY") restoreBrazilLabels();
     lastCountry = context.country;
     return;
@@ -40,7 +38,7 @@ function renderRegionalHome() {
   const waterKnown = Boolean(water?.valid);
   const energyTotal = energyKnown ? Number(energy.totalWithVat ?? energy.subtotalBeforeTax ?? 0) : null;
   const waterTotal = waterKnown ? Number(water.totalWaterWithVat ?? water.waterSubtotalBeforeTax ?? 0) : null;
-  const waterTaxComplete = Boolean(waterKnown && water.taxStatus === "verified");
+  const waterTaxComplete = Boolean(waterKnown && VERIFIED_WATER_TAX_STATES.has(water.taxStatus));
   const waterFinalKnown = waterTaxComplete && !context.oseSanitation;
   const bothFinalKnown = energyKnown && waterFinalKnown;
   const knownTotal = (energyTotal || 0) + (waterTotal || 0);
@@ -101,7 +99,7 @@ function renderRegionalHome() {
     renderStats(report, [
       ["Energía", `${formatNumber(Number(values.energy?.consumption || 0), 1, context)} kWh`],
       ["Agua", `${formatNumber(Number(values.water?.consumption || 0), 3, context)} m³`],
-      [bothFinalKnown ? "Total estimado" : "Total parcial conocido", energyKnown && waterKnown ? formatMoney(knownTotal, context) : "Pendiente"]
+      [bothFinalKnown ? "Total estimado" : "Total parcial conhecido", energyKnown && waterKnown ? formatMoney(knownTotal, context) : "Pendiente"]
     ]);
   }
 

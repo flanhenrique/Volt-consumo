@@ -4,6 +4,7 @@ const LOCALITY_KEY = "volt:beta:locality-context-v1";
 const VERIFIED_WATER_TAX_STATES = new Set(["verified", "verified-excess-only", "residential-exempt"]);
 let renderScheduled = false;
 let lastCountry = null;
+let lastSignature = "";
 
 queueMicrotask(scheduleRegionalHome);
 // tariff-resolution cobre alterações financeiras derivadas de beta-data/localidade;
@@ -23,6 +24,20 @@ function scheduleRegionalHome() {
 
 function renderRegionalHome() {
   const context = readContext();
+  const resolution = window.VOLT_TARIFF_RESOLUTION || {};
+  const values = window.VOLT_CYCLE_VALUES || {};
+  const signature = JSON.stringify({
+    country: context.country,
+    locale: context.locale,
+    oseSanitation: Boolean(context.oseSanitation),
+    energy: resolution.internationalEstimate || null,
+    water: resolution.internationalWaterEstimate || null,
+    energyConsumption: Number(values.energy?.consumption || 0),
+    waterConsumption: Number(values.water?.consumption || 0)
+  });
+  if (signature === lastSignature) return;
+  lastSignature = signature;
+
   document.documentElement.lang = context.locale || "pt-BR";
 
   if (context.country !== "UY") {
@@ -32,8 +47,6 @@ function renderRegionalHome() {
   }
   lastCountry = "UY";
 
-  const resolution = window.VOLT_TARIFF_RESOLUTION || {};
-  const values = window.VOLT_CYCLE_VALUES || {};
   const energy = resolution.internationalEstimate;
   const water = resolution.internationalWaterEstimate;
   const energyKnown = Boolean(energy?.valid);

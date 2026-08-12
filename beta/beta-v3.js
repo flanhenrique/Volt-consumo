@@ -2,6 +2,9 @@
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
+import "./locality-context.js?v=84";
+import "./regional-onboarding.js?v=88";
+import "./signup-confirmation.js";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
@@ -25,14 +28,8 @@ function start() {
 
 function stageApplicationModules() {
   const dashboard = document.querySelector("#dashboard");
-  if (!dashboard) {
-    queueMicrotask(loadApplicationModules);
-    return;
-  }
-  if (!dashboard.hidden) {
-    queueMicrotask(loadApplicationModules);
-    return;
-  }
+  if (!dashboard) return queueMicrotask(loadApplicationModules);
+  if (!dashboard.hidden) return queueMicrotask(loadApplicationModules);
   const observer = new MutationObserver(() => {
     if (dashboard.hidden) return;
     observer.disconnect();
@@ -44,19 +41,16 @@ function stageApplicationModules() {
 function loadApplicationModules() {
   if (applicationModulesPromise) return applicationModulesPromise;
   applicationModulesPromise = Promise.all([
-    import("./locality-context.js?v=84"),
     import("./regional-tariff-resolver.js?v=84"),
     import("./platform-users.js"),
     import("./home-cleanup.js?v=83"),
     import("./regional-home.js?v=86"),
     import("./regional-cycles.js?v=87"),
-    import("./regional-onboarding.js?v=88"),
     import("./guided-experience.js"),
-    import("./signup-confirmation.js"),
     import("./tutorial-ack.js?v=68"),
     import("./initial-bill-setup.js?v=71"),
     import("./separate-cycles.js?v=77")
-  ]).then(() => scheduleDeferredModules()).catch(reportModuleFailure);
+  ]).then(scheduleDeferredModules).catch(reportModuleFailure);
   return applicationModulesPromise;
 }
 
@@ -72,11 +66,8 @@ function scheduleDeferredModules() {
     ]).then(loadTestAccountModules).catch(reportModuleFailure);
     return deferredModulesPromise;
   };
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(run, { timeout: 1200 });
-  } else {
-    window.setTimeout(run, 250);
-  }
+  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 1200 });
+  else window.setTimeout(run, 250);
   return null;
 }
 
@@ -130,9 +121,7 @@ function enhanceHeader(shell) {
   const header = shell.querySelector(".beta-header");
   const content = shell.querySelector("#beta-content");
   if (!header || !content) return;
-  const sync = () => {
-    header.dataset.scrolled = String(content.scrollTop > 4 || window.scrollY > 4);
-  };
+  const sync = () => { header.dataset.scrolled = String(content.scrollTop > 4 || window.scrollY > 4); };
   content.addEventListener("scroll", sync, { passive: true });
   window.addEventListener("scroll", sync, { passive: true });
   sync();
@@ -155,10 +144,7 @@ function enhanceNavigation(shell) {
     indicator.style.setProperty("--nav-indicator-width", `${bounds.width}px`);
     indicator.style.setProperty("--nav-indicator-x", `${bounds.left - reference.left}px`);
   };
-  const release = () => {
-    move();
-    requestAnimationFrame(() => { indicator.dataset.ready = "true"; });
-  };
+  const release = () => { move(); requestAnimationFrame(() => { indicator.dataset.ready = "true"; }); };
   navigation.addEventListener("click", () => requestAnimationFrame(move));
   window.addEventListener("resize", move, { passive: true });
   const dashboard = document.querySelector("#dashboard");

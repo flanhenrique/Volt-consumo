@@ -1,5 +1,5 @@
-/** Volt Consumo — Beta v3.7 · bootstrap pós-login sem competir com a carga dos dados. */
-import "./startup-runtime.js?v=92";
+/** Volt Consumo — Beta v3.8 · runtime por prioridade e página ativa. */
+import "./startup-runtime.js?v=97";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -12,6 +12,7 @@ let coreModulesPromise = null;
 let secondaryModulesPromise = null;
 let deferredModulesPromise = null;
 let authenticatedRuntimeArmed = false;
+const pageModulePromises = new Map();
 
 start();
 
@@ -22,6 +23,7 @@ function start() {
     measureNavigationHeight(shell);
     enhanceHeader(shell);
     enhanceNavigation(shell);
+    bindLazyPageModules(shell);
   }
   enhanceSubmitFeedback();
   stageAuthenticatedRuntime();
@@ -33,9 +35,8 @@ function stageAuthenticatedRuntime() {
   const arm = () => {
     if (authenticatedRuntimeArmed) return;
     authenticatedRuntimeArmed = true;
-    // updateAuthScreen torna o dashboard visível antes de loadUserData terminar.
-    // Esperar o primeiro volt:beta-data impede imports regionais/relatórios de
-    // disputar CPU e rede com as consultas que pintam a primeira tela.
+    // updateAuthScreen exibe o dashboard antes de terminar as consultas da
+    // conta. O primeiro evento de dados é a barreira para trabalho visual.
     window.addEventListener("volt:beta-data", loadCoreModules, { once: true });
     window.setTimeout(loadCoreModules, 1800);
   };
@@ -55,7 +56,7 @@ async function loadCoreModules() {
     await import("./regional-tariff-resolver.js?v=96");
     await Promise.all([
       import("./regional-cycles.js?v=96"),
-      import("./regional-home.js?v=96")
+      import("./regional-home.js?v=97")
     ]);
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
@@ -66,7 +67,6 @@ function scheduleSecondaryModules() {
   if (secondaryModulesPromise) return secondaryModulesPromise;
   const run = async () => {
     secondaryModulesPromise = Promise.all([
-      import("./platform-users.js"),
       import("./guided-experience.js"),
       import("./tutorial-ack.js?v=68"),
       import("./initial-bill-setup.js?v=71"),
@@ -83,15 +83,44 @@ function scheduleDeferredModules() {
   const run = async () => {
     deferredModulesPromise = Promise.all([
       import("./energy-detail.js?v=85"),
-      import("./closed-cycle-report.js?v=91"),
-      import("./mobile-reports-v2.js?v=94"),
-      import("./uruguay-tariff-catalog.js?v=96"),
       import("./uruguay-water-detail.js?v=96")
     ]).then(loadTestAccountModules).catch(reportModuleFailure);
     return deferredModulesPromise;
   };
   scheduleIdle(run, 1600);
   return null;
+}
+
+function bindLazyPageModules(shell) {
+  const navigation = shell.querySelector(".bottom-navigation");
+  if (!navigation) return;
+  navigation.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-nav]");
+    if (!button) return;
+    void loadPageModules(button.dataset.nav);
+  }, { passive: true });
+}
+
+async function loadPageModules(page) {
+  if (!page || !["reports", "users"].includes(page)) return;
+  if (pageModulePromises.has(page)) return pageModulePromises.get(page);
+
+  const promise = (async () => {
+    await loadCoreModules();
+    if (page === "reports") {
+      await Promise.all([
+        import("./closed-cycle-report.js?v=91"),
+        import("./mobile-reports-v2.js?v=94")
+      ]);
+      return;
+    }
+    if (page === "users") await import("./platform-users.js");
+  })().catch((error) => {
+    pageModulePromises.delete(page);
+    reportModuleFailure(error);
+  });
+  pageModulePromises.set(page, promise);
+  return promise;
 }
 
 function scheduleIdle(callback, timeout) {

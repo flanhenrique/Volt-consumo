@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.12 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.13 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -281,8 +281,13 @@ function enhanceNavigation(shell) {
   window.addEventListener("resize", move, { passive: true });
   const dashboard = document.querySelector("#dashboard");
   if (!dashboard) return release();
-  new MutationObserver(() => { if (!dashboard.hidden) release(); }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
-  if (!dashboard.hidden) release();
+  if (!dashboard.hidden) return release();
+  const visibilityObserver = new MutationObserver(() => {
+    if (dashboard.hidden) return;
+    visibilityObserver.disconnect();
+    release();
+  });
+  visibilityObserver.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
 }
 
 function enhanceSubmitFeedback() {

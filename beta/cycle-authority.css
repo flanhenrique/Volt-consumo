@@ -1,19 +1,19 @@
-html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"]{
+html[data-environment="beta"] .cycle-heading:has(#beta-cycle-label.cycle-lines){
   display:grid;
   grid-template-columns:minmax(118px,.82fr) minmax(0,1.48fr);
   align-items:center;
   gap:16px;
   width:100%;
 }
-html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] .section-copy{
+html[data-environment="beta"] .cycle-heading:has(#beta-cycle-label.cycle-lines) .section-copy{
   min-width:0;
   align-self:center;
 }
-html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] .section-copy .eyebrow{
+html[data-environment="beta"] .cycle-heading:has(#beta-cycle-label.cycle-lines) .section-copy .eyebrow{
   margin:0 0 5px;
   line-height:1.45;
 }
-html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"] #beta-home-title{
+html[data-environment="beta"] .cycle-heading:has(#beta-cycle-label.cycle-lines) #beta-home-title{
   margin:0;
   font-size:clamp(1.65rem,7.3vw,2.25rem);
   line-height:1.02;
@@ -90,7 +90,7 @@ html[data-environment="beta"] .cycle-line small{
   white-space:nowrap;
 }
 @media(max-width:380px){
-  html[data-environment="beta"] .cycle-heading[data-separate-cycles="true"]{
+  html[data-environment="beta"] .cycle-heading:has(#beta-cycle-label.cycle-lines){
     grid-template-columns:minmax(104px,.72fr) minmax(0,1.45fr);
     gap:10px;
   }

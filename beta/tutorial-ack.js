@@ -6,6 +6,8 @@ let tutorialClient = null;
 let mandatoryTour = false;
 let acknowledgementPending = false;
 let accountSyncPending = false;
+let tutorialRequirementKey = "";
+let tutorialRequirementPromise = null;
 
 queueMicrotask(initializeTutorialAcknowledgement);
 
@@ -32,11 +34,15 @@ function initializeTutorialAcknowledgement() {
   const client = getTutorialClient();
   if (!client) return;
   client.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) queueMicrotask(() => requireCurrentTutorial(session.user));
-    else mandatoryTour = false;
+    if (session?.user) queueMicrotask(() => scheduleTutorialRequirement(session.user));
+    else {
+      mandatoryTour = false;
+      tutorialRequirementKey = "";
+      tutorialRequirementPromise = null;
+    }
   });
   client.auth.getSession().then(({ data }) => {
-    if (data?.session?.user) requireCurrentTutorial(data.session.user);
+    if (data?.session?.user) scheduleTutorialRequirement(data.session.user);
   }).catch(() => undefined);
 }
 
@@ -55,6 +61,23 @@ function getTutorialClient() {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   return tutorialClient;
+}
+
+function scheduleTutorialRequirement(user) {
+  if (!user?.id) return Promise.resolve();
+  const key = [
+    user.id,
+    user.user_metadata?.guided_tutorial_notice_version || "",
+    safeGet(LOCAL_ACK_KEY) || ""
+  ].join("|");
+  if (key === tutorialRequirementKey) return tutorialRequirementPromise || Promise.resolve();
+  tutorialRequirementKey = key;
+  tutorialRequirementPromise = Promise.resolve()
+    .then(() => requireCurrentTutorial(user))
+    .finally(() => {
+      tutorialRequirementPromise = null;
+    });
+  return tutorialRequirementPromise;
 }
 
 async function requireCurrentTutorial(user) {

@@ -15,6 +15,8 @@ const STATES = [["AC","Acre"],["AL","Alagoas"],["AP","Amapá"],["AM","Amazonas"]
 let client = null;
 let tourIndex = 0;
 let tourSlides = [];
+let profileSyncPromise = null;
+let profileSyncUserId = null;
 
 initialize();
 
@@ -190,12 +192,25 @@ async function submitSignup(event) {
 function initializeProfileSync() {
   const supabase = getClient();
   if (!supabase) return;
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) queueMicrotask(() => applyAccountProfile(session.user));
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (!session?.user || event === "TOKEN_REFRESHED") return;
+    queueProfileSync(session.user);
   });
   supabase.auth.getSession().then(({ data }) => {
-    if (data?.session?.user) applyAccountProfile(data.session.user);
+    if (data?.session?.user) queueProfileSync(data.session.user);
   }).catch(() => undefined);
+}
+
+function queueProfileSync(user) {
+  if (!user?.id) return Promise.resolve();
+  if (profileSyncPromise && profileSyncUserId === user.id) return profileSyncPromise;
+  profileSyncUserId = user.id;
+  profileSyncPromise = Promise.resolve()
+    .then(() => applyAccountProfile(user))
+    .finally(() => {
+      profileSyncPromise = null;
+    });
+  return profileSyncPromise;
 }
 
 async function applyAccountProfile(user) {
@@ -232,17 +247,19 @@ async function applyAccountProfile(user) {
 
 function syncMetadataToDevice(metadata) {
   if (metadata.locality && typeof metadata.locality === "object") {
-    localStorage.setItem(LOCALITY_KEY, JSON.stringify(metadata.locality));
+    const localityChanged = writeJsonIfChanged(LOCALITY_KEY, metadata.locality);
     syncLocalityForm(metadata.locality);
+    if (localityChanged) {
+      window.dispatchEvent(new CustomEvent("volt:locality-context", { detail: structuredClone(metadata.locality) }));
+    }
   }
   if (metadata.cycle && typeof metadata.cycle === "object") {
     const cycle = { start: clampDay(metadata.cycle.start), end: clampDay(metadata.cycle.end) };
-    localStorage.setItem(CYCLE_KEY, JSON.stringify(cycle));
+    writeJsonIfChanged(CYCLE_KEY, cycle);
     const start = document.querySelector("#beta-cycle-start");
     const end = document.querySelector("#beta-cycle-end");
-    if (start) start.value = cycle.start;
-    if (end) end.value = cycle.end;
-    window.dispatchEvent(new CustomEvent("volt:beta-data"));
+    if (start && String(start.value) !== String(cycle.start)) start.value = cycle.start;
+    if (end && String(end.value) !== String(cycle.end)) end.value = cycle.end;
   }
 }
 
@@ -253,11 +270,10 @@ function syncLocalityForm(locality) {
   const city = form.querySelector("#beta-locality-city");
   const energy = form.querySelector("#beta-locality-energy-provider");
   const water = form.querySelector("#beta-locality-water-provider");
-  if (state) state.value = locality.state || "";
-  if (city) city.value = locality.city || "";
-  if (energy) energy.value = locality.energyProvider || "";
-  if (water) water.value = locality.waterProvider || "";
-  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  if (state && state.value !== (locality.state || "")) state.value = locality.state || "";
+  if (city && city.value !== (locality.city || "")) city.value = locality.city || "";
+  if (energy && energy.value !== (locality.energyProvider || "")) energy.value = locality.energyProvider || "";
+  if (water && water.value !== (locality.waterProvider || "")) water.value = locality.waterProvider || "";
 }
 
 function bindAccountPersistence() {
@@ -288,7 +304,12 @@ async function persistMetadata(partial) {
   const { data } = await supabase.auth.getUser();
   const user = data?.user;
   if (!user) return;
-  await supabase.auth.updateUser({ data: { ...(user.user_metadata || {}), ...partial } });
+  const metadata = user.user_metadata || {};
+  const meaningfulPartial = Object.fromEntries(Object.entries(partial).filter(([key, value]) => {
+    return stableJson(metadata[key]) !== stableJson(value);
+  }));
+  if (!Object.keys(meaningfulPartial).length) return;
+  await supabase.auth.updateUser({ data: { ...metadata, ...meaningfulPartial } });
 }
 
 function buildTourDialog() {
@@ -359,6 +380,13 @@ function bindRegionalHelpOverrides() {
 function markOnboardingComplete() { localStorage.setItem("volt-beta-onboarding-complete", "true"); }
 function clampDay(value) { return Math.max(1, Math.min(31, Number(value) || 1)); }
 function readJson(key, fallback) { try { const value = JSON.parse(localStorage.getItem(key) || "null"); return value ?? fallback; } catch { return fallback; } }
+function stableJson(value) { try { return JSON.stringify(value ?? null); } catch { return ""; } }
+function writeJsonIfChanged(key, value) {
+  const next = stableJson(value);
+  if (localStorage.getItem(key) === next) return false;
+  localStorage.setItem(key, next);
+  return true;
+}
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" })[char]); }
 
 function welcomeSvg(){return `<svg viewBox="0 0 760 260" role="img" aria-label="Ilustração de energia e água"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#31d797"/><stop offset="1" stop-color="#48a7ff"/></linearGradient></defs><rect width="760" height="260" rx="28" fill="#07151f"/><circle cx="270" cy="130" r="78" fill="#102a31"/><path d="M287 48l-68 100h54l-19 68 79-110h-55z" fill="url(#g)"/><path d="M505 58c-20 35-68 81-68 123a68 68 0 10136 0c0-42-48-88-68-123z" fill="#48a7ff" opacity=".9"/></svg>`}

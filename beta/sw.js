@@ -1,5 +1,5 @@
 // VOLT Service Worker — shell same-origin com cache sob demanda para módulos secundários.
-const CACHE="volt-beta-shell-v93";
+const CACHE="volt-beta-shell-v94";
 const CORE_ASSETS=[
   "./",
   "./index.html",
@@ -100,9 +100,11 @@ self.addEventListener("fetch",event=>{
         return response;
       })
       .catch(async()=>{
-        const cached=await caches.match(request);
+        // Os assets usam ?v=... para bust de cache. O precache guarda a URL
+        // canônica sem query, então o fallback offline precisa ignorar a busca.
+        const cached=await caches.match(request,{ignoreSearch:true});
         if(cached)return cached;
-        if(request.mode==="navigate")return caches.match("./index.html");
+        if(request.mode==="navigate")return caches.match("./index.html",{ignoreSearch:true});
         throw new Error("Volt: recurso indisponível offline");
       })
   );

@@ -1,6 +1,5 @@
 queueMicrotask(cleanHome);
 window.addEventListener("volt:beta-data", cleanHome);
-window.addEventListener("volt:cycle-context", cleanHome);
 
 let headingObserver;
 
@@ -15,29 +14,31 @@ function cleanHome() {
   const context = window.VOLT_CYCLE_CONTEXT;
   if (!label || !context) return;
 
-  label.classList.add("cycle-lines");
-  label.replaceChildren(
-    makeLine("water", "●", "Água", context.water),
-    makeLine("energy", "ϟ", "Energia", context.energy)
-  );
+  if (!label.querySelector(".cycle-line")) {
+    label.classList.add("cycle-lines");
+    label.replaceChildren(
+      makeLine("water", "💧", "Água", context.water),
+      makeLine("energy", "ϟ", "Energia", context.energy)
+    );
+  }
 }
 
 function enforceCycleHeading() {
-  const heading = document.querySelector("#beta-home .cycle-heading");
+  const heading = document.querySelector(".cycle-heading");
   const eyebrow = heading?.querySelector(".eyebrow");
-  const title = heading?.querySelector("#beta-home-title");
+  const title = document.querySelector("#beta-home-title");
 
-  if (eyebrow && eyebrow.textContent !== "CICLO DE CONTAGEM") {
-    eyebrow.textContent = "CICLO DE CONTAGEM";
+  if (eyebrow && eyebrow.textContent !== "CICLOS DE CONTAGEM") {
+    eyebrow.textContent = "CICLOS DE CONTAGEM";
   }
-  if (title && title.textContent !== "Ciclos atuais") {
-    title.textContent = "Ciclos atuais";
+  if (title && title.textContent !== "Ciclos") {
+    title.textContent = "Ciclos";
   }
 }
 
 function observeCycleHeading() {
   if (headingObserver) return;
-  const heading = document.querySelector("#beta-home .cycle-heading");
+  const heading = document.querySelector(".cycle-heading");
   if (!heading) return;
   headingObserver = new MutationObserver(() => {
     enforceCycleHeading();

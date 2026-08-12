@@ -10,14 +10,13 @@ const STARTUP_HEAVY_METHODS = new Set([
 
 let apiTarget = null;
 let apiFacade = null;
-let startupDataRequested = false;
 let startupReady = false;
 let idleScheduled = false;
 const deferredCalls = new Map();
 
 installSupabaseSingleton();
 installBetaApiFacade();
-observeDashboardPriority();
+observeStartupReady();
 
 function installSupabaseSingleton() {
   const factory = window.supabase?.createClient;
@@ -84,39 +83,25 @@ function readSnapshotFor(method, api) {
   return undefined;
 }
 
-function observeDashboardPriority() {
-  const begin = () => {
-    const dashboard = document.querySelector("#dashboard");
-    if (!dashboard) {
-      setTimeout(begin, 25);
-      return;
-    }
-    const tryLoad = () => {
-      if (dashboard.hidden || startupDataRequested) return;
-      const api = window.VOLT_BETA_API;
-      if (!api?.refreshData) {
-        setTimeout(tryLoad, 0);
-        return;
-      }
-      startupDataRequested = true;
-      performance.mark?.("volt-account-load-start");
-      Promise.resolve(api.refreshData())
-        .catch(() => false)
-        .finally(() => {
-          startupReady = true;
-          performance.mark?.("volt-account-load-ready");
-          try {
-            performance.measure?.("volt-account-load", "volt-account-load-start", "volt-account-load-ready");
-          } catch {}
-          window.dispatchEvent(new CustomEvent("volt:startup-ready"));
-          flushDeferredWork();
-        });
-    };
-    new MutationObserver(tryLoad).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
-    tryLoad();
+function observeStartupReady() {
+  const finish = () => {
+    if (startupReady) return;
+    startupReady = true;
+    performance.mark?.("volt-account-load-ready");
+    window.dispatchEvent(new CustomEvent("volt:startup-ready"));
+    flushDeferredWork();
   };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", begin, { once: true });
-  else begin();
+
+  // app.js é a única autoridade para buscar os dados iniciais da conta.
+  // Antes este módulo chamava refreshData() ao detectar o dashboard visível,
+  // disparando uma segunda leitura de energia/água enquanto o login ainda
+  // concluía. O primeiro volt:beta-data agora apenas sinaliza que a carga
+  // prioritária terminou.
+  window.addEventListener("volt:beta-data", finish, { once: true });
+
+  // Fail-safe: se um erro de renderização impedir o evento, não mantenha as
+  // funções administrativas bloqueadas indefinidamente.
+  window.setTimeout(finish, 3500);
 }
 
 function scheduleDeferredWork() {

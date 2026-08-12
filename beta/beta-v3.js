@@ -1,5 +1,5 @@
-/** Volt Consumo — Beta v3.6 · bootstrap pós-login sem competir com a carga dos dados. */
-import "./startup-runtime.js?v=79";
+/** Volt Consumo — Beta v3.7 · bootstrap pós-login sem competir com a carga dos dados. */
+import "./startup-runtime.js?v=92";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -35,7 +35,7 @@ function stageAuthenticatedRuntime() {
     authenticatedRuntimeArmed = true;
     // updateAuthScreen torna o dashboard visível antes de loadUserData terminar.
     // Esperar o primeiro volt:beta-data impede imports regionais/relatórios de
-    // disputar CPU e rede com as quatro consultas que pintam a primeira tela.
+    // disputar CPU e rede com as consultas que pintam a primeira tela.
     window.addEventListener("volt:beta-data", loadCoreModules, { once: true });
     window.setTimeout(loadCoreModules, 1800);
   };
@@ -52,10 +52,10 @@ async function loadCoreModules() {
   if (coreModulesPromise) return coreModulesPromise;
   coreModulesPromise = (async () => {
     attachCycleStyles();
-    await import("./regional-tariff-resolver.js?v=84");
+    await import("./regional-tariff-resolver.js?v=96");
     await Promise.all([
-      import("./regional-cycles.js?v=87"),
-      import("./regional-home.js?v=86")
+      import("./regional-cycles.js?v=96"),
+      import("./regional-home.js?v=96")
     ]);
     scheduleSecondaryModules();
   })().catch(reportModuleFailure);
@@ -85,8 +85,8 @@ function scheduleDeferredModules() {
       import("./energy-detail.js?v=85"),
       import("./closed-cycle-report.js?v=91"),
       import("./mobile-reports-v2.js?v=94"),
-      import("./uruguay-tariff-catalog.js?v=83"),
-      import("./uruguay-water-detail.js?v=93")
+      import("./uruguay-tariff-catalog.js?v=96"),
+      import("./uruguay-water-detail.js?v=96")
     ]).then(loadTestAccountModules).catch(reportModuleFailure);
     return deferredModulesPromise;
   };

@@ -1,6 +1,7 @@
 /** Volt Consumo — Beta v3.1 · microinterações e layout. */
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
+import "./regional-auth.js?v=89";
 import "./uruguay-tariff-catalog.js?v=83";
 import "./energy-detail.js?v=85";
 import "./locality-context.js?v=84";

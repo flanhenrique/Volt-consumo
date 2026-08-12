@@ -1,8 +1,4 @@
-/**
- * Volt Consumo — Beta v3.1 · microinterações e layout.
- * A sincronização funcional fica nos módulos de domínio; esta camada é visual.
- */
-
+/** Volt Consumo — Beta v3.1 · microinterações e layout. */
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
 import "./uruguay-tariff-catalog.js?v=83";
@@ -12,6 +8,7 @@ import "./regional-tariff-resolver.js?v=84";
 import "./platform-users.js";
 import "./home-cleanup.js?v=81";
 import "./regional-home.js?v=86";
+import "./regional-cycles.js?v=87";
 import "./guided-experience.js";
 import "./signup-confirmation.js";
 import "./tutorial-ack.js?v=68";
@@ -19,10 +16,7 @@ import "./initial-bill-setup.js?v=71";
 import "./separate-cycles.js?v=77";
 import "./test-account-reset.js?v=73";
 import "./test-account-onboarding-prefill.js?v=74";
-
-const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
-const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
-start();
+const REDUCED_MOTION=window.matchMedia("(prefers-reduced-motion: reduce)"),DARK_SCHEME=window.matchMedia("(prefers-color-scheme: dark)");start();
 function start(){attachCycleStyles();syncStatusBarColor();const shell=document.querySelector(".beta-v2-shell");if(!shell)return;measureNavigationHeight(shell);enhanceHeader(shell);enhanceNavigation(shell);enhanceSubmitFeedback();}
 function attachCycleStyles(){if(document.querySelector('link[href*="cycle-authority.css"]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="./cycle-authority.css?v=81";document.head.append(link);}
 function syncStatusBarColor(){const apply=()=>{const canvas=getComputedStyle(document.documentElement).getPropertyValue("--lm-canvas").trim();if(!canvas)return;for(const meta of document.querySelectorAll('meta[name="theme-color"]')){meta.removeAttribute("media");meta.setAttribute("content",canvas);}};apply();new MutationObserver(apply).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});DARK_SCHEME.addEventListener("change",apply);}

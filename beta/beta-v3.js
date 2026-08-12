@@ -1,20 +1,18 @@
-/** Volt Consumo — Beta v3.2 · runtime staged para reduzir contenção no login. */
+/** Volt Consumo — Beta v3.3 · bootstrap progressivo sem tempestade de módulos. */
 import "./startup-runtime.js?v=79";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
-import "./locality-context.js?v=84";
-import "./regional-onboarding.js?v=88";
 import "./signup-confirmation.js";
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const DARK_SCHEME = window.matchMedia("(prefers-color-scheme: dark)");
-let applicationModulesPromise = null;
+let coreModulesPromise = null;
+let secondaryModulesPromise = null;
 let deferredModulesPromise = null;
 
 start();
 
 function start() {
-  attachCycleStyles();
   syncStatusBarColor();
   const shell = document.querySelector(".beta-v2-shell");
   if (shell) {
@@ -23,61 +21,81 @@ function start() {
     enhanceNavigation(shell);
   }
   enhanceSubmitFeedback();
-  stageApplicationModules();
+  stageAuthenticatedRuntime();
 }
 
-function stageApplicationModules() {
+function stageAuthenticatedRuntime() {
   const dashboard = document.querySelector("#dashboard");
-  if (!dashboard) return queueMicrotask(loadApplicationModules);
-  if (!dashboard.hidden) return queueMicrotask(loadApplicationModules);
+  if (!dashboard || !dashboard.hidden) {
+    queueMicrotask(loadCoreModules);
+    return;
+  }
   const observer = new MutationObserver(() => {
     if (dashboard.hidden) return;
     observer.disconnect();
-    loadApplicationModules();
+    loadCoreModules();
   });
   observer.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
 }
 
-function loadApplicationModules() {
-  if (applicationModulesPromise) return applicationModulesPromise;
-  applicationModulesPromise = Promise.all([
-    import("./regional-tariff-resolver.js?v=84"),
-    import("./platform-users.js"),
-    import("./home-cleanup.js?v=83"),
-    import("./regional-home.js?v=86"),
-    import("./regional-cycles.js?v=87"),
-    import("./guided-experience.js"),
-    import("./tutorial-ack.js?v=68"),
-    import("./initial-bill-setup.js?v=71"),
-    import("./separate-cycles.js?v=77")
-  ]).then(scheduleDeferredModules).catch(reportModuleFailure);
-  return applicationModulesPromise;
+async function loadCoreModules() {
+  if (coreModulesPromise) return coreModulesPromise;
+  coreModulesPromise = (async () => {
+    attachCycleStyles();
+    await import("./locality-context.js?v=84");
+    await import("./regional-tariff-resolver.js?v=84");
+    await import("./regional-cycles.js?v=87");
+    await import("./regional-home.js?v=86");
+    await import("./regional-onboarding.js?v=88");
+    scheduleSecondaryModules();
+  })().catch(reportModuleFailure);
+  return coreModulesPromise;
+}
+
+function scheduleSecondaryModules() {
+  if (secondaryModulesPromise) return secondaryModulesPromise;
+  const run = async () => {
+    secondaryModulesPromise = (async () => {
+      await import("./platform-users.js");
+      await import("./guided-experience.js");
+      await import("./tutorial-ack.js?v=68");
+      await import("./initial-bill-setup.js?v=71");
+      await import("./separate-cycles.js?v=77");
+      scheduleDeferredModules();
+    })().catch(reportModuleFailure);
+    return secondaryModulesPromise;
+  };
+  scheduleIdle(run, 500);
+  return null;
 }
 
 function scheduleDeferredModules() {
   if (deferredModulesPromise) return deferredModulesPromise;
-  const run = () => {
-    deferredModulesPromise = Promise.all([
-      import("./energy-detail.js?v=85"),
-      import("./closed-cycle-report.js?v=91"),
-      import("./mobile-reports-v2.js?v=94"),
-      import("./uruguay-tariff-catalog.js?v=83"),
-      import("./uruguay-water-detail.js?v=93")
-    ]).then(loadTestAccountModules).catch(reportModuleFailure);
+  const run = async () => {
+    deferredModulesPromise = (async () => {
+      await import("./energy-detail.js?v=85");
+      await import("./closed-cycle-report.js?v=91");
+      await import("./mobile-reports-v2.js?v=94");
+      await import("./uruguay-tariff-catalog.js?v=83");
+      await import("./uruguay-water-detail.js?v=93");
+      await loadTestAccountModules();
+    })().catch(reportModuleFailure);
     return deferredModulesPromise;
   };
-  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 1200 });
-  else window.setTimeout(run, 250);
+  scheduleIdle(run, 1400);
   return null;
 }
 
-function loadTestAccountModules() {
+function scheduleIdle(callback, timeout) {
+  if ("requestIdleCallback" in window) window.requestIdleCallback(callback, { timeout });
+  else window.setTimeout(callback, Math.min(timeout, 350));
+}
+
+async function loadTestAccountModules() {
   const email = window.VOLT_BETA_API?.getSnapshot?.().account?.email?.trim().toLowerCase() || "";
-  if (email !== "walflanribeiro@gmail.com") return null;
-  return Promise.all([
-    import("./test-account-reset.js?v=73"),
-    import("./test-account-onboarding-prefill.js?v=74")
-  ]);
+  if (email !== "walflanribeiro@gmail.com") return;
+  await import("./test-account-reset.js?v=73");
+  await import("./test-account-onboarding-prefill.js?v=74");
 }
 
 function reportModuleFailure(error) {
@@ -144,7 +162,10 @@ function enhanceNavigation(shell) {
     indicator.style.setProperty("--nav-indicator-width", `${bounds.width}px`);
     indicator.style.setProperty("--nav-indicator-x", `${bounds.left - reference.left}px`);
   };
-  const release = () => { move(); requestAnimationFrame(() => { indicator.dataset.ready = "true"; }); };
+  const release = () => {
+    move();
+    requestAnimationFrame(() => { indicator.dataset.ready = "true"; });
+  };
   navigation.addEventListener("click", () => requestAnimationFrame(move));
   window.addEventListener("resize", move, { passive: true });
   const dashboard = document.querySelector("#dashboard");

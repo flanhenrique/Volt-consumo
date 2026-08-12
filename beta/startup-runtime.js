@@ -38,6 +38,7 @@ let dataRefreshPromise = null;
 let lastDataRefreshAt = 0;
 let betaDataFramePending = false;
 let latestBetaDataDetail = null;
+let lastBetaDataSignature = "";
 const completedCoreTables = new Set();
 const deferredCalls = new Map();
 const deferredRpcGroups = new Set();
@@ -232,6 +233,24 @@ function readSnapshotFor(method, api) {
   return undefined;
 }
 
+function runtimeSnapshotSignature() {
+  const api = apiTarget || window.VOLT_BETA_API;
+  if (!api || typeof api !== "object") return "";
+  try {
+    return JSON.stringify({
+      account: api.getSnapshot?.() ?? null,
+      admin: api.getAdminSnapshot?.() ?? null,
+      flags: api.getFeatureFlagsSnapshot?.() ?? null,
+      operations: api.getOperationalSnapshot?.() ?? null,
+      organizations: api.getOrganizationSnapshot?.() ?? null,
+      invitation: api.getInvitationSnapshot?.() ?? null,
+      mfa: api.getMfaSnapshot?.() ?? null
+    });
+  } catch {
+    return "";
+  }
+}
+
 function installBetaDataCoalescer() {
   window.addEventListener("volt:beta-data", (event) => {
     if (event.detail?.__voltCoalesced === true) return;
@@ -250,6 +269,16 @@ function installBetaDataCoalescer() {
       betaDataFramePending = false;
       const detail = { ...(latestBetaDataDetail || {}), __voltCoalesced: true };
       latestBetaDataDetail = null;
+
+      // Depois que o bootstrap terminou, não repassa sinais cujo estado global
+      // é idêntico ao último já renderizado. Isso impede renders completos do
+      // beta-shell por eventos repetidos em frames diferentes.
+      if (startupReady) {
+        const signature = runtimeSnapshotSignature();
+        if (signature && signature === lastBetaDataSignature) return;
+        if (signature) lastBetaDataSignature = signature;
+      }
+
       window.dispatchEvent(new CustomEvent("volt:beta-data", { detail }));
     };
     if (document.hidden) queueMicrotask(publish);
@@ -262,6 +291,7 @@ function observeStartupReady() {
     if (startupReady) return;
     startupReady = true;
     lastDataRefreshAt = performance.now();
+    lastBetaDataSignature = runtimeSnapshotSignature();
     performance.mark?.("volt-account-load-ready");
     window.dispatchEvent(new CustomEvent("volt:account-data-ready"));
     window.dispatchEvent(new CustomEvent("volt:startup-ready"));

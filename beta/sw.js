@@ -1,5 +1,5 @@
 // VOLT Service Worker — cache exclusivo do shell estático same-origin.
-const CACHE = "volt-beta-shell-v82";
+const CACHE = "volt-beta-shell-v83";
 
 const ASSETS = [
   "./",
@@ -16,6 +16,7 @@ const ASSETS = [
   "./beta-v3.js",
   "./startup-runtime.js",
   "./mercosur-region.js",
+  "./uruguay-tariff-catalog.js",
   "./guided-experience.js",
   "./guided-experience.css",
   "./signup-confirmation.js",

@@ -4,11 +4,11 @@
  */
 
 import "./startup-runtime.js?v=79";
-import "./mercosur-region.js?v=82";
+import "./mercosur-region.js?v=84";
 import "./uruguay-tariff-catalog.js?v=83";
 import "./energy-detail.js";
-import "./locality-context.js?v=82";
-import "./regional-tariff-resolver.js?v=82";
+import "./locality-context.js?v=84";
+import "./regional-tariff-resolver.js?v=84";
 import "./platform-users.js";
 import "./home-cleanup.js?v=81";
 import "./guided-experience.js";

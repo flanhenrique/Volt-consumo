@@ -9,6 +9,7 @@ import "./regional-tariff-resolver.js?v=84";
 import "./platform-users.js";
 import "./home-cleanup.js?v=81";
 import "./regional-home.js?v=86";
+import "./uruguay-water-detail.js?v=93";
 import "./regional-cycles.js?v=87";
 import "./regional-onboarding.js?v=88";
 import "./guided-experience.js";

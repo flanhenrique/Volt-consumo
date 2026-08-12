@@ -99,7 +99,7 @@ function renderRegionalHome() {
     renderStats(report, [
       ["Energía", `${formatNumber(Number(values.energy?.consumption || 0), 1, context)} kWh`],
       ["Agua", `${formatNumber(Number(values.water?.consumption || 0), 3, context)} m³`],
-      [bothFinalKnown ? "Total estimado" : "Total parcial conhecido", energyKnown && waterKnown ? formatMoney(knownTotal, context) : "Pendiente"]
+      [bothFinalKnown ? "Total estimado" : "Total parcial conocido", energyKnown && waterKnown ? formatMoney(knownTotal, context) : "Pendiente"]
     ]);
   }
 

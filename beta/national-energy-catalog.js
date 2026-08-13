@@ -4,9 +4,9 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-08-10T21:57:14.677Z",
+  "generatedAt": "2026-08-13T00:39:42.423Z",
   "mode": "aneel-weekly",
-  "automaticRules": 100
+  "automaticRules": 101
 });
 
 export const NATIONAL_ENERGY_CATALOG = Object.freeze([
@@ -2352,6 +2352,31 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 2.680, DE 22 DE JULHO DE 2026",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
+    "id": "nao-informado-b1-residencial-convencional-2026-07-30",
+    "utility": "energy",
+    "provider": "Não Informado",
+    "providerAliases": [
+      "Não Informado"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-07-30",
+    "validUntil": "2027-07-29",
+    "ratePerKwh": 1.0538,
+    "components": {
+      "tusdPerMwh": 726.42,
+      "tePerMwh": 327.38
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 2.845, DE 30 DE JULHO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

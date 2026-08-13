@@ -29,22 +29,7 @@ function start() {
 }
 
 function installRuntimeVisibilityGuards() {
-  if (!document.querySelector("style[data-volt-runtime-visibility]")) {
-    const style = document.createElement("style");
-    style.dataset.voltRuntimeVisibility = "true";
-    style.textContent = `
-      html[data-environment="beta"] [hidden] { display: none !important; }
-      html[data-environment="beta"][data-volt-home-ready="false"] .beta-v2-shell {
-        visibility: hidden !important;
-      }
-      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-home .financial-preview strong,
-      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-financial-total,
-      html[data-environment="beta"][data-volt-financial-ready="false"] #beta-summary-values strong {
-        visibility: hidden !important;
-      }
-    `;
-    document.head.append(style);
-  }
+  // As regras visuais vivem em bootstrap-guards.css para respeitar a CSP.
   document.documentElement.dataset.voltStartupState = "waiting-account";
   document.documentElement.dataset.voltHomeReady = "false";
   document.documentElement.dataset.voltFinancialReady = "false";

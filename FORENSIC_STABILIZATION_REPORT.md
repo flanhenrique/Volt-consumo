@@ -82,7 +82,7 @@ Nome e e-mail vêm de Supabase/store, nunca do DOM. Nome é normalizado por `dis
 
 ## 11. Mudanças de Usuários
 
-A aba deriva de `permissions.canManageUsers`. O bootstrap chama somente `beta_user_permissions()`; diretório e convites são carregados por `beta_admin_snapshot()` apenas quando a tela abre. O nó da página é estático e não é substituído. Abrir, fechar, reabrir e receber dados posteriores mantém os mesmos listeners. Não existe polling global.
+A aba deriva de `permissions.canManageUsers`. O bootstrap chama somente `beta_user_permissions()`; o diretório completo de contas é carregado por `beta_platform_users_snapshot()` apenas quando a tela abre. O card e o renderer de organização foram removidos da tela. O nó da página é estático e não é substituído. Abrir, fechar, reabrir e receber dados posteriores mantém os mesmos listeners. Não existe polling global.
 
 A RPC nova é aditiva, `SECURITY INVOKER`, exige chamador autenticado, AAL2, e-mail autorizado e papel `owner/admin`, e tem `EXECUTE` revogado de `PUBLIC`/`anon` e concedido somente a `authenticated`. Ela não modifica tabelas ou dados. Foi aplicada no projeto Supabase `Volt Consumo` como `20260813065357_bootstrap_permissions`. A auditoria confirmou `security_definer=false`, `search_path=''`, `anon_execute=false`, `authenticated_execute=true` e resultado não autorizado `{role: null, can_manage_users: false}`.
 

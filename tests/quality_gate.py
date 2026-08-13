@@ -6,7 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_ID = "20260813.1"
+RELEASE_ID = "20260813.2"
 failures = []
 
 
@@ -73,7 +73,11 @@ for forbidden, reason in {
     "MutationObserver": "lifecycle ativo não pode depender de MutationObserver",
     "setInterval(": "aplicação ativa não pode fazer polling global",
     "Tarifas e encargos": "card legado não pode existir no código ativo",
-    "Organização ativa": "seletor legado não pode existir na Home"
+    "Organização ativa": "seletor legado não pode existir na Home",
+    "organization-summary": "card de organização não pode existir em Usuários",
+    "members-list": "renderer de membros por organização não pode controlar Usuários",
+    "Preparando sua visão geral": "splash visual não faz parte do produto",
+    'id="boot-screen"': "bootstrap não pode criar uma tela visual inventada"
 }.items():
     check(forbidden not in active_sources, reason)
 
@@ -89,6 +93,9 @@ check(sw_source.count("response.clone()") == 2, "cada estratégia de rede deve c
 check(f'const RELEASE_ID = "{RELEASE_ID}"' in sw_source, "Service Worker e grafo de assets devem compartilhar a release")
 check("cacheApplicationShell().then(() => self.skipWaiting())" in sw_source, "Service Worker novo deve ativar somente após formar o cache completo")
 check(f'searchParams.set("v", "{RELEASE_ID}")' in (ROOT / "src/supabase-loader.js").read_text(encoding="utf-8"), "runtime Supabase deve pertencer à mesma release")
+service_source = (ROOT / "src/volt-service.js").read_text(encoding="utf-8")
+check('client.rpc("beta_platform_users_snapshot")' in service_source, "Usuários deve consumir o diretório global da plataforma")
+check('client.rpc("beta_admin_snapshot")' not in service_source, "Usuários não pode voltar ao snapshot restrito à organização")
 
 checksum_file = ROOT / "vendor/SHA256SUMS"
 if checksum_file.exists():

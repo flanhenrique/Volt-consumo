@@ -54,14 +54,13 @@ def scenario_signed_out(browser, mobile=False):
     except Exception as error:
         diagnostic = page.evaluate("""() => ({
           status: document.documentElement.dataset.startupStatus,
-          boot: !document.getElementById('boot-screen').hidden,
           login: !document.getElementById('login-screen').hidden,
           dashboard: !document.getElementById('dashboard').hidden,
           fatal: document.getElementById('fatal-error-message').textContent
         })""")
         raise AssertionError(f"estado inicial: {diagnostic}; erros: {errors}") from error
     expect(page.locator("#dashboard")).to_be_hidden()
-    expect(page.locator("#boot-screen")).to_be_hidden()
+    expect(page.locator("#boot-screen")).to_have_count(0)
     assert_clean(page, errors)
     context.close()
 
@@ -102,8 +101,7 @@ def scenario_authenticated(browser):
 
     page.get_by_role("button", name="Relatórios").click()
     expect(page.locator("#page-reports")).to_be_visible()
-    expect(page.get_by_text("Relatórios em preparação")).to_be_visible()
-    expect(page.get_by_text("Nenhum dado foi fabricado")).to_be_visible()
+    expect(page.locator("#page-reports")).to_be_empty()
 
     page.get_by_role("button", name="Configurações").click()
     page.locator("#logout").click()
@@ -138,7 +136,11 @@ def scenario_admin(browser):
     users = page.get_by_role("button", name="Usuários")
     expect(users).to_be_visible()
     users.click()
-    expect(page.locator("#members-list .member-item")).to_have_count(1)
+    expect(page.locator("#users-list .user-account-item")).to_have_count(3)
+    expect(page.locator("#users-total")).to_have_text("3")
+    expect(page.locator("#users-confirmed")).to_have_text("2")
+    expect(page.locator("#page-users").get_by_text("Organização", exact=False)).to_have_count(0)
+    expect(page.get_by_text("ana@example.com")).to_be_visible()
     page.locator("#invite-user").click()
     page.locator("#invite-email").fill("novo@volt.test")
     page.locator("#invite-form").get_by_role("button", name="Criar convite").click()
@@ -148,7 +150,7 @@ def scenario_admin(browser):
     page.get_by_role("button", name="Início").click()
     users.click()
     expect(page.locator("#page-users")).to_have_attribute("data-ownership-probe", "same-node")
-    expect(page.locator("#members-list .member-item")).to_have_count(1)
+    expect(page.locator("#users-list .user-account-item")).to_have_count(3)
     assert_clean(page, errors)
     context.close()
 
@@ -163,7 +165,6 @@ def scenario_service_worker(browser):
         except Exception as error:
             diagnostic = page.evaluate("""async () => ({
               status: document.documentElement.dataset.startupStatus,
-              boot: !document.getElementById('boot-screen').hidden,
               login: !document.getElementById('login-screen').hidden,
               dashboard: !document.getElementById('dashboard').hidden,
               fatal: document.getElementById('fatal-error-message').textContent,
@@ -186,7 +187,7 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.1"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.2"]
     page.goto(BASE_URL + "/")
     expect_login("visita controlada")
     assert page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)")

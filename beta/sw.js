@@ -1,6 +1,7 @@
-// VOLT Service Worker — shell same-origin com cache sob demanda para módulos secundários.
-const CACHE="volt-beta-shell-v96";
-const CORE_ASSETS=[
+// VOLT Service Worker — shell Beta com cache sob demanda para módulos secundários.
+const CACHE_PREFIX = "volt-beta-shell-";
+const CACHE = `${CACHE_PREFIX}v97`;
+const CORE_ASSETS = [
   "./",
   "./index.html",
   "./privacy.html",
@@ -30,7 +31,7 @@ const CORE_ASSETS=[
   "./manifest.webmanifest",
   "./icon.svg"
 ];
-const OPTIONAL_ASSETS=[
+const OPTIONAL_ASSETS = [
   "./regional-tariff-resolver.js",
   "./regional-home.js",
   "./regional-cycles.js",
@@ -57,59 +58,78 @@ const OPTIONAL_ASSETS=[
   "./icon-192.png",
   "./icon-512.png"
 ];
-const ASSETS=[...CORE_ASSETS,...OPTIONAL_ASSETS];
-const SHELL_PATHS=new Set(ASSETS.map(asset=>new URL(asset,self.registration.scope).pathname));
+const ASSETS = [...CORE_ASSETS, ...OPTIONAL_ASSETS];
+const SHELL_PATHS = new Set(ASSETS.map((asset) => new URL(asset, self.registration.scope).pathname));
 
-self.addEventListener("install",event=>{
-  // CORE inclui todas as dependências estáticas necessárias para analisar e
-  // inicializar app.js/beta-v3.js. OCR e telas secundárias continuam fora do
-  // precache e entram no cache somente quando forem requisitados.
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE_ASSETS)));
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE_ASSETS)));
   self.skipWaiting();
 });
 
-self.addEventListener("activate",event=>{
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
-      .then(()=>self.clients.claim())
+      .then((keys) => Promise.all(
+        keys
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+          .map((key) => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-function isCacheableShellRequest(request){
-  if(request.method!=="GET")return false;
+function isCacheableShellRequest(request) {
+  if (request.method !== "GET") return false;
   let url;
-  try{url=new URL(request.url);}catch{return false;}
-  if(url.origin!==self.location.origin||!SHELL_PATHS.has(url.pathname))return false;
-  if(request.credentials==="include")return false;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return false;
+  }
+  if (url.origin !== self.location.origin || !SHELL_PATHS.has(url.pathname)) return false;
+  if (request.credentials === "include") return false;
   return !/\/(auth|rest|realtime|storage|functions)\//i.test(url.pathname);
 }
 
-function isCacheableResponse(response){
-  if(!response?.ok||response.type!=="basic"||response.headers.has("set-cookie"))return false;
-  return !/no-store|private/i.test(response.headers.get("cache-control")||"");
+function isCacheableResponse(response) {
+  if (!response?.ok || response.type !== "basic" || response.bodyUsed || response.headers.has("set-cookie")) return false;
+  return !/no-store|private/i.test(response.headers.get("cache-control") || "");
 }
 
-self.addEventListener("fetch",event=>{
-  const{request}=event;
-  if(!isCacheableShellRequest(request))return;
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (!isCacheableShellRequest(request)) return;
+
   event.respondWith(
     fetch(request)
-      .then(response=>{
-        if(isCacheableResponse(response))caches.open(CACHE).then(cache=>cache.put(request,response.clone()));
+      .then((response) => {
+        let copy = null;
+        if (isCacheableResponse(response)) {
+          try {
+            copy = response.clone();
+          } catch {
+            copy = null;
+          }
+        }
+        if (copy) {
+          void caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+        }
         return response;
       })
-      .catch(async()=>{
-        const cached=await caches.match(request,{ignoreSearch:true});
-        if(cached)return cached;
-        if(request.mode==="navigate")return caches.match("./index.html",{ignoreSearch:true});
+      .catch(async () => {
+        const cached = await caches.match(request, { ignoreSearch: true });
+        if (cached) return cached;
+        if (request.mode === "navigate") return caches.match("./index.html", { ignoreSearch: true });
         throw new Error("Volt: recurso indisponível offline");
       })
   );
 });
 
-self.addEventListener("message",event=>{
-  if(event.data?.type==="VOLT_CLEAR_CACHE"){
-    event.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(key=>caches.delete(key)))));
-  }
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "VOLT_CLEAR_CACHE") return;
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((key) => key.startsWith(CACHE_PREFIX)).map((key) => caches.delete(key))
+    ))
+  );
 });

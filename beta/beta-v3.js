@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.17 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.18 · runtime por prioridade sem renderers concorrentes de página. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -12,7 +12,6 @@ let secondaryModulesPromise = null;
 let deferredModulesPromise = null;
 let authenticatedRuntimeArmed = false;
 let financialStartupReleased = false;
-const pageModulePromises = new Map();
 
 start();
 
@@ -24,7 +23,6 @@ function start() {
     measureNavigationHeight(shell);
     enhanceHeader(shell);
     enhanceNavigation(shell);
-    bindLazyPageModules(shell);
   }
   enhanceSubmitFeedback();
   stageAuthenticatedRuntime();
@@ -221,32 +219,6 @@ function scheduleDeferredModules() {
   };
   scheduleIdle(run, 1600);
   return null;
-}
-
-function bindLazyPageModules(shell) {
-  const navigation = shell.querySelector(".bottom-navigation");
-  if (!navigation) return;
-  navigation.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-nav]");
-    if (!button) return;
-    void loadPageModules(button.dataset.nav);
-  }, { passive: true });
-}
-
-async function loadPageModules(page) {
-  if (!["reports", "users"].includes(page)) return;
-  if (pageModulePromises.has(page)) return pageModulePromises.get(page);
-
-  const promise = (async () => {
-    await loadCoreModules();
-    if (page === "reports") await import("./reports-v3.js?v=1");
-    if (page === "users") await import("./platform-users.js");
-  })().catch((error) => {
-    pageModulePromises.delete(page);
-    reportModuleFailure(error);
-  });
-  pageModulePromises.set(page, promise);
-  return promise;
 }
 
 function scheduleIdle(callback, timeout) {

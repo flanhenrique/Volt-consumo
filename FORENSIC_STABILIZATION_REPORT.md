@@ -148,7 +148,7 @@ Os testes falham automaticamente em `console.error`, `pageerror` e `unhandledrej
 - Os nomes `beta_*` no banco e no domínio persistem por compatibilidade de dados; renomeá-los exigiria migração separada e não faz parte desta estabilização.
 - O vendor Supabase continua UMD local; uma futura atualização deve preservar versão pinada e checksum.
 - O teste Python duplica parte do Playwright Node para permitir validação em máquinas sem Node; o CI usa a suíte Node oficial.
-- A migração foi criada como arquivo versionado porque o CLI Supabase não está instalado neste ambiente. Antes da aplicação, deve ser conferida com o CLI atual, advisors e uma query autenticada em ambiente seguro.
+- A migração foi criada como arquivo versionado e aplicada pela API de migrações do projeto, pois o CLI Supabase não está instalado neste ambiente; advisors, privilégios e execução sem contexto autenticado foram verificados após a aplicação. Uma query com usuário real continua deliberadamente fora do gate por ausência de credencial de teste.
 
 ## 21. Diagrama do startup antigo
 

@@ -27,14 +27,16 @@ const CORE_ACCOUNT_TABLES = new Set([
   "water_settings"
 ]);
 const DATA_REFRESH_COOLDOWN_MS = 1500;
-// TOKEN_REFRESHED não altera identidade. INITIAL_SESSION, porém, é o evento
-// canônico de hidratação da sessão do Supabase e precisa chegar aos consumidores
-// para popular e-mail, nome de exibição e estado de MFA após uma recarga.
+const STARTUP_ERROR_TIMEOUT_MS = 8000;
+// TOKEN_REFRESHED não altera identidade. INITIAL_SESSION continua disponível
+// para consumidores que não fazem hidratação explícita via getSession().
 const REDUNDANT_AUTH_EVENTS = new Set(["TOKEN_REFRESHED"]);
 
 let apiTarget = null;
 let apiFacade = null;
 let startupReady = false;
+let startupErrorPublished = false;
+let startupFailureTimer = 0;
 let coreDataFetched = false;
 let idleScheduled = false;
 let dataRefreshPromise = null;
@@ -48,10 +50,19 @@ const deferredRpcGroups = new Set();
 const heavyMethodLastRun = new Map();
 const heavyMethodInFlight = new Map();
 
+publishStartupState("loading");
 installSupabaseSingleton();
 installBetaApiFacade();
 installBetaDataCoalescer();
 observeStartupReady();
+
+function publishStartupState(status, detail = {}) {
+  window.VOLT_STARTUP_STATE = Object.freeze({
+    status,
+    ...detail,
+    updatedAt: new Date().toISOString()
+  });
+}
 
 function installSupabaseSingleton() {
   const factory = window.supabase?.createClient;
@@ -114,8 +125,6 @@ function wrapAuthEvents(client) {
   const wrapped = function voltOnAuthStateChange(callback) {
     if (typeof callback !== "function") return original(callback);
     return original((event, session) => {
-      // Mantém INITIAL_SESSION para hidratar identidade e MFA. Apenas refreshes
-      // de token, que não mudam o usuário, deixam de repetir cargas completas.
       if (REDUNDANT_AUTH_EVENTS.has(event)) return;
       return callback(event, session);
     });
@@ -284,8 +293,11 @@ function observeStartupReady() {
   const finish = () => {
     if (startupReady) return;
     startupReady = true;
+    startupErrorPublished = false;
+    clearTimeout(startupFailureTimer);
     lastDataRefreshAt = performance.now();
     lastBetaDataSignature = runtimeSnapshotSignature();
+    publishStartupState("ready", { completedTables: [...completedCoreTables] });
     performance.mark?.("volt-account-load-ready");
     window.dispatchEvent(new CustomEvent("volt:account-data-ready"));
     window.dispatchEvent(new CustomEvent("volt:startup-ready"));
@@ -297,7 +309,17 @@ function observeStartupReady() {
     if (coreDataFetched) finish();
   });
 
-  window.setTimeout(finish, 5000);
+  startupFailureTimer = window.setTimeout(() => {
+    if (startupReady || startupErrorPublished) return;
+    startupErrorPublished = true;
+    const detail = {
+      reason: "account-data-timeout",
+      completedTables: [...completedCoreTables],
+      expectedTables: [...CORE_ACCOUNT_TABLES]
+    };
+    publishStartupState("error", detail);
+    window.dispatchEvent(new CustomEvent("volt:startup-error", { detail }));
+  }, STARTUP_ERROR_TIMEOUT_MS);
 }
 
 function scheduleDeferredWork() {
@@ -305,12 +327,9 @@ function scheduleDeferredWork() {
   idleScheduled = true;
   const run = () => {
     idleScheduled = false;
-    if (startupReady) {
-      flushDeferredWork();
-      flushDeferredRpcGroups();
-    } else {
-      setTimeout(scheduleDeferredWork, 250);
-    }
+    if (!startupReady) return;
+    flushDeferredWork();
+    flushDeferredRpcGroups();
   };
   if ("requestIdleCallback" in window) requestIdleCallback(run, { timeout: 1800 });
   else setTimeout(run, 600);

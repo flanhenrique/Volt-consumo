@@ -1,6 +1,8 @@
 name: Beta browser smoke
 
 on:
+  push:
+    branches: [main, fix/full-runtime-stabilization]
   pull_request:
     branches: [main]
   workflow_dispatch:

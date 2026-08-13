@@ -1,6 +1,6 @@
 const RELEASE_ID = "20260813.7";
 const CACHE_NAME = `volt-app-v4-atomic-${RELEASE_ID}`;
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
+const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
 const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
 const CORE_ASSETS = [
   "./",
@@ -18,7 +18,9 @@ const CORE_ASSETS = [
   "./icon-512.png",
   releaseAsset("./vendor/supabase/supabase.js"),
   releaseAsset("./packages/consumption-domain/browser/index.js"),
+  "./packages/consumption-domain/browser/billing-engine.js",
   releaseAsset("./data/national-energy-catalog.js"),
+  "./data/energy-billing-profiles.js",
   releaseAsset("./src/app-state.js"),
   releaseAsset("./src/cycles.js"),
   releaseAsset("./src/meter-ocr.js"),
@@ -66,7 +68,7 @@ self.addEventListener("message", (event) => {
 
 async function navigationResponse(request, event) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: "no-store" });
     if (response.ok) {
       const cacheCopy = response.clone();
       event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", cacheCopy)));
@@ -80,14 +82,12 @@ async function navigationResponse(request, event) {
 
 async function assetResponse(request, event) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: "no-store" });
     if (!response.ok) {
       return new Response(null, { status: response.status, statusText: response.statusText });
     }
-    if (response.ok) {
-      const cacheCopy = response.clone();
-      event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
-    }
+    const cacheCopy = response.clone();
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
     return response;
   } catch {
     const cache = await caches.open(CACHE_NAME);

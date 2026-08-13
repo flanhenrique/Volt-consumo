@@ -66,7 +66,7 @@ try {
   for (const pageName of ["home", "readings", "reports", "settings"]) {
     await page.locator(`[data-nav="${pageName}"]`).click();
     await page.waitForTimeout(80);
-    const navigationState = await page.evaluate((expectedPage) => {
+    const navigationState = await page.evaluate(() => {
       const visiblePages = [...document.querySelectorAll(".beta-page")].filter((item) => {
         if (item.hidden) return false;
         const style = getComputedStyle(item);
@@ -74,13 +74,44 @@ try {
       }).map((item) => item.dataset.page);
       const activePages = [...document.querySelectorAll(".beta-page.active")].map((item) => item.dataset.page);
       return { visiblePages, activePages, reportsMarkup: document.querySelector("#beta-reports")?.innerHTML.trim() ?? null };
-    }, pageName);
+    });
     assert.deepEqual(navigationState.visiblePages, [pageName], `Navegação ${pageName} deixou páginas sobrepostas`);
     assert.deepEqual(navigationState.activePages, [pageName], `Navegação ${pageName} perdeu página ativa única`);
     if (pageName === "reports") assert.equal(navigationState.reportsMarkup, "", "Relatórios foi preenchido durante navegação");
   }
 
-  assert.deepEqual(runtimeErrors, [], `Erros no bootstrap/navegação:\n${runtimeErrors.join("\n")}`);
+  // O segundo carregamento é o cenário que mais expõe mistura de versões e
+  // falhas de Response.clone: agora a página já deve estar controlada pelo SW.
+  const serviceWorkerScope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope);
+  assert.ok(serviceWorkerScope.endsWith("/"), `Escopo inesperado do Service Worker: ${serviceWorkerScope}`);
+
+  const reloadResponse = await page.reload({ waitUntil: "domcontentloaded" });
+  assert.ok(reloadResponse?.ok(), `Reload sob Service Worker respondeu HTTP ${reloadResponse?.status() || "sem resposta"}`);
+  await page.waitForSelector("#login-form", { state: "visible" });
+  await page.waitForSelector(".beta-v2-shell", { state: "attached" });
+  await page.waitForTimeout(700);
+
+  const reloadState = await page.evaluate(() => {
+    const visible = (element) => {
+      if (!element || element.hidden) return false;
+      const style = getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden";
+    };
+    return {
+      controlled: Boolean(navigator.serviceWorker.controller),
+      welcomeVisible: visible(document.querySelector("#welcome")),
+      dashboardVisible: visible(document.querySelector("#dashboard")),
+      reportsMarkup: document.querySelector("#beta-reports")?.innerHTML.trim() ?? null,
+      moduleScripts: [...document.querySelectorAll('script[type="module"]')].map((script) => script.getAttribute("src"))
+    };
+  });
+  assert.equal(reloadState.controlled, true, "Reload não ficou sob controle do Service Worker");
+  assert.equal(reloadState.welcomeVisible, true, "Login não reapareceu corretamente sob Service Worker");
+  assert.equal(reloadState.dashboardVisible, false, "Dashboard vazou durante reload sob Service Worker");
+  assert.equal(reloadState.reportsMarkup, "", "Relatórios reapareceu após reload sob Service Worker");
+  assert.deepEqual(reloadState.moduleScripts, ["./bootstrap.js"], "Service Worker entregou entry points divergentes");
+
+  assert.deepEqual(runtimeErrors, [], `Erros no bootstrap/navegação/Service Worker:\n${runtimeErrors.join("\n")}`);
 
   await context.close();
 } finally {

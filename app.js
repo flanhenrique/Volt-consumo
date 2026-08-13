@@ -2,6 +2,7 @@ import { calculateConsumptionSummary } from "./packages/consumption-domain/brows
 import { createApplicationStore, StartupStatus } from "./src/app-state.js";
 import { VOLT_CONFIG } from "./config.js";
 import { loadCycleState, normalizeCycle } from "./src/cycles.js";
+import { createMeterFlow } from "./src/meter-flow.js";
 import { createRenderer } from "./src/renderer.js";
 import { loadSupabaseRuntime } from "./src/supabase-loader.js";
 import { createVoltService, normalizeIdentity } from "./src/volt-service.js";
@@ -16,6 +17,12 @@ let activeSessionKey = null;
 let pendingSessionKey = null;
 let sessionQueue = Promise.resolve();
 let mfaFactorId = null;
+
+createMeterFlow({
+  getService: () => service,
+  getState: () => store.getState(),
+  setReadingMessage: (message, error = false) => renderer.setMessage("reading-message", message, error)
+});
 
 store.subscribe((state) => renderer.render(state));
 bindStaticUi();

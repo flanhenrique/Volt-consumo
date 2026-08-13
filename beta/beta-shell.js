@@ -1,5 +1,6 @@
 const api = window.VOLT_BETA_API;
 let reminderTimer;
+let administrationLoadPromise = null;
 
 if (api) {
   initializeBetaExperience();
@@ -47,12 +48,6 @@ function initializeBetaExperience() {
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("volt:cycle-context", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
-  new MutationObserver(() => {
-    if (!dashboard.hidden) {
-      renderBetaExperience();
-      requestAnimationFrame(resetPageScroll);
-    }
-  }).observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       scheduleDailyReminder();
@@ -174,6 +169,7 @@ function showPage(pageName) {
   });
   document.querySelector("#beta-reading-fab").hidden = ["reports", "settings", "users"].includes(pageName);
   renderBetaExperience();
+  if (pageName === "users") void loadAdministrationPage();
   requestAnimationFrame(resetPageScroll);
 }
 
@@ -427,6 +423,19 @@ function bindRestore(shell) {
   confirmButton.addEventListener("click", () => api.resetApplication());
 }
 
+function loadAdministrationPage() {
+  if (administrationLoadPromise) return administrationLoadPromise;
+  administrationLoadPromise = Promise.all([
+    api.refreshAdmin(),
+    api.refreshFeatureFlags(),
+    api.refreshOperationalMetrics()
+  ])
+    .then(renderAdministration)
+    .catch(renderAdministration)
+    .finally(() => { administrationLoadPromise = null; });
+  return administrationLoadPromise;
+}
+
 function bindAdministration(shell) {
   const inviteDialog = shell.querySelector("#beta-invite-dialog");
   const createdDialog = shell.querySelector("#beta-invite-created-dialog");
@@ -516,7 +525,7 @@ function bindAdministration(shell) {
     button.disabled = false;
     renderAdministration();
   });
-  Promise.all([api.refreshAdmin(), api.refreshFeatureFlags(), api.refreshOperationalMetrics()]).then(renderAdministration).catch(renderAdministration);
+  Promise.resolve(api.refreshAdmin()).then(renderAdministrationNavigation).catch(renderAdministrationNavigation);
 }
 
 function syncDestructiveConfirmation() {

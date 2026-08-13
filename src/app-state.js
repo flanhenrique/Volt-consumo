@@ -29,11 +29,21 @@ const initialState = Object.freeze({
   error: null
 });
 
+let latestApplicationState = structuredClone(initialState);
+
+export function getApplicationStateSnapshot() {
+  return latestApplicationState;
+}
+
 export function createApplicationStore() {
   let state = structuredClone(initialState);
+  latestApplicationState = state;
   const subscribers = new Set();
 
-  const publish = () => subscribers.forEach((subscriber) => subscriber(state));
+  const publish = () => {
+    latestApplicationState = state;
+    subscribers.forEach((subscriber) => subscriber(state));
+  };
 
   return Object.freeze({
     getState: () => state,

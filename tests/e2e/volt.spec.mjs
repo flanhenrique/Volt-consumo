@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
     window.__voltUnhandled = [];
     window.addEventListener("unhandledrejection", (event) => window.__voltUnhandled.push(String(event.reason)));
   });
-  await page.route("**/vendor/supabase/supabase.js", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
+  await page.route("**/vendor/supabase/supabase.js*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
   page.__voltFailures = failures;
 });
 
@@ -48,6 +48,13 @@ test("A — usuário deslogado vê somente Login", async ({ page }) => {
 });
 
 test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) => {
+  const releaseRequests = new Map();
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (["/app.js", "/src/renderer.js", "/src/app-state.js", "/src/volt-service.js"].includes(url.pathname)) {
+      releaseRequests.set(url.pathname, url.searchParams.get("v"));
+    }
+  });
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
   await expect(page.locator("#login-screen")).toBeHidden();
@@ -63,6 +70,12 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
     return element && getComputedStyle(element).display !== "none";
   }));
   expect(visibility).toEqual(["dashboard"]);
+  expect(Object.fromEntries(releaseRequests)).toEqual({
+    "/app.js": "20260813.1",
+    "/src/app-state.js": "20260813.1",
+    "/src/renderer.js": "20260813.1",
+    "/src/volt-service.js": "20260813.1"
+  });
 });
 
 test("C/I — login e logout seguem uma única transição", async ({ page }) => {

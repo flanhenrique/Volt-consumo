@@ -105,15 +105,18 @@ A rota e a aba existem. `#page-reports` permanece sem filhos e sem texto. Não h
 ## Service Worker
 
 - um registro em `./sw.js`, escopo `./`;
-- `volt-app-v2` é instalado separadamente do cache ativo anterior;
+- cada publicação define um `RELEASE_ID` único compartilhado por HTML, import graph, dependências dinâmicas e Service Worker;
+- assets mutáveis usam `?v=<RELEASE_ID>`, portanto um worker anterior nunca pode devolver um módulo incompatível de uma release passada;
+- `volt-app-v4-atomic-<RELEASE_ID>` é instalado separadamente do cache ativo anterior;
 - instalação sequencial evita saturar origens simples e continua sendo atômica: qualquer asset crítico ausente falha a instalação;
+- `skipWaiting()` só ocorre depois que todos os assets críticos formaram a nova coorte de cache;
 - ativação remove somente nomes enumerados em `OWNED_CACHE_NAMES`;
 - navegações usam network-first e podem cair em `index.html`;
 - assets usam network-first e podem cair apenas no próprio asset em cache;
 - uma resposta HTTP de asset não-ok vira erro com o mesmo status, nunca HTML;
 - `response.clone()` ocorre imediatamente, antes de qualquer consumo, e a cópia é entregue ao cache por `event.waitUntil`.
 
-Um worker aguardando não altera o cache usado pelo worker ativo. A limpeza da versão anterior ocorre somente na ativação da nova versão.
+O registro do worker acontece antes da restauração de autenticação, para que uma falha posterior de sessão ou renderização não impeça a atualização. A limpeza da versão anterior ocorre somente na ativação da nova versão; caches alheios continuam intocados.
 
 ## Backend
 

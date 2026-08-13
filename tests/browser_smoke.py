@@ -33,7 +33,7 @@ def install_gates(page, fake_backend=True):
       });
     """)
     if fake_backend:
-        page.route("**/vendor/supabase/supabase.js", lambda route: route.fulfill(
+        page.route("**/vendor/supabase/supabase.js*", lambda route: route.fulfill(
             status=200, content_type="application/javascript", body=FAKE_SUPABASE
         ))
     return errors
@@ -85,7 +85,8 @@ def scenario_authenticated(browser):
     page.locator("#reading-type").select_option("energy")
     page.locator("#reading-value").fill("1130")
     page.locator("#reading-date").fill("2026-08-10T12:00")
-    page.locator("#reading-form").get_by_role("button", name="Salvar leitura").click()
+    page.locator("#reading-reviewed").check()
+    page.locator("#reading-form").get_by_role("button", name="Confirmar leitura").click()
     expect(page.locator("#reading-dialog")).not_to_have_attribute("open", "")
     page.get_by_role("button", name="Início").click()
     expect(page.locator("#dashboard")).to_be_visible()
@@ -101,8 +102,8 @@ def scenario_authenticated(browser):
 
     page.get_by_role("button", name="Relatórios").click()
     expect(page.locator("#page-reports")).to_be_visible()
-    assert page.locator("#page-reports").evaluate("element => element.children.length") == 0
-    assert page.locator("#page-reports").text_content().strip() == ""
+    expect(page.get_by_text("Relatórios em preparação")).to_be_visible()
+    expect(page.get_by_text("Nenhum dado foi fabricado")).to_be_visible()
 
     page.get_by_role("button", name="Configurações").click()
     page.locator("#logout").click()
@@ -173,6 +174,7 @@ def scenario_service_worker(browser):
     page.goto(BASE_URL + "/tests/fixtures/sw-harness.html")
     page.evaluate("""async () => {
       await caches.open('volt-app-v1');
+      await caches.open('volt-app-v3-liquid-glass');
       await caches.open('another-product-cache');
       await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     }""")
@@ -184,7 +186,7 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v2"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.1"]
     page.goto(BASE_URL + "/")
     expect_login("visita controlada")
     assert page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)")

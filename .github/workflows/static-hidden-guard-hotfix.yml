@@ -1,0 +1,60 @@
+name: Fixar proteção estática de hidden
+
+on:
+  push:
+    branches: [fix/full-runtime-stabilization]
+    paths:
+      - ".github/workflows/static-hidden-guard-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-static-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Carregar hidden guard antes do runtime
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFile, writeFile } from 'node:fs/promises';
+          import { execFileSync } from 'node:child_process';
+          const indexPath = 'beta/index.html';
+          const swPath = 'beta/sw.js';
+          assert.equal(execFileSync('git', ['hash-object', indexPath], { encoding: 'utf8' }).trim(), '1da38d6cdbc8f38a629e5105e3d73c72bf6deee9');
+          assert.equal(execFileSync('git', ['hash-object', swPath], { encoding: 'utf8' }).trim(), '91b29c6f7c63418d7dffd9e8aa1210e84173a921');
+          let index = await readFile(indexPath, 'utf8');
+          let sw = await readFile(swPath, 'utf8');
+          const styleMarker = '  <link rel="stylesheet" href="./styles.css">';
+          assert.equal(index.split(styleMarker).length - 1, 1, 'styles.css não encontrado de forma única');
+          index = index.replace(styleMarker, '  <link rel="stylesheet" href="./bootstrap-guards.css">\n' + styleMarker);
+          assert.equal(sw.split('const CACHE = "volt-beta-shell-v100";').length - 1, 1, 'versão do cache inesperada');
+          sw = sw.replace('const CACHE = "volt-beta-shell-v100";', 'const CACHE = "volt-beta-shell-v101";');
+          const swStyle = '  "./styles.css",';
+          assert.equal(sw.split(swStyle).length - 1, 1, 'styles.css do precache não encontrado de forma única');
+          sw = sw.replace(swStyle, swStyle + '\n  "./bootstrap-guards.css",');
+          assert.match(index, /bootstrap-guards\.css/, 'index não carrega hidden guard');
+          assert.match(sw, /bootstrap-guards\.css/, 'SW não precacheia hidden guard');
+          await writeFile(indexPath, index);
+          await writeFile(swPath, sw);
+          NODE
+      - name: Validar referências
+        run: |
+          test -s beta/bootstrap-guards.css
+          grep -q 'bootstrap-guards.css' beta/index.html
+          grep -q 'bootstrap-guards.css' beta/sw.js
+      - name: Commitar proteção estática
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add beta/index.html beta/sw.js
+          git commit -m "fix(beta): aplicar hidden antes de qualquer runtime"
+          git push origin HEAD:fix/full-runtime-stabilization

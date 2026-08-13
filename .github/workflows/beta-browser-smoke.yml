@@ -1,0 +1,47 @@
+name: Beta browser smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Bootstrap sem sessão
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Instalar navegador de teste
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Servir Beta localmente
+        run: |
+          python3 -m http.server 4173 --directory beta > /tmp/volt-beta-smoke.log 2>&1 &
+          echo $! > /tmp/volt-beta-smoke.pid
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/volt-beta-smoke.log
+          exit 1
+      - name: Executar smoke test no Chromium
+        env:
+          VOLT_SMOKE_URL: http://127.0.0.1:4173/
+        run: node beta/tests/browser-smoke.mjs
+      - name: Exibir log do servidor em falha
+        if: failure()
+        run: cat /tmp/volt-beta-smoke.log || true

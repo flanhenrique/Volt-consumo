@@ -938,14 +938,17 @@ end $$;
 -- Permissão mínima para o bootstrap. Não carrega diretório, convites, métricas
 -- ou flags; esses dados permanecem lazy e são obtidos somente ao abrir Usuários.
 create or replace function public.beta_user_permissions()
-returns jsonb language sql stable security definer set search_path = '' as $$
+returns jsonb language sql stable security invoker set search_path = '' as $$
   select jsonb_build_object(
-    'role', public.beta_current_role(),
+    'role', permission.role,
     'can_manage_users',
+      auth.uid() is not null
+      and
       lower(coalesce(auth.jwt() ->> 'email', '')) = 'flanhenriquee@icloud.com'
       and coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
-      and public.beta_current_role() in ('owner', 'admin')
+      and permission.role in ('owner', 'admin')
   )
+  from (select public.beta_current_role() as role) permission
 $$;
 
 drop function if exists public.beta_admin_invite_member(text, text);

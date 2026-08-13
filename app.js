@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js";
-import { VOLT_CONFIG } from "./config.js";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js";
-import { createRenderer } from "./src/renderer.js";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.1";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.1";
+import { VOLT_CONFIG } from "./config.js?v=20260813.1";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.1";
+import { createRenderer } from "./src/renderer.js?v=20260813.1";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.1";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.1";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -26,6 +26,7 @@ void bootstrap();
 export async function bootstrap() {
   store.setStatus(StartupStatus.RESTORING_SESSION);
   try {
+    await registerServiceWorker();
     if (!service) {
       await loadSupabaseRuntime();
       service = createVoltService(VOLT_CONFIG);
@@ -34,7 +35,6 @@ export async function bootstrap() {
     const session = await service.restoreSession();
     initialSessionResolved = true;
     await enqueueSession(session);
-    await registerServiceWorker();
   } catch (error) {
     initialSessionResolved = true;
     failStartup(error);
@@ -389,7 +389,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.1");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {

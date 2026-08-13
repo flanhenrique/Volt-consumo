@@ -1,4 +1,5 @@
 /** Volt Consumo — Beta v3.17 · runtime por prioridade e página ativa. */
+import "./maintenance-mode.js?v=1";
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";

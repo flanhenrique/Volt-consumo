@@ -1,0 +1,8 @@
+{
+  "IMG_1649.jpeg": { "status": "suggested", "value": 28425 },
+  "IMG_1662.jpeg": { "status": "suggested", "value": 28431 },
+  "IMG_1862.jpeg": { "status": "suggested", "value": 28430 },
+  "IMG_1684.jpeg": { "status": "review", "reason": "wrong-register" },
+  "IMG_1683.jpeg": { "status": "review", "reason": "test-screen" },
+  "IMG_1792.jpeg": { "status": "review" }
+}

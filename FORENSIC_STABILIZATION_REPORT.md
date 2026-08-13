@@ -9,7 +9,7 @@
 
 ## Resumo executivo
 
-**Gate local: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A implementação foi integrada por merge normal ao histórico existente do PR #5, preservando seus 76 commits exclusivos; não houve merge em `main`. A migração aditiva, o CI atualizado e o site publicado ainda precisam ser validados no ambiente remoto; por isso este relatório não declara o deploy concluído.
+**Gate local: PASSOU. Gate do PR: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A implementação foi integrada por merge normal ao histórico existente do PR #5, preservando seus 76 commits exclusivos; não houve merge em `main`. A migração aditiva foi aplicada e verificada no Supabase de produção. O site publicado ainda depende de merge/deploy e permanece pendente.
 
 A auditoria anterior às mudanças está preservada em `FORENSIC_AUDIT_MATRIX.md`. O diff contém 114 arquivos: 2.833 inserções e 19.151 remoções.
 
@@ -84,7 +84,7 @@ Nome e e-mail vêm de Supabase/store, nunca do DOM. Nome é normalizado por `dis
 
 A aba deriva de `permissions.canManageUsers`. O bootstrap chama somente `beta_user_permissions()`; diretório e convites são carregados por `beta_admin_snapshot()` apenas quando a tela abre. O nó da página é estático e não é substituído. Abrir, fechar, reabrir e receber dados posteriores mantém os mesmos listeners. Não existe polling global.
 
-A RPC nova é aditiva, `SECURITY INVOKER`, exige chamador autenticado, AAL2, e-mail autorizado e papel `owner/admin`, e tem `EXECUTE` revogado de `PUBLIC`/`anon` e concedido somente a `authenticated`. Ela não modifica tabelas ou dados. A migração não foi aplicada ao banco real neste trabalho.
+A RPC nova é aditiva, `SECURITY INVOKER`, exige chamador autenticado, AAL2, e-mail autorizado e papel `owner/admin`, e tem `EXECUTE` revogado de `PUBLIC`/`anon` e concedido somente a `authenticated`. Ela não modifica tabelas ou dados. Foi aplicada no projeto Supabase `Volt Consumo` como `20260813065357_bootstrap_permissions`. A auditoria confirmou `security_definer=false`, `search_path=''`, `anon_execute=false`, `authenticated_execute=true` e resultado não autorizado `{role: null, can_manage_users: false}`.
 
 ## 12. Mudanças de Service Worker
 
@@ -139,11 +139,10 @@ Os testes falham automaticamente em `console.error`, `pageerror` e `unhandledrej
 
 ## 19. Riscos restantes
 
-1. A RPC aditiva precisa ser aplicada e verificada no projeto Supabase antes do deploy do frontend; caso contrário usuários autenticados receberão erro de RPC no bootstrap.
-2. Não havia credencial de usuário real disponível, portanto auth/RLS foram validados por contrato e fixture, não por mutação de conta real.
-3. O CI do PR ainda não foi executado no momento deste SHA.
-4. O site GitHub Pages da branch não existe sem merge/deploy; teste publicado permanece pendente.
-5. Safari foi representado por WebKit Playwright no Windows; teste em hardware Safari real permanece recomendável.
+1. Não havia credencial de usuário real disponível, portanto auth/RLS foram validados por contrato, fixture e execução sem contexto autenticado, não por mutação de conta real.
+2. O site GitHub Pages da branch não existe sem merge/deploy; teste publicado permanece pendente.
+3. Safari foi representado por WebKit Playwright no Windows e no CI; teste em hardware Safari real permanece recomendável.
+4. Os advisors Supabase continuam mostrando warnings preexistentes em funções administrativas `SECURITY DEFINER`, configuração de OTP/senhas e tabelas de backup; a nova RPC não adicionou warning.
 
 ## 20. Dívida técnica restante
 
@@ -215,6 +214,8 @@ Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suí
 ## 25. URL/deploy testado
 
 - Local: `http://127.0.0.1:4173/` — PASSOU.
+- CI do PR #5, run `31675325286`: estático e browsers/SW — PASSOU.
+- Supabase `Volt Consumo`: migração `20260813065357_bootstrap_permissions` — APLICADA E VALIDADA.
 - GitHub Pages esperado: `https://flanhenrique.github.io/Volt-consumo/` — **NÃO TESTADO para esta branch**, pois não houve merge/deploy automático.
 
 ## Critérios de aceitação do item 33
@@ -244,4 +245,4 @@ Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suí
 | DOM não é fonte primária de estado | PASSOU | service/store/renderer unidirecional |
 | Todos os testes locais de navegador | PASSOU | Chromium + WebKit + mobile + SW |
 
-Conclusão local: **PASSOU**. Conclusão publicada: **PENDENTE** até aplicar/verificar a migração, obter CI verde no PR e testar a URL implantada sem efetuar merge automático.
+Conclusão local e PR: **PASSOU**. Conclusão publicada: **PENDENTE** até ocorrer merge/deploy e a URL implantada ser testada.

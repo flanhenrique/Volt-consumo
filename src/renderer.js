@@ -1,6 +1,6 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.6";
-import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.6";
-import { StartupStatus } from "./app-state.js?v=20260813.6";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
+import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.7";
+import { StartupStatus } from "./app-state.js?v=20260813.7";
 
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
@@ -56,6 +56,7 @@ export function createRenderer() {
       if (!element) throw new Error(`Mensagem destinada a elemento fora do contrato: ${id}`);
       element.textContent = message;
       element.dataset.error = String(Boolean(error));
+      delete element.dataset.lifecycle;
     }
   });
 }
@@ -68,25 +69,36 @@ function publishStartupStatus(status) {
 function renderLifecycle(state, byId) {
   const booting = [StartupStatus.BOOTING, StartupStatus.RESTORING_SESSION, StartupStatus.LOADING_ACCOUNT, StartupStatus.LOADING_DATA].includes(state.status);
   const interactiveLoading = booting && ["login", "mfa"].includes(state.transitionSurface);
-  const keepLoginVisible = interactiveLoading && state.transitionSurface === "login";
+  const keepLoginVisible = booting && state.transitionSurface !== "mfa";
   const keepMfaVisible = interactiveLoading && state.transitionSurface === "mfa";
+  const loginLoading = keepLoginVisible;
+  const loginForm = byId("login-form");
+  const loginMessage = byId("login-message");
   document.documentElement.setAttribute("aria-busy", String(booting));
   byId("login-screen").hidden = state.status !== StartupStatus.SIGNED_OUT && !keepLoginVisible;
   byId("mfa-screen").hidden = state.status !== StartupStatus.MFA_REQUIRED && !keepMfaVisible;
   byId("error-screen").hidden = state.status !== StartupStatus.ERROR;
   byId("dashboard").hidden = state.status !== StartupStatus.READY;
-  byId("login-form").setAttribute("aria-busy", String(keepLoginVisible));
-  byId("login-progress").hidden = !keepLoginVisible;
-  if (keepLoginVisible) {
+  loginForm.setAttribute("aria-busy", String(loginLoading));
+  loginForm.inert = loginLoading;
+  byId("login-progress").hidden = !loginLoading;
+  if (loginLoading) {
     const messages = {
+      [StartupStatus.BOOTING]: "Iniciando o Volt…",
+      [StartupStatus.RESTORING_SESSION]: "Verificando sua sessão…",
       [StartupStatus.LOADING_ACCOUNT]: "Validando sua conta…",
       [StartupStatus.LOADING_DATA]: "Carregando seus dados…"
     };
     const message = messages[state.status];
     if (message) {
-      byId("login-message").textContent = message;
-      byId("login-message").dataset.error = "false";
+      loginMessage.textContent = message;
+      loginMessage.dataset.error = "false";
+      loginMessage.dataset.lifecycle = "true";
     }
+  } else if (state.status === StartupStatus.SIGNED_OUT && loginMessage.dataset.lifecycle === "true") {
+    loginMessage.textContent = "";
+    loginMessage.dataset.error = "false";
+    delete loginMessage.dataset.lifecycle;
   }
   if (state.status === StartupStatus.ERROR) byId("fatal-error-message").textContent = state.error || "Falha inesperada durante a inicialização.";
 }

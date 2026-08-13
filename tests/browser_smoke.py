@@ -21,8 +21,14 @@ def install_gates(page, fake_backend=True):
     page.add_init_script("""
       window.__voltUnhandled = [];
       window.__voltReadySnapshots = [];
+      window.__voltStartupSurfaces = [];
       window.addEventListener('unhandledrejection', event => window.__voltUnhandled.push(String(event.reason)));
       window.addEventListener('volt:startup-status', event => {
+        const visible = ['login-screen', 'mfa-screen', 'error-screen', 'dashboard'].filter(id => {
+          const element = document.getElementById(id);
+          return element && getComputedStyle(element).display !== 'none';
+        });
+        window.__voltStartupSurfaces.push({ status: event.detail.status, visible });
         if (event.detail.status === 'READY') {
           window.__voltReadySnapshots.push({
             energy: document.getElementById('home-energy-consumption').textContent,
@@ -104,10 +110,14 @@ def scenario_authenticated(browser):
     context = isolated_context(browser, viewport={"width": 1440, "height": 1000})
     page = context.new_page()
     errors = install_gates(page)
-    page.goto(BASE_URL + "/?session=user")
+    page.goto(BASE_URL + "/?session=user&dataDelay=180")
     assert_maintenance_removed(page)
     expect(page.locator("#dashboard")).to_be_visible()
     expect(page.locator("#login-screen")).to_be_hidden()
+    startup_surfaces = page.evaluate("window.__voltStartupSurfaces")
+    loading_surfaces = [item for item in startup_surfaces if item["status"] in ("BOOTING", "RESTORING_SESSION", "LOADING_ACCOUNT", "LOADING_DATA")]
+    assert loading_surfaces, startup_surfaces
+    assert all(item["visible"] == ["login-screen"] for item in loading_surfaces), loading_surfaces
     expect(page.locator("#greeting")).to_have_text("Olá, Ana Volt!")
     visible = page.evaluate("window.__voltReadySnapshots")
     assert len(visible) == 1, f"READY ocorreu {len(visible)} vezes: {visible}"
@@ -225,7 +235,7 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.6"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.7"]
     page.goto(BASE_URL + "/")
     assert_maintenance_removed(page)
     expect_login("visita controlada")

@@ -114,6 +114,14 @@ export function createVoltService(config) {
       if (error) throw error;
       return queryReadings(client, table);
     },
+    async analyzeMeterReading(imageDataUrl, previousValue = null) {
+      const { data, error } = await client.functions.invoke("meter-read", {
+        body: { imageDataUrl, previousValue }
+      });
+      if (error) throw error;
+      if (!data || !["suggested", "review"].includes(data.status)) throw new Error("O leitor do medidor retornou uma resposta inválida.");
+      return data;
+    },
     async saveEnergySettings(userId, settings) {
       await persistEnergySettings(client, userId, settings);
       return { ...settings };

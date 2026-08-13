@@ -1,0 +1,14 @@
+{
+  "name": "volt-consumo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:static": "python tests/quality_gate.py",
+    "test:browser": "playwright test",
+    "test": "npm run check:static && npm run test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.2"
+  }
+}

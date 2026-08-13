@@ -294,7 +294,7 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
 
         let redirectUrl;
         try {
-          redirectUrl = new URL(env("AUTH_PASSWORD_REDIRECT_URL") || env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/beta/`);
+          redirectUrl = new URL(env("AUTH_PASSWORD_REDIRECT_URL") || env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/`);
           if (redirectUrl.protocol !== "https:" || redirectUrl.origin !== new URL(env("BETA_APP_ORIGIN")).origin) throw new Error("invalid_redirect");
           redirectUrl.searchParams.set("password_recovery", recoveryId);
         } catch {
@@ -364,7 +364,7 @@ export function createAuthLoginHandler({ fetchFn = fetch, env, timeoutMs = 5000,
         const status = error?.message === "payload_too_large" ? 413 : 400;
         return json(status, { code: status === 413 ? "payload_too_large" : "invalid_request", request_id: requestId }, requestId, cors);
       }
-      const redirect = env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/beta/`;
+      const redirect = env("AUTH_EMAIL_REDIRECT_URL") || `${env("BETA_APP_ORIGIN")}/Volt-consumo/`;
       let redirectUrl;
       try {
         redirectUrl = new URL(redirect);

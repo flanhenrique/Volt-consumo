@@ -1,38 +1,47 @@
 # Volt Consumo
 
-PWA para registrar leituras e acompanhar o consumo de energia elétrica.
+PWA para registrar leituras e acompanhar o consumo de energia e água. A aplicação oficial é publicada na raiz (`/`); `/beta` existe somente como redirecionamento compatível.
 
-## Funcionalidades implementadas
+## Arquitetura
 
-- interface responsiva inspirada no iOS;
-- autenticação por e-mail e senha com Supabase Auth;
-- registro local de leituras;
-- cálculo de consumo, custo estimado e média diária;
-- previsão de consumo e faixa provável da próxima conta;
-- leitura assistida pela câmera com OCR e confirmação do usuário;
-- módulo de água com tarifa, esgoto, taxa fixa e alerta de possível vazamento;
-- manifest e service worker para instalação e uso offline;
-- caminhos relativos compatíveis com GitHub Pages.
+O navegador carrega uma única entrada, `app.js`. Ela controla a máquina de estados de inicialização, cria um único cliente Supabase e só revela o Dashboard depois de consolidar sessão, MFA, identidade, contexto, leituras, configurações, ciclos, tarifa e permissões.
+
+Consulte `ARCHITECTURE.md` para ownership, fluxo de startup, contrato DOM e Service Worker.
 
 ## Executar localmente
 
-Sirva a pasta com um servidor HTTP:
-
 ```sh
-python -m http.server 8080
+python -m http.server 4173
 ```
 
-Depois abra `http://localhost:8080`.
+Abra `http://127.0.0.1:4173/`.
 
-## Configurar o login
+## Testes
 
-1. Crie um projeto no Supabase.
-2. Em Authentication > Users, crie o usuário autorizado.
-3. Copie a URL e a chave publicável do projeto para `config.js`.
-4. Não use a chave `service_role` no navegador.
+Gate estático, referências, imports, contrato DOM, Service Worker e checksums:
 
-A sessão é persistida e renovada pelo Supabase Auth. O painel só é exibido para uma sessão autenticada.
+```sh
+python tests/quality_gate.py
+```
 
-## Atualização do banco
+Suíte de navegador oficial do CI:
 
-Execute novamente `supabase-setup.sql` no SQL Editor ao atualizar uma instalação anterior. O script cria as tabelas de água e suas políticas RLS sem apagar dados existentes.
+```sh
+npm install
+npx playwright install chromium webkit
+npm test
+```
+
+Fallback local equivalente, usado quando Node não está disponível:
+
+```sh
+python -m pip install playwright==1.54.0
+python -m playwright install chromium webkit
+python tests/browser_smoke.py
+```
+
+## Supabase
+
+A chave no frontend é publicável; nunca use `service_role` no navegador. O schema continua usando tabelas/RPCs `beta_*` por compatibilidade de dados. A migração `202608130900_bootstrap_permissions.sql` é aditiva e expõe somente a permissão mínima necessária durante o bootstrap; membros e convites são carregados apenas ao abrir Usuários.
+
+Nenhum script de aplicação executa migrações automaticamente.

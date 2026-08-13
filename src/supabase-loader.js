@@ -6,9 +6,7 @@ export function loadSupabaseRuntime() {
 
   loadingPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    const runtimeUrl = new URL("../vendor/supabase/supabase.js", import.meta.url);
-    runtimeUrl.searchParams.set("v", "20260813.3");
-    script.src = runtimeUrl.href;
+    script.src = new URL("../vendor/supabase/supabase.js", import.meta.url).href;
     script.async = true;
     script.dataset.voltDependency = "supabase";
     script.addEventListener("load", () => {

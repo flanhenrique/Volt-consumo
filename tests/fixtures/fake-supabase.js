@@ -60,16 +60,12 @@
       active_organization_id: "org-e2e",
       organizations: [{ id: "org-e2e", name: "Casa Volt", role: admin ? "owner" : "member", status: "active" }]
     }, error: null });
-    if (name === "beta_platform_users_snapshot") return Promise.resolve({ data: admin ? {
+    if (name === "beta_admin_snapshot") return Promise.resolve({ data: admin ? {
       authorized: true,
-      total_users: 3,
-      confirmed_users: 2,
-      active_last_30_days: 2,
-      users: [
-        { id: baseUser.id, email: baseUser.email, name: baseUser.user_metadata.display_name, created_at: "2026-07-01T12:00:00.000Z", confirmed_at: "2026-07-01T12:01:00.000Z", last_sign_in_at: "2026-08-13T12:00:00.000Z", status: "confirmed" },
-        { id: "user-2", email: "ana@example.com", name: "Ana Volt", created_at: "2026-07-05T12:00:00.000Z", confirmed_at: "2026-07-05T12:01:00.000Z", last_sign_in_at: "2026-08-12T12:00:00.000Z", status: "confirmed" },
-        { id: "user-3", email: "conta.pendente@example.com", name: "Conta pendente", created_at: "2026-08-10T12:00:00.000Z", confirmed_at: null, last_sign_in_at: null, status: "pending_confirmation" }
-      ]
+      organization: { id: "org-e2e", name: "Casa Volt", status: "active" },
+      membership: { id: "membership-e2e", role: "owner", status: "active" },
+      members: [{ id: "membership-e2e", email: baseUser.email, display_name: baseUser.user_metadata.display_name, role: "owner", status: "active" }],
+      invitations: []
     } : { authorized: false }, error: null });
     if (name === "beta_user_permissions") return Promise.resolve({ data: {
       can_manage_users: admin,

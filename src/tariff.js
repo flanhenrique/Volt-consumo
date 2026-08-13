@@ -1,5 +1,6 @@
 import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260813.7";
 import { findEnergyBillingProfile } from "../data/energy-billing-profiles.js?v=20260813.7";
+import { renderLegalBillDetail } from "./bill-detail.js";
 
 export function normalizeLocality(value) {
   const hasBillingProfile = Boolean(value && Object.prototype.hasOwnProperty.call(value, "billingProfile"));
@@ -38,6 +39,7 @@ export function resolveEnergyTariff(localityInput, currentSettings, date = new D
 function publishBillingProfile(locality) {
   const profile = findEnergyBillingProfile(locality.billingProfile, locality.energyProvider);
   globalThis.__VOLT_BILLING_CONTEXT__ = profile ? { profile } : null;
+  renderLegalBillDetail(profile);
   return profile;
 }
 

@@ -855,17 +855,6 @@ async function updateAuthScreen(user) {
     recordPrivacyAcceptance(user),
     refreshBetaInvitation()
   ]);
-  schedulePostStartupAdminRefresh();
-}
-
-function schedulePostStartupAdminRefresh() {
-  if (APP_ENVIRONMENT.id !== "beta") return;
-  const run = () => { void refreshBetaAdmin(); };
-  if (window.VOLT_STARTUP_STATE?.status === "ready") {
-    queueMicrotask(run);
-    return;
-  }
-  window.addEventListener("volt:startup-ready", run, { once: true });
 }
 
 function loadLegacySettings() {

@@ -47,6 +47,7 @@ function initializeBetaExperience() {
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("volt:cycle-context", renderBetaExperience);
+  scheduleAdministrationBootstrap();
   window.addEventListener("focus", refreshBetaData);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
@@ -56,6 +57,19 @@ function initializeBetaExperience() {
   });
   renderBetaExperience();
   scheduleDailyReminder();
+}
+
+function scheduleAdministrationBootstrap() {
+  const load = () => {
+    Promise.resolve(api.refreshAdmin())
+      .then(renderBetaExperience)
+      .catch(() => undefined);
+  };
+  if (window.VOLT_STARTUP_STATE?.status === "ready") {
+    queueMicrotask(load);
+    return;
+  }
+  window.addEventListener("volt:startup-ready", load, { once: true });
 }
 
 function betaShellMarkup() {

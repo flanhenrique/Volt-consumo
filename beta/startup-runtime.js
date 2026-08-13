@@ -195,7 +195,7 @@ function runHeavyMethod(method, member, args, api) {
   const now = performance.now();
   const minimumInterval = HEAVY_METHOD_MIN_INTERVAL_MS[method] || 60_000;
   const lastRun = heavyMethodLastRun.get(method) || 0;
-  if (now - lastRun < minimumInterval) return Promise.resolve(readSnapshotFor(method, api));
+  if (lastRun > 0 && now - lastRun < minimumInterval) return Promise.resolve(readSnapshotFor(method, api));
 
   heavyMethodLastRun.set(method, now);
   const promise = Promise.resolve()

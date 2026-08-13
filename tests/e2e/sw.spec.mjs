@@ -19,7 +19,7 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
   await expect.poll(
     async () => page.evaluate(async () => (await caches.keys()).sort()),
     { timeout: 20_000 }
-  ).toEqual(["another-product-cache", "volt-app-v4-atomic-20260813.4"]);
+  ).toEqual(["another-product-cache", "volt-app-v4-atomic-20260813.5"]);
   await page.goto("/");
   await expect(page.locator("#maintenance-screen")).toHaveCount(0);
   await expect(page.locator("#login-screen")).toBeVisible();

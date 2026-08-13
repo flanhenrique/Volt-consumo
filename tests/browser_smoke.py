@@ -195,7 +195,7 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.4"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.5"]
     page.goto(BASE_URL + "/")
     assert_maintenance_removed(page)
     expect_login("visita controlada")

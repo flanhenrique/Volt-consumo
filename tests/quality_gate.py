@@ -6,7 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_ID = "20260813.4"
+RELEASE_ID = "20260813.5"
 failures = []
 
 
@@ -86,6 +86,10 @@ app_source = (ROOT / "app.js").read_text(encoding="utf-8")
 check('id="maintenance-screen"' not in index_source, "tela de manutenção não pode permanecer ativa")
 check("initializeMaintenanceGate" not in app_source, "gate de manutenção não pode bloquear o bootstrap")
 check("startApplication();" in app_source, "aplicação deve iniciar diretamente")
+for accent in ("emerald", "azure", "violet", "amber", "coral", "teal"):
+    check(f'data-accent-choice="{accent}"' in index_source, f"cor de aparência ausente: {accent}")
+    check(f':root[data-accent="{accent}"]' in (ROOT / "styles/tokens.css").read_text(encoding="utf-8"), f"tokens da cor ausentes: {accent}")
+check('localStorage.setItem(`volt-accent:${user.id}`' in app_source, "cor deve permanecer isolada por usuário")
 check((ROOT / "index.html").read_text(encoding="utf-8").count('id="page-reports"') == 1, "Relatórios deve possuir uma única página")
 for removed_item in ('data-nav="accounts"', 'data-page="accounts"', "Ciclos anteriores"):
     check(removed_item not in active_sources, f"item removido voltou ao código ativo: {removed_item}")

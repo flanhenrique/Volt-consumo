@@ -78,10 +78,10 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   }));
   expect(visibility).toEqual(["dashboard"]);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.4",
-    "/src/app-state.js": "20260813.4",
-    "/src/renderer.js": "20260813.4",
-    "/src/volt-service.js": "20260813.4"
+    "/app.js": "20260813.5",
+    "/src/app-state.js": "20260813.5",
+    "/src/renderer.js": "20260813.5",
+    "/src/volt-service.js": "20260813.5"
   });
 });
 
@@ -214,6 +214,14 @@ test("Tema claro, escuro e sistema compartilham o mesmo DOM", async ({ page }) =
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.locator("[data-theme-choice='system']").click();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+  await page.locator("[data-accent-choice='violet']").click();
+  await expect(page.locator("html")).toHaveAttribute("data-accent", "violet");
+  await expect(page.locator("[data-accent-choice='violet']")).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-accent", "violet");
+  await navigateTo(page, "settings");
+  await expect(page.locator("[data-accent-choice='violet']")).toHaveAttribute("aria-pressed", "true");
   expect(await page.locator("#dashboard").count()).toBe(1);
 });
 

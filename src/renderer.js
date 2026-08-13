@@ -1,6 +1,6 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.4";
-import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.4";
-import { StartupStatus } from "./app-state.js?v=20260813.4";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.5";
+import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.5";
+import { StartupStatus } from "./app-state.js?v=20260813.5";
 
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
@@ -269,6 +269,7 @@ function renderSettings(state, byId) {
 
 function renderThemePreference(state) {
   document.querySelectorAll("[data-theme-choice]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.themeChoice === state.view.theme)));
+  document.querySelectorAll("[data-accent-choice]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.accentChoice === state.view.accent)));
 }
 
 function renderUsers(state, byId) {

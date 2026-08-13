@@ -848,13 +848,12 @@ async function updateAuthScreen(user) {
   dashboard.hidden = false;
 
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
+  // Após a Home estar pronta, só mantemos tarefas leves necessárias à conta.
+  // Métricas, feature flags e health são carregados pela página que os utiliza.
   void Promise.allSettled([
     recordPrivacyAcceptance(user),
     refreshBetaInvitation(),
-    refreshBetaAdmin(),
-    refreshBetaFeatureFlags(),
-    refreshBetaOperationalMetrics(),
-    checkOperationalHealth()
+    refreshBetaAdmin()
   ]);
 }
 

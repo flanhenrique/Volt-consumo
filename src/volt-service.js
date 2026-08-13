@@ -10,6 +10,7 @@ export function createVoltService(config) {
   const client = window.supabase.createClient(config.url, config.publishableKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
+  installMeterVisionBridge(client);
 
   return Object.freeze({
     client,
@@ -232,4 +233,19 @@ function normalizeAdmin(data) {
     activeLast30Days: Number(data.active_last_30_days) || 0,
     accounts
   };
+}
+
+function installMeterVisionBridge(client) {
+  window.addEventListener("volt:meter-read-request", (event) => {
+    const detail = event?.detail;
+    if (!detail || detail.handled || typeof detail.resolve !== "function") return;
+    detail.handled = true;
+    void client.functions.invoke("meter-read", { body: { imageDataUrl: detail.imageDataUrl } })
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (!data || !["suggested", "review"].includes(data.status)) throw new Error("Resposta inválida do leitor do medidor.");
+        detail.resolve(data);
+      })
+      .catch((error) => detail.reject?.(error));
+  });
 }

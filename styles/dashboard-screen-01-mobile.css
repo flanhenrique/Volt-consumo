@@ -1,0 +1,26 @@
+@media (max-width:1023px) {
+  body:has(#page-home:not([hidden])) .app-frame { border:0; border-radius:0; }
+  body:has(#page-home:not([hidden])) .mobile-topbar,
+  body:has(#page-home:not([hidden])) .mobile-bottom-navigation { background:var(--dash-sidebar); border-color:var(--dash-border); }
+}
+@media (max-width:767px) {
+  body:has(#page-home:not([hidden])) .page-container { padding:1.2rem .9rem calc(7.4rem + var(--safe-bottom)); }
+  body:has(#page-home:not([hidden])) .home-page-header { display:grid; gap:1rem; }
+  body:has(#page-home:not([hidden])) .home-page-header .page-header-actions,
+  .dashboard-period-button { width:100%; }
+  body:has(#page-home:not([hidden])) .home-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; }
+  body:has(#page-home:not([hidden])) .overview-card { min-height:9rem; padding:.8rem; }
+  body:has(#page-home:not([hidden])) .overview-card .metric-value { font-size:clamp(1.28rem,6.8vw,1.8rem); }
+  body:has(#page-home:not([hidden])) .overview-card .status-pill { display:none; }
+  .dashboard-card-link { font-size:.64rem; padding:.3rem .48rem; }
+  body:has(#page-home:not([hidden])) .home-chart-card,
+  body:has(#page-home:not([hidden])) .home-distribution-card,
+  body:has(#page-home:not([hidden])) .latest-card,
+  body:has(#page-home:not([hidden])) .next-actions-card,
+  body:has(#page-home:not([hidden])) .volt-tip-card { grid-column:1 / -1; }
+  body:has(#page-home:not([hidden])) .home-chart-card { order:10; min-height:17rem; }
+  body:has(#page-home:not([hidden])) .next-actions-card { order:11; }
+  body:has(#page-home:not([hidden])) .home-distribution-card { order:12; }
+  body:has(#page-home:not([hidden])) .latest-card { order:13; }
+  body:has(#page-home:not([hidden])) .volt-tip-card { order:14; }
+}

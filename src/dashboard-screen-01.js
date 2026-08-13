@@ -44,7 +44,12 @@ function addCardLink(card, page, label, consumptionType = null) {
   button.type = "button";
   button.className = "dashboard-card-link";
   button.dataset.nav = page;
-  if (consumptionType) button.dataset.consumptionType = consumptionType;
+  if (consumptionType) {
+    button.dataset.dashboardConsumptionType = consumptionType;
+    button.addEventListener("click", () => {
+      document.querySelector(`.segment-button[data-consumption-type='${consumptionType}']`)?.click();
+    });
+  }
   button.setAttribute("aria-label", label);
   card.append(button);
 }

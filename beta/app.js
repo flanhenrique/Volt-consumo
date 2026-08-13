@@ -792,8 +792,9 @@ async function initializeAuth() {
 
 function restoreRememberPreference() {
   const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
-  $("#remember-user").checked = rememberUser;
-  if (rememberUser) $("#login-email").value = localStorage.getItem(SAVED_EMAIL_KEY) || "";
+  const rememberControl = $("#remember-user");
+  if (rememberControl) rememberControl.checked = rememberUser;
+  if (rememberUser) setControlValue("#login-email", localStorage.getItem(SAVED_EMAIL_KEY) || "");
 }
 
 function syncAuthIdentity(user, publish = true) {
@@ -1764,6 +1765,8 @@ function notifyBetaDataUpdate() {
 }
 
 function renderEngineSettings() {
+  const list = $("#engine-list");
+  if (!list) return;
   const rows = listEngineDefinitions().map((engine) => {
     const row = document.createElement("li");
     row.className = "engine-row";
@@ -1844,7 +1847,7 @@ function renderEngineSettings() {
     row.append(summary, detailPanel);
     return row;
   });
-  $("#engine-list").replaceChildren(...rows);
+  list.replaceChildren(...rows);
 }
 
 function loadUserCache(userId) {
@@ -1861,31 +1864,38 @@ function loadUserCache(userId) {
   }
 }
 
+function setControlValue(selector, value) {
+  const control = $(selector);
+  if (control) control.value = value;
+}
+
 function populateSettings() {
-  $("#rate").value = settings.rate.toFixed(6);
-  $("#goal").value = settings.goal;
-  $("#tariff-flag").value = settings.flag;
-  $("#lighting-fee").value = settings.lightingFee.toFixed(2);
+  setControlValue("#rate", settings.rate.toFixed(6));
+  setControlValue("#goal", settings.goal);
+  setControlValue("#tariff-flag", settings.flag);
+  setControlValue("#lighting-fee", settings.lightingFee.toFixed(2));
 }
 
 function populateWaterSettings() {
-  $("#water-rate").value = waterSettings.rate.toFixed(2);
-  $("#water-goal").value = waterSettings.goal;
-  $("#sewer-percent").value = waterSettings.sewerPercent;
-  $("#water-fixed-fee").value = waterSettings.fixedFee.toFixed(2);
+  setControlValue("#water-rate", waterSettings.rate.toFixed(2));
+  setControlValue("#water-goal", waterSettings.goal);
+  setControlValue("#sewer-percent", waterSettings.sewerPercent);
+  setControlValue("#water-fixed-fee", waterSettings.fixedFee.toFixed(2));
 }
 
 function setDefaultDate() {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  $("#reading-date").value = now.toISOString().slice(0, 16);
-  if ($("#water-reading-date")) $("#water-reading-date").value = now.toISOString().slice(0, 16);
+  const value = now.toISOString().slice(0, 16);
+  setControlValue("#reading-date", value);
+  setControlValue("#water-reading-date", value);
 }
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem(THEME_KEY, theme);
-  document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#0e171d" : "#f3f6f9";
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.content = theme === "dark" ? "#0e171d" : "#f3f6f9";
   document.querySelectorAll(".theme-toggle").forEach((button) => {
     button.textContent = theme === "dark" ? "☀" : "☾";
     button.setAttribute("aria-label", theme === "dark" ? "Ativar modo claro" : "Ativar modo noturno");

@@ -1,5 +1,5 @@
 import OpenAI from "jsr:@openai/openai";
-import { validateMeterVision } from "../../meter-read-core.mjs";
+import { validateMeterVision } from "./validator.ts";
 
 const allowedOrigin = Deno.env.get("VOLT_APP_ORIGIN") || "https://flanhenrique.github.io";
 const apiKey = Deno.env.get("OPENAI_API_KEY") || "";

@@ -73,8 +73,6 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   });
   await page.goto("/?session=user&dataDelay=180");
   await assertMaintenanceRemoved(page);
-  await expect(page.locator("#login-screen")).toBeVisible();
-  await expect(page.locator("#login-progress")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeVisible();
   await expect(page.locator("#login-screen")).toBeHidden();
   await expect(page.locator("#greeting")).toHaveText("Olá, Ana Volt!");

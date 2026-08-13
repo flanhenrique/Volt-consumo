@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.2";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.2";
-import { VOLT_CONFIG } from "./config.js?v=20260813.2";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.2";
-import { createRenderer } from "./src/renderer.js?v=20260813.2";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.2";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.2";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.3";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.3";
+import { VOLT_CONFIG } from "./config.js?v=20260813.3";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.3";
+import { createRenderer } from "./src/renderer.js?v=20260813.3";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.3";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.3";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -18,10 +18,38 @@ let sessionQueue = Promise.resolve();
 let mfaFactorId = null;
 let readingPreviewUrl = null;
 let readingPhotoSequence = 0;
+let maintenanceClickCount = 0;
+let applicationStarted = false;
+
+const MAINTENANCE_ACCESS_KEY = "volt-maintenance-access";
 
 store.subscribe((state) => renderer.render(state));
-bindStaticUi();
-void bootstrap();
+initializeMaintenanceGate();
+
+function initializeMaintenanceGate() {
+  const maintenanceScreen = document.getElementById("maintenance-screen");
+  const unlockButton = document.getElementById("maintenance-unlock");
+  if (sessionStorage.getItem(MAINTENANCE_ACCESS_KEY) === "granted") {
+    maintenanceScreen.hidden = true;
+    startApplication();
+    return;
+  }
+  unlockButton.addEventListener("click", () => {
+    maintenanceClickCount += 1;
+    if (maintenanceClickCount < 5) return;
+    sessionStorage.setItem(MAINTENANCE_ACCESS_KEY, "granted");
+    maintenanceScreen.hidden = true;
+    startApplication();
+  });
+}
+
+function startApplication() {
+  if (applicationStarted) return;
+  applicationStarted = true;
+  document.getElementById("main-content").hidden = false;
+  bindStaticUi();
+  void bootstrap();
+}
 
 export async function bootstrap() {
   store.setStatus(StartupStatus.RESTORING_SESSION);
@@ -389,7 +417,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.2");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.3");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {

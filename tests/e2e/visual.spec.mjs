@@ -33,12 +33,19 @@ test.afterEach(async ({ page }, testInfo) => {
   expect([...page.__voltFailures, ...unhandled]).toEqual([]);
 });
 
+async function unlockMaintenance(page) {
+  await expect(page.locator("#maintenance-screen")).toBeVisible();
+  for (let index = 0; index < 5; index += 1) await page.locator("#maintenance-unlock").click();
+  await expect(page.locator("#maintenance-screen")).toBeHidden();
+}
+
 for (const viewport of viewports) {
   for (const theme of ["light", "dark"]) {
     test(`visual ${viewport.name} ${theme}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.addInitScript((selectedTheme) => localStorage.setItem("volt-theme", selectedTheme), theme);
       await page.goto("/?session=user");
+      await unlockMaintenance(page);
       await expect(page.locator("#dashboard")).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       const metrics = await page.evaluate(() => ({
@@ -68,6 +75,7 @@ for (const viewport of [{ name: "login-mobile-390", width: 390, height: 844 }, {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.addInitScript((selectedTheme) => localStorage.setItem("volt-theme", selectedTheme), theme);
       await page.goto("/");
+      await unlockMaintenance(page);
       await expect(page.locator("#login-screen")).toBeVisible();
       await expect(page.locator("#dashboard")).toBeHidden();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

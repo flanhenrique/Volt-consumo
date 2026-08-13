@@ -88,11 +88,16 @@ Blur não é animado; superfícies são agrupadas; gráficos não usam dependên
 
 - `1bb2779 feat(ui): introduce Volt Liquid Glass design tokens`
 - `6741265 feat(shell): rebuild responsive Liquid Glass experience`
-- Commits de testes/documentação serão registrados após o gate final.
+- `b826b40 test(ui): add responsive visual and functional gates`
+- `cad7fa4 docs(ui): document Liquid Glass system and responsive ownership`
+- `ae841b6 test(runtime): stabilize full browser and service worker gate`
 
 ## 17. SHA final e PR
 
-Preenchido após o gate final, push e criação do PR. Nenhum merge em `main` foi realizado nesta missão.
+- Head funcional testado e enviado: `ae841b645505d5c2d4dde07af60238323b544428`.
+- PR: `#8` — `https://github.com/flanhenrique/Volt-consumo/pull/8`.
+- CI do PR: run `31680677084`, estático e browsers/SW — PASSOU.
+- Status: pronto para revisão/merge, mas **não mesclado**.
 
 ## 18. Critérios de aceitação
 

@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.16 · runtime por prioridade e página ativa. */
+/** Volt Consumo — Beta v3.17 · runtime por prioridade e página ativa. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -234,12 +234,13 @@ function bindLazyPageModules(shell) {
 }
 
 async function loadPageModules(page) {
-  if (page !== "users") return;
+  if (!["reports", "users"].includes(page)) return;
   if (pageModulePromises.has(page)) return pageModulePromises.get(page);
 
   const promise = (async () => {
     await loadCoreModules();
-    await import("./platform-users.js");
+    if (page === "reports") await import("./reports-v3.js?v=1");
+    if (page === "users") await import("./platform-users.js");
   })().catch((error) => {
     pageModulePromises.delete(page);
     reportModuleFailure(error);

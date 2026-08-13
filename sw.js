@@ -22,6 +22,7 @@ const CORE_ASSETS = [
   releaseAsset("./data/national-energy-catalog.js"),
   "./data/energy-billing-profiles.js",
   releaseAsset("./src/app-state.js"),
+  releaseAsset("./src/bill-detail.js"),
   releaseAsset("./src/cycles.js"),
   releaseAsset("./src/meter-ocr.js"),
   releaseAsset("./src/renderer.js"),

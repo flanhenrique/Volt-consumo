@@ -49,7 +49,38 @@ try {
   assert.equal(state.tariffCardCount, 0, "Card legado Tarifas e encargos reapareceu");
   assert.equal(state.tariffTextPresent, false, "Texto legado Tarifas e encargos reapareceu");
   assert.equal(state.usersNavHidden, true, "Usuários apareceu sem autorização autenticada");
-  assert.deepEqual(runtimeErrors, [], `Erros no bootstrap:\n${runtimeErrors.join("\n")}`);
+
+  // Exercita a casca autenticada sem criar sessão falsa. O objetivo aqui é
+  // validar o contrato visual de navegação/hidden e capturar erros de CSP/DOM
+  // que só aparecem quando o Dashboard deixa de estar oculto.
+  await page.evaluate(() => {
+    document.documentElement.dataset.voltHomeReady = "true";
+    document.documentElement.dataset.voltFinancialReady = "true";
+    const welcome = document.querySelector("#welcome");
+    const dashboard = document.querySelector("#dashboard");
+    if (welcome) welcome.hidden = true;
+    if (dashboard) dashboard.hidden = false;
+  });
+  await page.waitForTimeout(200);
+
+  for (const pageName of ["home", "readings", "reports", "settings"]) {
+    await page.locator(`[data-nav="${pageName}"]`).click();
+    await page.waitForTimeout(80);
+    const navigationState = await page.evaluate((expectedPage) => {
+      const visiblePages = [...document.querySelectorAll(".beta-page")].filter((item) => {
+        if (item.hidden) return false;
+        const style = getComputedStyle(item);
+        return style.display !== "none" && style.visibility !== "hidden";
+      }).map((item) => item.dataset.page);
+      const activePages = [...document.querySelectorAll(".beta-page.active")].map((item) => item.dataset.page);
+      return { visiblePages, activePages, reportsMarkup: document.querySelector("#beta-reports")?.innerHTML.trim() ?? null };
+    }, pageName);
+    assert.deepEqual(navigationState.visiblePages, [pageName], `Navegação ${pageName} deixou páginas sobrepostas`);
+    assert.deepEqual(navigationState.activePages, [pageName], `Navegação ${pageName} perdeu página ativa única`);
+    if (pageName === "reports") assert.equal(navigationState.reportsMarkup, "", "Relatórios foi preenchido durante navegação");
+  }
+
+  assert.deepEqual(runtimeErrors, [], `Erros no bootstrap/navegação:\n${runtimeErrors.join("\n")}`);
 
   await context.close();
 } finally {

@@ -10,11 +10,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.3">
-  <link rel="stylesheet" href="./styles/glass.css?v=20260813.3">
-  <link rel="stylesheet" href="./styles/layout.css?v=20260813.3">
-  <link rel="stylesheet" href="./styles/components.css?v=20260813.3">
-  <link rel="stylesheet" href="./styles/pages.css?v=20260813.3">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.4">
+  <link rel="stylesheet" href="./styles/glass.css?v=20260813.4">
+  <link rel="stylesheet" href="./styles/layout.css?v=20260813.4">
+  <link rel="stylesheet" href="./styles/components.css?v=20260813.4">
+  <link rel="stylesheet" href="./styles/pages.css?v=20260813.4">
   <title>Volt Consumo</title>
 </head>
 <body>
@@ -41,37 +41,10 @@
     <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M5 22V3M5 4h12l-2 4 2 4H5"/></symbol>
   </svg>
 
-  <section id="maintenance-screen" class="maintenance-screen" aria-labelledby="maintenance-title">
-    <div class="maintenance-shell">
-      <header class="maintenance-header">
-        <span class="brand-lockup" aria-label="Volt Consumo">
-          <span class="brand-symbol"><svg aria-hidden="true"><use href="#icon-bolt"></use></svg></span>
-          <span class="brand-name">VOLT<small>CONSUMO</small></span>
-        </span>
-        <button id="maintenance-unlock" class="maintenance-gear" type="button" aria-label="Configurações">
-          <svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg>
-        </button>
-      </header>
-      <main class="maintenance-content">
-        <article class="maintenance-card">
-          <span class="maintenance-bolt" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span>
-          <p class="eyebrow">ATUALIZAÇÃO EM ANDAMENTO</p>
-          <h1 id="maintenance-title">Volt em manutenção</h1>
-          <p>Estamos ajustando os últimos detalhes para deixar sua experiência mais clara, segura e estável.</p>
-          <span class="maintenance-status"><i aria-hidden="true"></i>Voltamos em breve</span>
-        </article>
-      </main>
-      <footer class="maintenance-footer">
-        <svg class="icon" aria-hidden="true"><use href="#icon-shield"></use></svg>
-        Seus dados continuam protegidos.
-      </footer>
-    </div>
-  </section>
-
   <a class="skip-link" href="#page-container">Pular para o conteúdo</a>
   <noscript><p class="fatal-message">O Volt precisa de JavaScript para funcionar.</p></noscript>
 
-  <main id="main-content" class="app-shell" hidden>
+  <main id="main-content" class="app-shell">
     <section id="login-screen" class="state-screen auth-screen" hidden>
       <div class="auth-layout glass-elevated">
         <section class="auth-branding" aria-label="Apresentação do Volt">
@@ -324,6 +297,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260813.3"></script>
+  <script type="module" src="./app.js?v=20260813.4"></script>
 </body>
 </html>

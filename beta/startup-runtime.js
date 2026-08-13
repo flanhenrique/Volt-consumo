@@ -170,9 +170,13 @@ function setApi(value) {
     return;
   }
   apiTarget = value;
-  apiFacade = new Proxy(value, {
-    get(target, property, receiver) {
-      const member = Reflect.get(target, property, receiver);
+  // A API publicada pelo app é Object.freeze(). Um Proxy cujo target seja
+  // esse objeto não pode devolver wrappers diferentes para propriedades
+  // não-configuráveis. Usamos um target neutro e lemos sempre da API real.
+  apiFacade = new Proxy(Object.create(null), {
+    get(_facadeTarget, property) {
+      const target = apiTarget;
+      const member = Reflect.get(target, property, target);
       const method = String(property);
       if (typeof member !== "function") return member;
       if (method === "refreshData") return (...args) => runDataRefresh(member, args);

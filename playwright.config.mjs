@@ -13,7 +13,7 @@ export default defineConfig({
     trace: "retain-on-failure"
   },
   webServer: process.env.VOLT_BASE_URL ? undefined : {
-    command: "python -m http.server 4173 --bind 127.0.0.1",
+    command: "python tests/static_server.py 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: true
   },

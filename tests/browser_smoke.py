@@ -3,10 +3,11 @@ import sys
 import time
 
 from playwright.sync_api import expect, sync_playwright
+from static_server import start_server
 
 ROOT = Path(__file__).resolve().parents[1]
 FAKE_SUPABASE = (ROOT / "tests/fixtures/fake-supabase.js").read_text(encoding="utf-8")
-BASE_URL = "http://127.0.0.1:4173"
+BASE_URL = ""
 
 
 def isolated_context(browser, **kwargs):
@@ -227,32 +228,40 @@ def scenario_beta_redirect(browser):
 
 
 def main():
+    global BASE_URL
     failures = []
-    with sync_playwright() as playwright:
-        for browser_name in ("chromium", "webkit"):
-            browser_type = getattr(playwright, browser_name)
-            try:
-                browser = browser_type.launch()
-            except Exception as error:
-                failures.append(f"{browser_name}: navegador indisponível: {error}")
-                continue
-            scenarios = [
-                ("deslogado desktop", scenario_signed_out),
-                ("deslogado mobile", lambda item: scenario_signed_out(item, mobile=True)),
-                ("sessão/Home/Leituras/Configurações/Relatórios/Logout", scenario_authenticated),
-                ("MFA", scenario_mfa),
-                ("Usuários", scenario_admin),
-                ("compatibilidade /beta", scenario_beta_redirect)
-            ]
-            if browser_name == "chromium":
-                scenarios.insert(-1, ("Service Worker", scenario_service_worker))
-            for label, scenario in scenarios:
+    server, server_thread = start_server(ROOT)
+    BASE_URL = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with sync_playwright() as playwright:
+            for browser_name in ("chromium", "webkit"):
+                browser_type = getattr(playwright, browser_name)
                 try:
-                    scenario(browser)
-                    print(f"PASSOU [{browser_name}] {label}")
+                    browser = browser_type.launch()
                 except Exception as error:
-                    failures.append(f"{browser_name} — {label}: {error}")
-            browser.close()
+                    failures.append(f"{browser_name}: navegador indisponível: {error}")
+                    continue
+                scenarios = [
+                    ("deslogado desktop", scenario_signed_out),
+                    ("deslogado mobile", lambda item: scenario_signed_out(item, mobile=True)),
+                    ("sessão/Home/Leituras/Configurações/Relatórios/Logout", scenario_authenticated),
+                    ("MFA", scenario_mfa),
+                    ("Usuários", scenario_admin),
+                    ("compatibilidade /beta", scenario_beta_redirect)
+                ]
+                if browser_name == "chromium":
+                    scenarios.insert(-1, ("Service Worker", scenario_service_worker))
+                for label, scenario in scenarios:
+                    try:
+                        scenario(browser)
+                        print(f"PASSOU [{browser_name}] {label}")
+                    except Exception as error:
+                        failures.append(f"{browser_name} — {label}: {error}")
+                browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=5)
     if failures:
         print("BROWSER GATE: FALHOU")
         for failure in failures:

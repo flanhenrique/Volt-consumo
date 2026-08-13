@@ -102,6 +102,7 @@ A aba continua ativa. `#page-reports` existe, abre e permanece sem filhos e sem 
 - `tests/e2e/volt.spec.mjs`: cenários A–I, sessão, login, MFA, Home, Leituras, Configurações, Usuários, Relatórios, logout, Chromium/WebKit/mobile e gate de console.
 - `tests/e2e/sw.spec.mjs`: registro/controle, asset 404 não-HTML, offline/online.
 - `tests/browser_smoke.py`: execução local equivalente com browser real, incluindo hard reload e lifecycle de cache.
+- `tests/static_server.py`: servidor de gate isolado, com assets pré-carregados, evitando que resets de um servidor externo produzam falsos resultados de startup/SW.
 - Fixtures Supabase determinísticas: exercitam contratos do frontend sem mutar usuários reais.
 
 ## 16. Testes executados

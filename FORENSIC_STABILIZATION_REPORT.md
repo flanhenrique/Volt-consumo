@@ -1,14 +1,15 @@
 # Relatório de estabilização forense do Volt
 
 - Data: 2026-08-13
-- Branch: `fix/volt-bootstrap-stabilization`
+- Branch publicada: `fix/full-runtime-stabilization`
+- Branch de implementação integrada: `fix/volt-bootstrap-stabilization`
 - Baseline auditada: `c6145c5` (`main`)
 - SHA funcional testado: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`
 - SHA da suíte/harness testado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`
 
 ## Resumo executivo
 
-**Gate local: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A branch não foi mesclada. A migração aditiva, o CI do novo PR e o site publicado ainda precisam ser validados no ambiente remoto; por isso este relatório não declara o deploy concluído.
+**Gate local: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A implementação foi integrada por merge normal ao histórico existente do PR #5, preservando seus 76 commits exclusivos; não houve merge em `main`. A migração aditiva, o CI atualizado e o site publicado ainda precisam ser validados no ambiente remoto; por isso este relatório não declara o deploy concluído.
 
 A auditoria anterior às mudanças está preservada em `FORENSIC_AUDIT_MATRIX.md`. O diff contém 114 arquivos: 2.833 inserções e 19.151 remoções.
 
@@ -203,11 +204,13 @@ bf578f1 test(e2e): cover MFA and cache lifecycle
 2775d5e fix(auth): harden bootstrap permission RPC
 60ab7d8 docs(report): record forensic stabilization results
 f286acc test(e2e): isolate static server lifecycle
+ac63ea0 docs(report): satisfy diff integrity gate
+0373f35 merge(stabilization): consolidate deterministic root runtime
 ```
 
 ## 24. SHA final testado
 
-Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suíte e servidor isolado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`. O commit documental posterior que atualiza estes identificadores não altera runtime nem testes; o gate completo será repetido sobre o HEAD antes da publicação do PR.
+Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suíte e servidor isolado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`. Integração no histórico do PR #5: `0373f35c5ab9a4675c3b81a366853a89b77d3e4b`, com pais `9d6a26c` e `ac63ea0`. A atualização documental posterior não altera runtime nem testes; o gate completo é repetido sobre o HEAD antes do push.
 
 ## 25. URL/deploy testado
 

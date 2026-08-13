@@ -72,6 +72,7 @@ let currentUserId = null;
 let currentUserEmail = "";
 let currentDisplayName = "";
 let scannerTarget = null;
+let tesseractLoadPromise = null;
 let betaDataUpdateScheduled = false;
 let betaRefreshPromise = null;
 let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
@@ -2032,6 +2033,28 @@ function renderWater() {
   notifyBetaDataUpdate();
 }
 
+function loadTesseractRuntime() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (tesseractLoadPromise) return tesseractLoadPromise;
+  tesseractLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "./vendor/tesseract/tesseract.min.js";
+    script.async = true;
+    script.dataset.voltTesseract = "true";
+    script.addEventListener("load", () => {
+      if (window.Tesseract) resolve(window.Tesseract);
+      else reject(new Error("OCR indisponível"));
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error("OCR indisponível")), { once: true });
+    document.head.append(script);
+  }).catch((error) => {
+    tesseractLoadPromise = null;
+    document.querySelector("script[data-volt-tesseract]")?.remove();
+    throw error;
+  });
+  return tesseractLoadPromise;
+}
+
 async function scanMeterPhoto(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -2042,8 +2065,8 @@ async function scanMeterPhoto(event) {
   $("#scanner-progress").hidden = false;
   $("#scanner-message").textContent = "Reconhecendo os dígitos…";
   try {
-    if (!window.Tesseract) throw new Error("OCR indisponível");
-    const result = await window.Tesseract.recognize(file, "eng", {
+    const tesseract = await loadTesseractRuntime();
+    const result = await tesseract.recognize(file, "eng", {
       workerPath: "./vendor/tesseract/worker.min.js",
       corePath: "./vendor/tesseract-core",
       langPath: "./vendor/tessdata",

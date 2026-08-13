@@ -20,15 +20,89 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Check JavaScript syntax
         run: |
           find beta -type f -name '*.js' -not -path 'beta/vendor/*' -print0 | xargs -0 -n1 node --check
           node --check supabase/functions/_shared/health-core.mjs
           node --check supabase/functions/_shared/auth-login-core.mjs
+      - name: Guard Beta runtime integrity and local module references
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { access, readFile, stat } from 'node:fs/promises';
+          import { dirname, resolve } from 'node:path';
+
+          const appPath = resolve('beta/app.js');
+          const app = await readFile(appPath, 'utf8');
+          const appStat = await stat(appPath);
+          assert.ok(appStat.size > 40_000, `beta/app.js pequeno demais (${appStat.size} bytes)`);
+          assert.doesNotMatch(app, /^\s*PLACEHOLDER\s*$/m, 'beta/app.js contém PLACEHOLDER');
+          const criticalSignatures = [
+            [/\basync\s+function\s+initializeAuth\s*\(/, 'initializeAuth'],
+            [/\basync\s+function\s+loadUserData\s*\(/, 'loadUserData'],
+            [/\bfunction\s+exposeBetaApi\s*\(/, 'exposeBetaApi']
+          ];
+          for (const [pattern, name] of criticalSignatures) {
+            assert.match(app, pattern, `beta/app.js perdeu assinatura crítica: ${name}`);
+          }
+
+          const index = await readFile('beta/index.html', 'utf8');
+          for (const id of ['login-form', 'dashboard', 'energy-panel', 'water-panel', 'settings-form']) {
+            assert.match(index, new RegExp(`id=["']${id}["']`), `beta/index.html perdeu #${id}`);
+          }
+
+          const files = ['beta/index.html', 'beta/beta-v3.js', 'beta/environment.js'];
+          const references = new Set();
+          for (const file of files) {
+            const source = await readFile(file, 'utf8');
+            const base = dirname(resolve(file));
+            const patterns = [
+              /(?:src|href)=["'](\.\.?\/[^"'#?]+(?:\?[^"'#]*)?)["']/g,
+              /import\s*(?:\([^)]*?["']|[\s\S]*?from\s*["']|["'])(\.\.?\/[^"']+)["']/g
+            ];
+            for (const pattern of patterns) {
+              for (const match of source.matchAll(pattern)) {
+                const relative = match[1].split('?')[0].split('#')[0];
+                if (!relative || relative.endsWith('/')) continue;
+                references.add(resolve(base, relative));
+              }
+            }
+          }
+
+          // O service worker declara assets em arrays, não via import/src/href.
+          // Cada caminho local listado para cache precisa existir fisicamente.
+          const sw = await readFile('beta/sw.js', 'utf8');
+          for (const match of sw.matchAll(/["'](\.\/[^"'?#]+)(?:\?[^"']*)?["']/g)) {
+            const relative = match[1];
+            if (!relative || relative === './' || relative.endsWith('/')) continue;
+            references.add(resolve('beta', relative));
+          }
+
+          for (const target of references) {
+            await access(target).catch(() => { throw new Error(`Referência local ausente: ${target}`); });
+          }
+
+          const betaV3 = await readFile('beta/beta-v3.js', 'utf8');
+          assert.match(betaV3, /\[hidden\]\s*\{\s*display:\s*none\s*!important/, 'proteção global de [hidden] ausente');
+          assert.match(betaV3, /data-volt-financial-ready/, 'barreira de valores financeiros intermediários ausente');
+
+          const cycles = await readFile('beta/separate-cycles.js', 'utf8');
+          assert.doesNotMatch(cycles, /setTimeout\s*\(\s*\(\)\s*=>\s*waitForUi/, 'polling de UI dos ciclos reapareceu');
+          assert.match(cycles, /MutationObserver/, 'separate-cycles perdeu observer de montagem sob demanda');
+
+          const guided = await readFile('beta/guided-experience.js', 'utf8');
+          assert.doesNotMatch(guided, /form\.dispatchEvent\(new Event\(["']submit["']/, 'onboarding voltou a submeter localidade durante sync de metadata');
+          assert.match(guided, /meaningfulPartial/, 'onboarding perdeu deduplicação de metadata');
+
+          const startup = await readFile('beta/startup-runtime.js', 'utf8');
+          assert.match(startup, /INITIAL_SESSION/, 'runtime perdeu deduplicação de INITIAL_SESSION');
+          assert.match(startup, /TOKEN_REFRESHED/, 'runtime perdeu deduplicação de TOKEN_REFRESHED');
+          assert.match(startup, /__voltCoalesced/, 'runtime perdeu coalescência de volt:beta-data');
+          NODE
       - name: Verify health endpoint semantics
         run: |
           node --input-type=module <<'NODE'

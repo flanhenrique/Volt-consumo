@@ -14,11 +14,9 @@ function installPlatformUsersStyles() {
 
 let platformUsersClient = null;
 let platformUsersSnapshot = null;
+let platformUsersLoadPromise = null;
 
 queueMicrotask(initializePlatformUsersView);
-window.addEventListener("volt:beta-data", () => {
-  if (document.querySelector("#beta-users") && !platformUsersSnapshot) loadPlatformUsers();
-});
 
 function initializePlatformUsersView() {
   const page = document.querySelector("#beta-users");
@@ -72,9 +70,23 @@ function initializePlatformUsersView() {
   loadPlatformUsers();
 }
 
-async function loadPlatformUsers() {
+function loadPlatformUsers() {
+  if (platformUsersSnapshot) {
+    renderPlatformUsers();
+    return Promise.resolve(platformUsersSnapshot);
+  }
+  if (platformUsersLoadPromise) return platformUsersLoadPromise;
+
+  platformUsersLoadPromise = fetchPlatformUsers()
+    .finally(() => {
+      platformUsersLoadPromise = null;
+    });
+  return platformUsersLoadPromise;
+}
+
+async function fetchPlatformUsers() {
   const feedback = document.querySelector("#platform-users-feedback");
-  if (!feedback) return;
+  if (!feedback) return null;
   feedback.textContent = "Atualizando usuários…";
 
   try {
@@ -99,12 +111,14 @@ async function loadPlatformUsers() {
       ? `Atualizado em ${formatDateTime(platformUsersSnapshot.generatedAt)}.`
       : "Dados atualizados.";
     renderPlatformUsers();
+    return platformUsersSnapshot;
   } catch (error) {
     console.warn("Volt: diretório global de usuários indisponível", error);
     platformUsersSnapshot = null;
     setText("#platform-users-count", "Indisponível");
     feedback.textContent = "Não foi possível consultar a base global de usuários nesta sessão.";
     document.querySelector("#platform-users-list")?.replaceChildren();
+    return null;
   }
 }
 

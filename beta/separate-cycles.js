@@ -8,16 +8,19 @@ const SETUP_KEY = "volt-beta-initial-bill-setup-v1";
 let client = null;
 let syncing = false;
 let rendering = false;
+let renderScheduled = false;
+let uiObserver = null;
+let lastCycleContextSignature = "";
 
 queueMicrotask(initializeCycles);
 
 function initializeCycles() {
   migrateLegacyCycleOnce();
   bindAuthSync();
-  waitForUi();
-  window.addEventListener("volt:beta-data", renderAll);
-  window.addEventListener("volt:cycle-context-request", renderAll);
-  renderAll();
+  observeUi();
+  window.addEventListener("volt:beta-data", scheduleRender);
+  window.addEventListener("volt:cycle-context-request", scheduleRender);
+  scheduleRender();
 }
 
 function getClient() {
@@ -38,15 +41,32 @@ function migrateLegacyCycleOnce() {
   try { localStorage.removeItem(LEGACY_CYCLE_KEY); } catch {}
 }
 
-function waitForUi(attempt = 0) {
-  const settingsForm = document.querySelector("#beta-cycle-form");
-  const setupDialog = document.querySelector("#initial-bill-setup-dialog");
-  if (settingsForm) replaceCycleSettings(settingsForm);
-  if (setupDialog) upgradeInitialSetup(setupDialog);
-  renderAll();
-  if ((!document.querySelector("#beta-energy-cycle-form") || !setupDialog) && attempt < 60) {
-    window.setTimeout(() => waitForUi(attempt + 1), 100);
-  }
+function observeUi() {
+  const upgradeAvailableUi = () => {
+    let changed = false;
+    const settingsForm = document.querySelector("#beta-cycle-form");
+    const setupDialog = document.querySelector("#initial-bill-setup-dialog");
+    if (settingsForm && !document.querySelector("#beta-energy-cycle-form")) {
+      replaceCycleSettings(settingsForm);
+      changed = true;
+    }
+    if (setupDialog && setupDialog.dataset.separateCycles !== "true") {
+      upgradeInitialSetup(setupDialog);
+      changed = true;
+    }
+    if (changed) scheduleRender();
+    if (document.querySelector("#beta-energy-cycle-form") && setupDialog?.dataset.separateCycles === "true") {
+      uiObserver?.disconnect();
+      uiObserver = null;
+      return true;
+    }
+    return false;
+  };
+
+  if (upgradeAvailableUi()) return;
+  if (typeof MutationObserver === "undefined") return;
+  uiObserver = new MutationObserver(upgradeAvailableUi);
+  uiObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function replaceCycleSettings(oldForm) {
@@ -85,10 +105,12 @@ async function saveCycleForm(event, type) {
     if (status) status.textContent = "Informe dias válidos, de 1 a 31.";
     return;
   }
-  writeCycle(type, cycle);
-  await persistCyclesToAccount();
-  if (status) status.textContent = `Ciclo de ${type === "energy" ? "energia" : "água"} atualizado.`;
-  renderAll();
+  const changed = writeCycle(type, cycle);
+  if (changed) await persistCyclesToAccount();
+  if (status) status.textContent = changed
+    ? `Ciclo de ${type === "energy" ? "energia" : "água"} atualizado.`
+    : "O ciclo já está atualizado.";
+  scheduleRender();
 }
 
 function upgradeInitialSetup(dialog) {
@@ -167,7 +189,7 @@ async function saveInitialSetup(event) {
     safeSet(SETUP_KEY, "completed");
     await persistSetupState("completed", user);
     await api?.refreshData?.();
-    renderAll();
+    scheduleRender();
     closeSetupDialog();
   } catch (error) {
     console.warn("Volt: falha ao salvar configuração inicial", error);
@@ -183,14 +205,15 @@ function bindAuthSync() {
   if (!supabase) return;
   const apply = (user) => {
     const cycles = user?.user_metadata?.cycles;
+    let changed = false;
     if (cycles && typeof cycles === "object") {
       const energy = normalizeCycle(cycles.energy);
       const water = normalizeCycle(cycles.water);
-      if (energy) writeCycle("energy", energy);
-      if (water) writeCycle("water", water);
+      if (energy) changed = writeCycle("energy", energy) || changed;
+      if (water) changed = writeCycle("water", water) || changed;
     }
     try { localStorage.removeItem(LEGACY_CYCLE_KEY); } catch {}
-    renderAll();
+    if (changed) scheduleRender();
   };
   supabase.auth.onAuthStateChange((_event, session) => session?.user && apply(session.user));
   supabase.auth.getSession().then(({ data }) => data?.session?.user && apply(data.session.user)).catch(() => undefined);
@@ -205,6 +228,8 @@ async function persistCyclesToAccount(existingUser = null) {
     const user = existingUser || (await supabase.auth.getUser()).data?.user;
     if (!user) return;
     const cycles = { energy: getCycle("energy"), water: getCycle("water") };
+    const current = user.user_metadata?.cycles;
+    if (sameCycles(current, cycles)) return;
     const { error } = await supabase.auth.updateUser({ data: { ...(user.user_metadata || {}), cycles, cycles_updated_at: new Date().toISOString() } });
     if (error) throw error;
   } finally {
@@ -212,9 +237,21 @@ async function persistCyclesToAccount(existingUser = null) {
   }
 }
 
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  const run = () => {
+    renderScheduled = false;
+    renderAll();
+  };
+  if (document.hidden) queueMicrotask(run);
+  else requestAnimationFrame(run);
+}
+
 function renderAll() {
   if (rendering || !api?.getSnapshot) return;
   rendering = true;
+  let contextChanged = false;
   try {
     const snapshot = api.getSnapshot();
     const energy = buildContext(getCycle("energy"));
@@ -225,25 +262,49 @@ function renderAll() {
     const waterEstimate = api.estimateWater?.(waterConsumption) || { totalCost: 0 };
     const totalCost = Number(energyEstimate.totalCost || 0) + Number(waterEstimate.totalCost || 0);
 
-    window.VOLT_CYCLE_CONTEXT = Object.freeze({ energy, water });
-    window.VOLT_CYCLE_VALUES = Object.freeze({
+    const nextContext = { energy, water };
+    const nextValues = {
       energy: { consumption: energyConsumption, estimate: energyEstimate },
       water: { consumption: waterConsumption, estimate: waterEstimate },
       totalCost
-    });
+    };
+    const signature = cycleContextSignature(nextContext, nextValues);
+    contextChanged = signature !== lastCycleContextSignature;
+    if (contextChanged) lastCycleContextSignature = signature;
 
-    renderHeader(energy, water);
-    setText("#beta-energy-consumption", `${formatNumber(energyConsumption, 0)} kWh`);
-    setText("#beta-water-consumption", `${formatNumber(waterConsumption, 3)} m³`);
-    setText("#beta-energy-cost", currency(energyEstimate.totalCost));
-    setText("#beta-water-cost", currency(waterEstimate.totalCost));
-    setText("#beta-financial-total", currency(totalCost));
-    renderSummary(energyEstimate.totalCost, waterEstimate.totalCost, totalCost);
+    window.VOLT_CYCLE_CONTEXT = Object.freeze(nextContext);
+    window.VOLT_CYCLE_VALUES = Object.freeze(nextValues);
+
+    if (contextChanged) {
+      renderHeader(energy, water);
+      setText("#beta-energy-consumption", `${formatNumber(energyConsumption, 0)} kWh`);
+      setText("#beta-water-consumption", `${formatNumber(waterConsumption, 3)} m³`);
+      setText("#beta-energy-cost", currency(energyEstimate.totalCost));
+      setText("#beta-water-cost", currency(waterEstimate.totalCost));
+      setText("#beta-financial-total", currency(totalCost));
+      renderSummary(energyEstimate.totalCost, waterEstimate.totalCost, totalCost);
+    }
     syncSettingsInputs();
   } finally {
     rendering = false;
   }
-  window.dispatchEvent(new CustomEvent("volt:cycle-context", { detail: window.VOLT_CYCLE_CONTEXT }));
+  if (contextChanged) {
+    window.dispatchEvent(new CustomEvent("volt:cycle-context", { detail: window.VOLT_CYCLE_CONTEXT }));
+  }
+}
+
+function cycleContextSignature(context, values) {
+  return JSON.stringify({
+    energyCycle: context.energy?.preference || null,
+    energyRange: context.energy?.current ? [context.energy.current.start?.toISOString?.(), context.energy.current.end?.toISOString?.()] : null,
+    waterCycle: context.water?.preference || null,
+    waterRange: context.water?.current ? [context.water.current.start?.toISOString?.(), context.water.current.end?.toISOString?.()] : null,
+    energyConsumption: Number(values.energy?.consumption || 0),
+    waterConsumption: Number(values.water?.consumption || 0),
+    energyCost: Number(values.energy?.estimate?.totalCost || 0),
+    waterCost: Number(values.water?.estimate?.totalCost || 0),
+    totalCost: Number(values.totalCost || 0)
+  });
 }
 
 function renderHeader(energy, water) {
@@ -303,8 +364,21 @@ function getCycle(type) {
 function writeCycle(type, cycle) {
   const normalized = normalizeCycle(cycle);
   if (!normalized) return false;
-  safeSet(type === "energy" ? ENERGY_CYCLE_KEY : WATER_CYCLE_KEY, JSON.stringify(normalized));
+  const key = type === "energy" ? ENERGY_CYCLE_KEY : WATER_CYCLE_KEY;
+  const next = JSON.stringify(normalized);
+  if (localStorage.getItem(key) === next) return false;
+  safeSet(key, next);
   return true;
+}
+
+function sameCycles(left, right) {
+  return JSON.stringify({
+    energy: normalizeCycle(left?.energy),
+    water: normalizeCycle(left?.water)
+  }) === JSON.stringify({
+    energy: normalizeCycle(right?.energy),
+    water: normalizeCycle(right?.water)
+  });
 }
 
 function buildContext(preference) {
@@ -377,8 +451,8 @@ function syncSettingsInputs() {
     const cycle = getCycle(type);
     const start = document.querySelector(`#beta-${type}-cycle-start`);
     const end = document.querySelector(`#beta-${type}-cycle-end`);
-    if (cycle && start && document.activeElement !== start) start.value = cycle.start;
-    if (cycle && end && document.activeElement !== end) end.value = cycle.end;
+    if (cycle && start && document.activeElement !== start && String(start.value) !== String(cycle.start)) start.value = cycle.start;
+    if (cycle && end && document.activeElement !== end && String(end.value) !== String(cycle.end)) end.value = cycle.end;
   }
 }
 

@@ -848,13 +848,24 @@ async function updateAuthScreen(user) {
   dashboard.hidden = false;
 
   void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
-  // Após a Home estar pronta, só mantemos tarefas leves necessárias à conta.
-  // Métricas, feature flags e health são carregados pela página que os utiliza.
+  // Após o primeiro render autenticado, privacidade/convite continuam leves.
+  // O snapshot administrativo espera o runtime publicar startup-ready para não
+  // competir com tarifas, ciclos e a primeira renderização da Home.
   void Promise.allSettled([
     recordPrivacyAcceptance(user),
-    refreshBetaInvitation(),
-    refreshBetaAdmin()
+    refreshBetaInvitation()
   ]);
+  schedulePostStartupAdminRefresh();
+}
+
+function schedulePostStartupAdminRefresh() {
+  if (APP_ENVIRONMENT.id !== "beta") return;
+  const run = () => { void refreshBetaAdmin(); };
+  if (window.VOLT_STARTUP_STATE?.status === "ready") {
+    queueMicrotask(run);
+    return;
+  }
+  window.addEventListener("volt:startup-ready", run, { once: true });
 }
 
 function loadLegacySettings() {

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   smoke:
-    name: Bootstrap sem sessão
+    name: Bootstrap e sessão restaurada
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -40,10 +40,14 @@ jobs:
           done
           cat /tmp/volt-beta-smoke.log
           exit 1
-      - name: Executar smoke test no Chromium
+      - name: Executar smoke sem sessão no Chromium
         env:
           VOLT_SMOKE_URL: http://127.0.0.1:4173/
         run: node beta/tests/browser-smoke.mjs
+      - name: Executar smoke com sessão restaurada no Chromium
+        env:
+          VOLT_SMOKE_URL: http://127.0.0.1:4173/
+        run: node beta/tests/browser-authenticated-smoke.mjs
       - name: Exibir log do servidor em falha
         if: failure()
         run: cat /tmp/volt-beta-smoke.log || true

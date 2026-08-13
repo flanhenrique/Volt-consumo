@@ -3,13 +3,14 @@
 Data: 2026-08-13  
 Branch: `fix/volt-bootstrap-stabilization`  
 Baseline auditada: `c6145c5` (`main`)  
-SHA funcional testado: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`
+SHA funcional testado: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`  
+SHA da suíte/harness testado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`
 
 ## Resumo executivo
 
 **Gate local: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A branch não foi mesclada. A migração aditiva, o CI do novo PR e o site publicado ainda precisam ser validados no ambiente remoto; por isso este relatório não declara o deploy concluído.
 
-A auditoria anterior às mudanças está preservada em `FORENSIC_AUDIT_MATRIX.md`. O diff funcional contém 112 arquivos: 2.496 inserções e 19.151 remoções.
+A auditoria anterior às mudanças está preservada em `FORENSIC_AUDIT_MATRIX.md`. O diff contém 114 arquivos: 2.833 inserções e 19.151 remoções.
 
 ## 1. Arquitetura encontrada
 
@@ -107,7 +108,7 @@ A aba continua ativa. `#page-reports` existe, abre e permanece sem filhos e sem 
 
 ## 16. Testes executados
 
-No SHA `2775d5eef73d7f2131b6dbe947c3057795dfee0b`:
+No SHA funcional `2775d5eef73d7f2131b6dbe947c3057795dfee0b` e novamente no SHA de harness `f286acca510b089fcc3ba17dd669f28f7cc9f53b`:
 
 ```text
 QUALITY GATE: PASSOU
@@ -200,11 +201,13 @@ sw.js único -> cache Volt explicitamente pertencente -> fallback por tipo
 d9ac906 docs(architecture): document deterministic ownership
 bf578f1 test(e2e): cover MFA and cache lifecycle
 2775d5e fix(auth): harden bootstrap permission RPC
+60ab7d8 docs(report): record forensic stabilization results
+f286acc test(e2e): isolate static server lifecycle
 ```
 
 ## 24. SHA final testado
 
-Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. O commit que adiciona este relatório não altera runtime; os gates serão repetidos depois dele antes da publicação do PR.
+Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suíte e servidor isolado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`. O commit documental posterior que atualiza estes identificadores não altera runtime nem testes; o gate completo será repetido sobre o HEAD antes da publicação do PR.
 
 ## 25. URL/deploy testado
 

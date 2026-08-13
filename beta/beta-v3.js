@@ -1,4 +1,4 @@
-/** Volt Consumo — Beta v3.18 · runtime por prioridade sem renderers concorrentes de página. */
+/** Volt Consumo — Beta v3.19 · startup explícito e renderers sem concorrência de página. */
 import "./mercosur-region.js?v=84";
 import "./regional-auth.js?v=89";
 import "./locality-context.js?v=84";
@@ -45,37 +45,32 @@ function installRuntimeVisibilityGuards() {
     `;
     document.head.append(style);
   }
+  document.documentElement.dataset.voltStartupState = "waiting-account";
   document.documentElement.dataset.voltHomeReady = "false";
   document.documentElement.dataset.voltFinancialReady = "false";
   document.querySelector("#beta-home")?.setAttribute("aria-busy", "true");
 }
 
 function stageAuthenticatedRuntime() {
-  const dashboard = document.querySelector("#dashboard");
-  if (!dashboard) return queueMicrotask(() => void loadCoreModules().finally(releaseFinancialStartup));
-
   const loadAfterAccountData = () => {
     if (authenticatedRuntimeArmed) return;
     authenticatedRuntimeArmed = true;
-    void loadCoreModules().finally(releaseFinancialStartup);
+    document.documentElement.dataset.voltStartupState = "loading-core";
+    void loadCoreModules().then(releaseFinancialStartup).catch(reportCoreModuleFailure);
+  };
+  const handleStartupError = (event) => {
+    reportStartupFailure(event?.detail?.reason || "account-data-timeout");
   };
 
   window.addEventListener("volt:account-data-ready", loadAfterAccountData, { once: true });
+  window.addEventListener("volt:startup-error", handleStartupError, { once: true });
 
-  const armFallback = () => {
-    if (dashboard.hidden) return;
-    window.setTimeout(() => {
-      if (!authenticatedRuntimeArmed) loadAfterAccountData();
-    }, 5200);
-  };
-
-  if (!dashboard.hidden) armFallback();
-  const observer = new MutationObserver(() => {
-    if (dashboard.hidden) return;
-    observer.disconnect();
-    armFallback();
-  });
-  observer.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
+  const currentState = window.VOLT_STARTUP_STATE;
+  if (currentState?.status === "ready") {
+    queueMicrotask(loadAfterAccountData);
+  } else if (currentState?.status === "error") {
+    queueMicrotask(() => reportStartupFailure(currentState.reason || "account-data-timeout"));
+  }
 }
 
 async function loadCoreModules() {
@@ -83,8 +78,18 @@ async function loadCoreModules() {
   coreModulesPromise = (async () => {
     attachCycleStyles();
 
-    const initialTariffSettled = waitForStartupEvent("volt:tariff-resolution", 1600);
-    const initialCycleSettled = waitForStartupEvent("volt:cycle-context", 1600);
+    const initialTariffSettled = waitForStartupSignal(
+      "volt:tariff-resolution",
+      () => Boolean(window.VOLT_TARIFF_RESOLUTION),
+      4000,
+      "tariff-resolution-timeout"
+    );
+    const initialCycleSettled = waitForStartupSignal(
+      "volt:cycle-context",
+      () => Boolean(window.VOLT_CYCLE_CONTEXT),
+      4000,
+      "cycle-context-timeout"
+    );
 
     await Promise.all([
       import("./regional-tariff-resolver.js?v=96"),
@@ -98,25 +103,40 @@ async function loadCoreModules() {
       import("./regional-home.js?v=97")
     ]);
 
-    await waitForTariffSettingsApplied(3600);
-    await waitForStartupQuiet(["volt:beta-data", "volt:tariff-resolution", "volt:cycle-context"], 320, 2400);
+    await waitForTariffSettingsApplied(5000);
+    await waitForStartupQuiet(["volt:beta-data", "volt:tariff-resolution", "volt:cycle-context"], 320, 3000);
     await settleVisualFrame();
     scheduleSecondaryModules();
-  })().catch(reportModuleFailure);
+  })();
   return coreModulesPromise;
 }
 
-function waitForStartupEvent(eventName, timeout) {
-  return new Promise((resolve) => {
-    let settled = false;
+function waitForStartupSignal(eventName, isReady, timeoutMs, reason) {
+  if (isReady()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const cleanup = () => {
+      window.removeEventListener(eventName, check);
+      clearTimeout(timeout);
+    };
     const finish = () => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener(eventName, finish);
+      if (finished) return;
+      finished = true;
+      cleanup();
       resolve();
     };
-    window.addEventListener(eventName, finish, { once: true });
-    window.setTimeout(finish, timeout);
+    const fail = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(new Error(reason));
+    };
+    const check = () => {
+      if (isReady()) finish();
+    };
+    const timeout = window.setTimeout(fail, timeoutMs);
+    window.addEventListener(eventName, check);
+    queueMicrotask(check);
   });
 }
 
@@ -134,20 +154,29 @@ function tariffSettingsApplied() {
 
 function waitForTariffSettingsApplied(maxMs) {
   if (tariffSettingsApplied()) return Promise.resolve();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
+    const cleanup = () => {
       window.removeEventListener("volt:beta-data", check);
       window.removeEventListener("volt:tariff-resolution", check);
       clearTimeout(timeout);
+    };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
       resolve();
+    };
+    const fail = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(new Error("tariff-settings-timeout"));
     };
     const check = () => {
       if (tariffSettingsApplied()) finish();
     };
-    const timeout = window.setTimeout(finish, maxMs);
+    const timeout = window.setTimeout(fail, maxMs);
     window.addEventListener("volt:beta-data", check);
     window.addEventListener("volt:tariff-resolution", check);
     queueMicrotask(check);
@@ -155,7 +184,7 @@ function waitForTariffSettingsApplied(maxMs) {
 }
 
 function waitForStartupQuiet(eventNames, quietMs, maxMs) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let quietTimer = 0;
     let maxTimer = 0;
     let finished = false;
@@ -170,12 +199,18 @@ function waitForStartupQuiet(eventNames, quietMs, maxMs) {
       cleanup();
       resolve();
     };
+    const fail = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(new Error("startup-did-not-settle"));
+    };
     const reschedule = () => {
       clearTimeout(quietTimer);
       quietTimer = window.setTimeout(finish, quietMs);
     };
     for (const eventName of eventNames) window.addEventListener(eventName, reschedule);
-    maxTimer = window.setTimeout(finish, maxMs);
+    maxTimer = window.setTimeout(fail, maxMs);
     reschedule();
   });
 }
@@ -189,9 +224,28 @@ function settleVisualFrame() {
 function releaseFinancialStartup() {
   if (financialStartupReleased) return;
   financialStartupReleased = true;
+  document.documentElement.dataset.voltStartupState = "ready";
   document.documentElement.dataset.voltFinancialReady = "true";
   document.documentElement.dataset.voltHomeReady = "true";
   document.querySelector("#beta-home")?.removeAttribute("aria-busy");
+  document.querySelector("#beta-startup-error")?.remove();
+}
+
+function reportStartupFailure(reason) {
+  document.documentElement.dataset.voltStartupState = "error";
+  document.documentElement.dataset.voltHomeReady = "true";
+  document.documentElement.dataset.voltFinancialReady = "false";
+  const home = document.querySelector("#beta-home");
+  home?.removeAttribute("aria-busy");
+  if (!home || document.querySelector("#beta-startup-error")) return;
+  const notice = document.createElement("p");
+  notice.id = "beta-startup-error";
+  notice.className = "note status-message";
+  notice.setAttribute("role", "alert");
+  notice.textContent = reason === "account-data-timeout"
+    ? "Não foi possível concluir a carga da conta. Verifique a conexão e tente novamente."
+    : "Não foi possível concluir a preparação da Home. Recarregue a página para tentar novamente.";
+  home.prepend(notice);
 }
 
 function scheduleSecondaryModules() {
@@ -235,9 +289,13 @@ async function loadTestAccountModules() {
   ]);
 }
 
+function reportCoreModuleFailure(error) {
+  console.error("Volt: falha ao preparar módulos críticos pós-login", error);
+  reportStartupFailure(String(error?.message || "core-module-failure"));
+}
+
 function reportModuleFailure(error) {
-  console.error("Volt: falha ao carregar módulo pós-login", error);
-  releaseFinancialStartup();
+  console.error("Volt: falha ao carregar módulo secundário pós-login", error);
 }
 
 function attachCycleStyles() {

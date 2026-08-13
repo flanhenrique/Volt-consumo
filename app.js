@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.6";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.6";
-import { VOLT_CONFIG } from "./config.js?v=20260813.6";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.6";
-import { createRenderer } from "./src/renderer.js?v=20260813.6";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.6";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.6";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.7";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.7";
+import { VOLT_CONFIG } from "./config.js?v=20260813.7";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.7";
+import { createRenderer } from "./src/renderer.js?v=20260813.7";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.7";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.7";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -407,7 +407,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.6");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.7");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {

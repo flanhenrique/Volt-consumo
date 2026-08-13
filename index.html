@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-startup-status="BOOTING" aria-busy="true">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,11 +10,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.6">
-  <link rel="stylesheet" href="./styles/glass.css?v=20260813.6">
-  <link rel="stylesheet" href="./styles/layout.css?v=20260813.6">
-  <link rel="stylesheet" href="./styles/components.css?v=20260813.6">
-  <link rel="stylesheet" href="./styles/pages.css?v=20260813.6">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.7">
+  <link rel="stylesheet" href="./styles/glass.css?v=20260813.7">
+  <link rel="stylesheet" href="./styles/layout.css?v=20260813.7">
+  <link rel="stylesheet" href="./styles/components.css?v=20260813.7">
+  <link rel="stylesheet" href="./styles/pages.css?v=20260813.7">
   <title>Volt Consumo</title>
 </head>
 <body>
@@ -45,7 +45,7 @@
   <noscript><p class="fatal-message">O Volt precisa de JavaScript para funcionar.</p></noscript>
 
   <main id="main-content" class="app-shell">
-    <section id="login-screen" class="state-screen auth-screen" hidden>
+    <section id="login-screen" class="state-screen auth-screen">
       <div class="auth-layout glass-elevated">
         <section class="auth-branding" aria-label="Apresentação do Volt">
           <a class="brand-lockup" href="./" aria-label="Volt Consumo">
@@ -69,15 +69,15 @@
               <div class="section-heading-copy"><p class="eyebrow">ACESSE SUA CONTA</p><h2>Entrar no Volt</h2><p class="supporting-copy">Continue de onde parou.</p></div>
               <button class="icon-button glass-control" type="button" data-action="toggle-theme" aria-label="Alternar tema"><svg class="icon"><use href="#icon-sun"></use></svg></button>
             </div>
-            <form id="login-form" class="card form glass-level-2 glass-shine">
+            <form id="login-form" class="card form glass-level-2 glass-shine" aria-busy="true" inert>
               <label><span>E-mail</span><span class="input-with-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg><input id="login-email" name="email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required></span></label>
               <label><span>Senha</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
               <label class="checkbox-row"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
               <button id="login-submit" class="primary-button" type="submit">Entrar</button>
               <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
               <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
-              <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
-              <div id="login-progress" class="auth-progress" role="progressbar" aria-label="Carregando o Volt" hidden><span></span></div>
+              <p id="login-message" class="status-message" role="status" aria-live="polite" data-lifecycle="true">Verificando sua sessão…</p>
+              <div id="login-progress" class="auth-progress" role="progressbar" aria-label="Carregando o Volt"><span></span></div>
             </form>
             <a class="text-button" href="./privacy.html">Privacidade e proteção de dados</a>
           </div>
@@ -298,6 +298,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260813.6"></script>
+  <script type="module" src="./app.js?v=20260813.7"></script>
 </body>
 </html>

@@ -54,6 +54,16 @@ test("A — usuário deslogado vê somente Login", async ({ page }) => {
 });
 
 test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__voltRestoreSurfaces = [];
+    window.addEventListener("volt:startup-status", (event) => {
+      const visible = ["login-screen", "mfa-screen", "error-screen", "dashboard"].filter((id) => {
+        const element = document.getElementById(id);
+        return element && getComputedStyle(element).display !== "none";
+      });
+      window.__voltRestoreSurfaces.push({ status: event.detail.status, visible });
+    });
+  });
   const releaseRequests = new Map();
   page.on("request", (request) => {
     const url = new URL(request.url());
@@ -61,8 +71,10 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
       releaseRequests.set(url.pathname, url.searchParams.get("v"));
     }
   });
-  await page.goto("/?session=user");
+  await page.goto("/?session=user&dataDelay=180");
   await assertMaintenanceRemoved(page);
+  await expect(page.locator("#login-screen")).toBeVisible();
+  await expect(page.locator("#login-progress")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeVisible();
   await expect(page.locator("#login-screen")).toBeHidden();
   await expect(page.locator("#greeting")).toHaveText("Olá, Ana Volt!");
@@ -77,11 +89,15 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
     return element && getComputedStyle(element).display !== "none";
   }));
   expect(visibility).toEqual(["dashboard"]);
+  const restoreTransitions = await page.evaluate(() => window.__voltRestoreSurfaces.filter(({ status }) =>
+    ["BOOTING", "RESTORING_SESSION", "LOADING_ACCOUNT", "LOADING_DATA"].includes(status)));
+  expect(restoreTransitions.length).toBeGreaterThan(0);
+  expect(restoreTransitions.every(({ visible }) => visible.length === 1 && visible[0] === "login-screen")).toBe(true);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.6",
-    "/src/app-state.js": "20260813.6",
-    "/src/renderer.js": "20260813.6",
-    "/src/volt-service.js": "20260813.6"
+    "/app.js": "20260813.7",
+    "/src/app-state.js": "20260813.7",
+    "/src/renderer.js": "20260813.7",
+    "/src/volt-service.js": "20260813.7"
   });
 });
 

@@ -8,12 +8,21 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
   await page.goto("/tests/fixtures/sw-harness.html");
   await page.evaluate(async () => {
     await caches.open("volt-app-v1");
+    await caches.open("volt-app-v3-liquid-glass");
     await caches.open("another-product-cache");
     await navigator.serviceWorker.register("/sw.js", { scope: "/" });
   });
-  await expect.poll(async () => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active))).toBe(true);
-  await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual(["another-product-cache", "volt-app-v2"]);
+  await expect.poll(
+    async () => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)),
+    { timeout: 20_000 }
+  ).toBe(true);
+  await expect.poll(
+    async () => page.evaluate(async () => (await caches.keys()).sort()),
+    { timeout: 20_000 }
+  ).toEqual(["another-product-cache", "volt-app-v4-atomic-20260813.3"]);
   await page.goto("/");
+  await expect(page.locator("#maintenance-screen")).toBeVisible();
+  for (let index = 0; index < 5; index += 1) await page.locator("#maintenance-unlock").click();
   await expect(page.locator("#login-screen")).toBeVisible();
   expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
 

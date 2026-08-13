@@ -1,4 +1,4 @@
-import { normalizeLocality, resolveEnergyTariff } from "./tariff.js";
+import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.3";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });
@@ -139,7 +139,7 @@ export function createVoltService(config) {
       return { ...settings };
     },
     async loadAdministration() {
-      const admin = await queryAdminPermission(client);
+      const admin = await queryPlatformUsers(client);
       if (!admin?.authorized) throw new Error("Acesso administrativo não autorizado.");
       return normalizeAdmin(admin);
     },
@@ -182,8 +182,8 @@ async function querySettings(client, table, userId) {
   return data;
 }
 
-async function queryAdminPermission(client) {
-  const { data, error } = await client.rpc("beta_admin_snapshot");
+async function queryPlatformUsers(client) {
+  const { data, error } = await client.rpc("beta_platform_users_snapshot");
   if (error) throw error;
   return data || { authorized: false };
 }
@@ -217,10 +217,19 @@ async function persistEnergySettings(client, userId, settings) {
 }
 
 function normalizeAdmin(data) {
+  const accounts = Array.isArray(data.users) ? data.users.map((account) => ({
+    id: account.id,
+    email: String(account.email || ""),
+    displayName: String(account.name || account.email || "Usuário"),
+    createdAt: account.created_at,
+    confirmedAt: account.confirmed_at,
+    lastSignInAt: account.last_sign_in_at,
+    status: account.confirmed_at ? "confirmed" : "pending"
+  })) : [];
   return {
-    organization: data.organization || null,
-    membership: data.membership || null,
-    members: Array.isArray(data.members) ? data.members : [],
-    invitations: Array.isArray(data.invitations) ? data.invitations : []
+    totalUsers: Number(data.total_users) || accounts.length,
+    confirmedUsers: Number(data.confirmed_users) || 0,
+    activeLast30Days: Number(data.active_last_30_days) || 0,
+    accounts
   };
 }

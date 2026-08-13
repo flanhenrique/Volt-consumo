@@ -6,6 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+RELEASE_ID = "20260813.3"
 failures = []
 
 
@@ -39,11 +40,14 @@ def parse_html(relative):
     return parser
 
 
+index_source = (ROOT / "index.html").read_text(encoding="utf-8")
 root_html = parse_html("index.html")
 check(len(root_html.ids) == len(set(root_html.ids)), "index.html contém IDs duplicados")
-check(root_html.module_entries == ["./app.js"], "a raiz deve possuir exatamente uma entrada module: app.js")
+check(root_html.module_entries == [f"./app.js?v={RELEASE_ID}"], "a raiz deve possuir exatamente uma entrada module versionada: app.js")
 for reference in root_html.refs:
     check((ROOT / reference[2:]).exists(), f"referência local inexistente em index.html: {reference}")
+for asset in ["styles/tokens.css", "styles/glass.css", "styles/layout.css", "styles/components.css", "styles/pages.css", "app.js"]:
+    check(f'./{asset}?v={RELEASE_ID}' in index_source, f"asset mutável sem versão de release no HTML: {asset}")
 
 beta_html = parse_html("beta/index.html")
 check(not beta_html.module_entries, "/beta não pode inicializar uma segunda aplicação")
@@ -51,30 +55,53 @@ check((ROOT / "beta/redirect.js").exists(), "/beta precisa manter apenas a compa
 
 for javascript in [ROOT / "app.js", *sorted((ROOT / "src").glob("*.js"))]:
     source = javascript.read_text(encoding="utf-8")
-    for specifier in re.findall(r'from\s+["\']([^"\']+)["\']', source):
+    specifiers = re.findall(r'from\s+["\']([^"\']+)["\']', source)
+    specifiers += re.findall(r'import\(["\']([^"\']+)["\']\)', source)
+    for specifier in specifiers:
         if specifier.startswith("."):
-            target = (javascript.parent / specifier).resolve()
+            path, _, query = specifier.partition("?")
+            target = (javascript.parent / path).resolve()
             check(target.exists(), f"import local quebrado em {javascript.relative_to(ROOT)}: {specifier}")
+            check(query == f"v={RELEASE_ID}", f"import local sem versão atômica em {javascript.relative_to(ROOT)}: {specifier}")
 
 active_sources = "\n".join((ROOT / item).read_text(encoding="utf-8") for item in [
-    "index.html", "app.js", "sw.js", "styles.css", "src/app-state.js", "src/cycles.js", "src/renderer.js", "src/volt-service.js"
+    "index.html", "app.js", "sw.js", "styles/tokens.css", "styles/glass.css", "styles/layout.css",
+    "styles/components.css", "styles/pages.css", "src/app-state.js", "src/cycles.js", "src/renderer.js", "src/volt-service.js"
 ])
 for forbidden, reason in {
     "requestSubmit(": "persistência não pode simular submit",
     "MutationObserver": "lifecycle ativo não pode depender de MutationObserver",
     "setInterval(": "aplicação ativa não pode fazer polling global",
     "Tarifas e encargos": "card legado não pode existir no código ativo",
-    "Organização ativa": "seletor legado não pode existir na Home"
+    "Organização ativa": "seletor legado não pode existir na Home",
+    "organization-summary": "card de organização não pode existir em Usuários",
+    "members-list": "renderer de membros por organização não pode controlar Usuários",
+    "Preparando sua visão geral": "splash visual não faz parte do produto",
+    'id="boot-screen"': "bootstrap não pode criar uma tela visual inventada"
 }.items():
     check(forbidden not in active_sources, reason)
 
-check("[hidden] { display: none !important; }" in (ROOT / "styles.css").read_text(encoding="utf-8"), "proteção estática [hidden] ausente")
+check("[hidden] { display: none !important; }" in (ROOT / "styles/tokens.css").read_text(encoding="utf-8"), "proteção estática [hidden] ausente")
+check('id="maintenance-screen"' in index_source, "tela pública de manutenção ausente")
+check('id="maintenance-unlock"' in index_source, "acesso controlado da manutenção ausente")
+check('id="main-content" class="app-shell" hidden' in index_source, "aplicação não pode ocupar a tela antes da liberação")
+app_source = (ROOT / "app.js").read_text(encoding="utf-8")
+check("maintenanceClickCount < 5" in app_source, "manutenção deve exigir cinco cliques")
+check("initializeMaintenanceGate();" in app_source, "bootstrap deve permanecer bloqueado pela manutenção")
 check((ROOT / "index.html").read_text(encoding="utf-8").count('id="page-reports"') == 1, "Relatórios deve possuir uma única página")
+for removed_item in ('data-nav="accounts"', 'data-page="accounts"', "Ciclos anteriores"):
+    check(removed_item not in active_sources, f"item removido voltou ao código ativo: {removed_item}")
 
 sw_source = (ROOT / "sw.js").read_text(encoding="utf-8")
 check('request.mode === "navigate"' in sw_source, "Service Worker deve separar navegação de assets")
 check("OWNED_CACHE_NAMES.has(name)" in sw_source, "Service Worker só pode limpar caches explicitamente próprios")
 check(sw_source.count("response.clone()") == 2, "cada estratégia de rede deve clonar a resposta exatamente uma vez")
+check(f'const RELEASE_ID = "{RELEASE_ID}"' in sw_source, "Service Worker e grafo de assets devem compartilhar a release")
+check("cacheApplicationShell().then(() => self.skipWaiting())" in sw_source, "Service Worker novo deve ativar somente após formar o cache completo")
+check(f'searchParams.set("v", "{RELEASE_ID}")' in (ROOT / "src/supabase-loader.js").read_text(encoding="utf-8"), "runtime Supabase deve pertencer à mesma release")
+service_source = (ROOT / "src/volt-service.js").read_text(encoding="utf-8")
+check('client.rpc("beta_platform_users_snapshot")' in service_source, "Usuários deve consumir o diretório global da plataforma")
+check('client.rpc("beta_admin_snapshot")' not in service_source, "Usuários não pode voltar ao snapshot restrito à organização")
 
 checksum_file = ROOT / "vendor/SHA256SUMS"
 if checksum_file.exists():

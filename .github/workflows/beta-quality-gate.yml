@@ -51,13 +51,31 @@ jobs:
           }
           assert.match(app, /authEvent === "INITIAL_SESSION" \|\| authEvent === "TOKEN_REFRESHED"/, 'app voltou a repetir bootstrap em eventos redundantes de auth');
           assert.match(app, /await loadUserData\(user\.id\);\s*render\(\);[\s\S]*?dashboard\.hidden = false;/, 'dashboard voltou a aparecer antes dos dados críticos');
+          assert.match(app, /function\s+loadTesseractRuntime\s*\(/, 'OCR perdeu carregamento sob demanda');
 
           const index = await readFile('beta/index.html', 'utf8');
           for (const id of ['login-form', 'dashboard', 'energy-panel', 'water-panel', 'settings-form']) {
             assert.match(index, new RegExp(`id=["']${id}["']`), `beta/index.html perdeu #${id}`);
           }
+          const moduleScripts = [...index.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["'][^>]*>/g)].map((match) => match[1]);
+          assert.deepEqual(moduleScripts, ['./bootstrap.js'], 'beta/index.html deve possuir somente ./bootstrap.js como entry point module');
+          assert.doesNotMatch(index, /tesseract\.min\.js/, 'OCR voltou ao caminho crítico do HTML');
 
-          const files = ['beta/index.html', 'beta/beta-v3.js', 'beta/environment.js'];
+          const bootstrap = await readFile('beta/bootstrap.js', 'utf8');
+          const expectedBootstrapOrder = [
+            './environment.js',
+            './startup-runtime.js?v=98',
+            './app.js',
+            './beta-shell.js',
+            './beta-v3.js'
+          ];
+          const bootstrapImports = [...bootstrap.matchAll(/import\s+["']([^"']+)["']/g)].map((match) => match[1]);
+          assert.deepEqual(bootstrapImports, expectedBootstrapOrder, 'ordem do bootstrap Beta mudou');
+
+          const environment = await readFile('beta/environment.js', 'utf8');
+          assert.doesNotMatch(environment, /startup-runtime\.js/, 'environment.js voltou a importar o runtime em paralelo');
+
+          const files = ['beta/index.html', 'beta/bootstrap.js', 'beta/beta-v3.js', 'beta/environment.js'];
           const references = new Set();
           for (const file of files) {
             const source = await readFile(file, 'utf8');
@@ -88,6 +106,7 @@ jobs:
             await access(target).catch(() => { throw new Error(`Referência local ausente: ${target}`); });
           }
           assert.match(sw, /CACHE_PREFIX\s*=\s*["']volt-beta-shell-/, 'service worker perdeu namespace próprio de cache');
+          assert.match(sw, /["']\.\/bootstrap\.js["']/, 'service worker não publica o bootstrap único');
           assert.doesNotMatch(sw, /keys\.filter\([^\n]*key\s*!==\s*CACHE/, 'service worker voltou a apagar caches de outros aplicativos');
           assert.match(sw, /request\.mode === ["']navigate["']/, 'fallback HTML voltou a ser aplicado sem restringir navegação');
 
@@ -161,6 +180,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s beta/index.html
+          test -s beta/bootstrap.js
           test -s beta/app.js
           test -s beta/sw.js
           test -s beta/icon-192.png

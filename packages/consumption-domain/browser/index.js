@@ -1,3 +1,5 @@
+import { forecastEnergyBill } from "./billing-engine.js";
+
 const MILLISECONDS_PER_DAY = 86400000;
 const MILLISECONDS_PER_HOUR = 3600000;
 function finiteOrZero(value) {
@@ -112,12 +114,30 @@ export function forecastLegacyLinear(readings, cycleDays = 30) {
 }
 export function calculateEnergyEstimate(consumption, input) {
     const safeConsumption = nonNegative(consumption);
+    const billingProfile = globalThis.__VOLT_BILLING_CONTEXT__?.profile;
+    if (billingProfile?.active !== false && billingProfile?.rules && typeof billingProfile.rules === "object") {
+        const forecast = forecastEnergyBill(safeConsumption, billingProfile.rules, {
+            fallbackRate: nonNegative(input.rate),
+            flagRate: nonNegative(input.flagRate),
+            lightingFee: nonNegative(input.lightingFee),
+            flagLabel: input.flagLabel
+        });
+        return {
+            baseCost: forecast.energySubtotal,
+            flagCost: forecast.flagNet,
+            totalCost: forecast.totalCost,
+            engine: forecast.engine,
+            breakdown: forecast.items
+        };
+    }
     const baseCost = safeConsumption * nonNegative(input.rate);
     const flagCost = safeConsumption * nonNegative(input.flagRate);
     return {
         baseCost,
         flagCost,
-        totalCost: baseCost + flagCost + nonNegative(input.lightingFee)
+        totalCost: baseCost + flagCost + nonNegative(input.lightingFee),
+        engine: "legacy-linear",
+        breakdown: []
     };
 }
 export function calculateWaterEstimate(consumption, input) {

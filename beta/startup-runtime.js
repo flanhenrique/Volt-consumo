@@ -50,7 +50,7 @@ const deferredRpcGroups = new Set();
 const heavyMethodLastRun = new Map();
 const heavyMethodInFlight = new Map();
 
-publishStartupState("loading");
+publishStartupState("idle");
 installSupabaseSingleton();
 installBetaApiFacade();
 installBetaDataCoalescer();
@@ -114,8 +114,28 @@ function accountTableFromRequest(input) {
 
 function markCoreTableComplete(table) {
   if (startupReady || !CORE_ACCOUNT_TABLES.has(table)) return;
+  armStartupFailureTimer();
   completedCoreTables.add(table);
   coreDataFetched = completedCoreTables.size === CORE_ACCOUNT_TABLES.size;
+}
+
+function armStartupFailureTimer() {
+  if (startupReady || startupErrorPublished || startupFailureTimer) return;
+  publishStartupState("loading", {
+    completedTables: [...completedCoreTables],
+    expectedTables: [...CORE_ACCOUNT_TABLES]
+  });
+  startupFailureTimer = window.setTimeout(() => {
+    if (startupReady || startupErrorPublished) return;
+    startupErrorPublished = true;
+    const detail = {
+      reason: "account-data-timeout",
+      completedTables: [...completedCoreTables],
+      expectedTables: [...CORE_ACCOUNT_TABLES]
+    };
+    publishStartupState("error", detail);
+    window.dispatchEvent(new CustomEvent("volt:startup-error", { detail }));
+  }, STARTUP_ERROR_TIMEOUT_MS);
 }
 
 function wrapAuthEvents(client) {
@@ -308,18 +328,6 @@ function observeStartupReady() {
   window.addEventListener("volt:beta-data", () => {
     if (coreDataFetched) finish();
   });
-
-  startupFailureTimer = window.setTimeout(() => {
-    if (startupReady || startupErrorPublished) return;
-    startupErrorPublished = true;
-    const detail = {
-      reason: "account-data-timeout",
-      completedTables: [...completedCoreTables],
-      expectedTables: [...CORE_ACCOUNT_TABLES]
-    };
-    publishStartupState("error", detail);
-    window.dispatchEvent(new CustomEvent("volt:startup-error", { detail }));
-  }, STARTUP_ERROR_TIMEOUT_MS);
 }
 
 function scheduleDeferredWork() {

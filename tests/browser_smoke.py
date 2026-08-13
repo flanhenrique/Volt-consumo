@@ -112,6 +112,21 @@ def scenario_authenticated(browser):
     context.close()
 
 
+def scenario_mfa(browser):
+    context = isolated_context(browser)
+    page = context.new_page()
+    errors = install_gates(page)
+    page.goto(BASE_URL + "/?session=mfa")
+    expect(page.locator("#mfa-screen")).to_be_visible()
+    expect(page.locator("#dashboard")).to_be_hidden()
+    page.locator("#mfa-code").fill("123456")
+    page.locator("#mfa-form").get_by_role("button", name="Verificar").click()
+    expect(page.locator("#dashboard")).to_be_visible()
+    expect(page.locator("#mfa-screen")).to_be_hidden()
+    assert_clean(page, errors)
+    context.close()
+
+
 def scenario_admin(browser):
     context = isolated_context(browser)
     page = context.new_page()
@@ -122,6 +137,11 @@ def scenario_admin(browser):
     expect(users).to_be_visible()
     users.click()
     expect(page.locator("#members-list .member-item")).to_have_count(1)
+    page.locator("#invite-user").click()
+    page.locator("#invite-email").fill("novo@volt.test")
+    page.locator("#invite-form").get_by_role("button", name="Criar convite").click()
+    expect(page.locator("#invite-message")).to_have_text("Convite criado por 48 horas.")
+    page.locator("[data-close-dialog='invite-dialog']").click()
     page.locator("#page-users").evaluate("element => element.dataset.ownershipProbe = 'same-node'")
     page.get_by_role("button", name="Início").click()
     users.click()
@@ -134,7 +154,7 @@ def scenario_admin(browser):
 def scenario_service_worker(browser):
     context = browser.new_context(service_workers="allow")
     page = context.new_page()
-    errors = install_gates(page)
+    errors = install_gates(page, fake_backend=False)
     def expect_login(label, timeout=20_000):
         try:
             expect(page.locator("#login-screen")).to_be_visible(timeout=timeout)
@@ -149,8 +169,12 @@ def scenario_service_worker(browser):
               caches: await caches.keys()
             })""")
             raise AssertionError(f"{label}: {diagnostic}; erros: {errors}") from error
-    page.goto(BASE_URL + "/")
-    expect_login("primeira visita", 5_000)
+    page.goto(BASE_URL + "/tests/fixtures/sw-harness.html")
+    page.evaluate("""async () => {
+      await caches.open('volt-app-v1');
+      await caches.open('another-product-cache');
+      await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }""")
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if page.evaluate("async () => Boolean((await window.navigator.serviceWorker?.getRegistration())?.active)"):
@@ -159,11 +183,8 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    controller_deadline = time.monotonic() + 10
-    while time.monotonic() < controller_deadline and not page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)"):
-        page.wait_for_timeout(100)
-    if not page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)"):
-        page.goto(BASE_URL + "/")
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v2"]
+    page.goto(BASE_URL + "/")
     expect_login("visita controlada")
     assert page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)")
     errors_before_missing_asset = len(errors)
@@ -176,6 +197,12 @@ def scenario_service_worker(browser):
     expected_asset_errors = errors[errors_before_missing_asset:]
     assert all("404" in message and "Failed to load resource" in message for message in expected_asset_errors), expected_asset_errors
     del errors[errors_before_missing_asset:]
+    cdp = context.new_cdp_session(page)
+    cdp.send("Network.enable")
+    cdp.send("Network.setCacheDisabled", {"cacheDisabled": True})
+    page.reload()
+    expect_login("hard reload")
+    cdp.send("Network.setCacheDisabled", {"cacheDisabled": False})
     context.set_offline(True)
     page.reload()
     expect_login("visita offline")
@@ -213,6 +240,7 @@ def main():
                 ("deslogado desktop", scenario_signed_out),
                 ("deslogado mobile", lambda item: scenario_signed_out(item, mobile=True)),
                 ("sessão/Home/Leituras/Configurações/Relatórios/Logout", scenario_authenticated),
+                ("MFA", scenario_mfa),
                 ("Usuários", scenario_admin),
                 ("compatibilidade /beta", scenario_beta_redirect)
             ]

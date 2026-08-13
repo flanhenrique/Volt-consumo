@@ -56,6 +56,16 @@ test("C/I — login e logout seguem uma única transição", async ({ page }) =>
   expect(await page.evaluate(() => window.__voltFake.getSession())).toBeNull();
 });
 
+test("C — MFA bloqueia o Dashboard até AAL2", async ({ page }) => {
+  await page.goto("/?session=mfa");
+  await expect(page.locator("#mfa-screen")).toBeVisible();
+  await expect(page.locator("#dashboard")).toBeHidden();
+  await page.locator("#mfa-code").fill("123456");
+  await page.locator("#mfa-form").getByRole("button", { name: "Verificar" }).click();
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await expect(page.locator("#mfa-screen")).toBeHidden();
+});
+
 test("E — registrar leitura preserva a Home", async ({ page }) => {
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
@@ -94,6 +104,11 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
   await expect(nav).toBeVisible();
   await nav.click();
   await expect(page.locator("#members-list .member-item")).toHaveCount(1);
+  await page.locator("#invite-user").click();
+  await page.locator("#invite-email").fill("novo@volt.test");
+  await page.locator("#invite-form").getByRole("button", { name: "Criar convite" }).click();
+  await expect(page.locator("#invite-message")).toHaveText("Convite criado por 48 horas.");
+  await page.locator("[data-close-dialog='invite-dialog']").click();
   await page.locator("#page-users").evaluate((element) => { element.dataset.ownershipProbe = "same-node"; });
   await page.getByRole("button", { name: "Início" }).click();
   await nav.click();

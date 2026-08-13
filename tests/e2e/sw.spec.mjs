@@ -5,10 +5,15 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.goto("/");
-  await expect(page.locator("#login-screen")).toBeVisible();
+  await page.goto("/tests/fixtures/sw-harness.html");
+  await page.evaluate(async () => {
+    await caches.open("volt-app-v1");
+    await caches.open("another-product-cache");
+    await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  });
   await expect.poll(async () => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active))).toBe(true);
-  if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) await page.goto("/");
+  await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual(["another-product-cache", "volt-app-v2"]);
+  await page.goto("/");
   await expect(page.locator("#login-screen")).toBeVisible();
   expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
 
@@ -21,6 +26,13 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
   expect(missing.type).not.toContain("text/html");
   const expected404 = errors.splice(errorCount);
   expect(expected404.every((message) => message.includes("404") && message.includes("Failed to load resource"))).toBe(true);
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await page.reload();
+  await expect(page.locator("#login-screen")).toBeVisible();
+  await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
 
   await context.setOffline(true);
   await page.reload();

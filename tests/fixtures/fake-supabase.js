@@ -14,6 +14,8 @@
   if (session) localStorage.setItem("volt-e2e-session", "1");
   let listener = null;
   const admin = seededRole === "admin" || localStorage.getItem("volt-e2e-admin") === "1";
+  const mfaRequired = seededRole === "mfa";
+  let mfaLevel = "aal1";
   if (admin) localStorage.setItem("volt-e2e-admin", "1");
 
   const tables = {
@@ -114,9 +116,12 @@
         return { data: { user: baseUser }, error: null };
       },
       mfa: {
-        listFactors: () => Promise.resolve({ data: { totp: [] }, error: null }),
-        getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: "aal1", nextLevel: "aal1" }, error: null }),
-        challengeAndVerify: () => Promise.resolve({ data: {}, error: null })
+        listFactors: () => Promise.resolve({ data: { totp: mfaRequired ? [{ id: "factor-e2e", status: "verified" }] : [] }, error: null }),
+        getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: mfaLevel, nextLevel: mfaRequired ? "aal2" : "aal1" }, error: null }),
+        challengeAndVerify: () => {
+          mfaLevel = "aal2";
+          return Promise.resolve({ data: {}, error: null });
+        }
       }
     }
   };

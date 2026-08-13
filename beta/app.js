@@ -756,6 +756,11 @@ async function initializeAuth() {
 
   supabaseClient.auth.onAuthStateChange((authEvent, session) => {
     setTimeout(async () => {
+      if (authEvent === "INITIAL_SESSION" || authEvent === "TOKEN_REFRESHED") return;
+      if (authEvent === "USER_UPDATED" && session?.user) {
+        syncAuthIdentity(session.user);
+        return;
+      }
       if (authEvent === "PASSWORD_RECOVERY") {
         currentUserId = session?.user?.id || null;
         welcome.hidden = false;
@@ -790,17 +795,24 @@ function restoreRememberPreference() {
   if (rememberUser) $("#login-email").value = localStorage.getItem(SAVED_EMAIL_KEY) || "";
 }
 
+function syncAuthIdentity(user, publish = true) {
+  if (!user) return;
+  currentUserEmail = user.email || currentUserEmail || "";
+  currentDisplayName = user.user_metadata?.display_name || user.user_metadata?.name || currentDisplayName || "";
+  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "usuário";
+  const legacyName = $("#user-name");
+  if (legacyName) legacyName.textContent = displayName;
+  if (publish) notifyBetaDataUpdate();
+}
+
 async function updateAuthScreen(user) {
   const signedIn = Boolean(user);
-  if (signedIn) {
-    currentUserId = user.id;
-    if (!(await enforceMfaForSession())) return;
-  }
-  welcome.hidden = signedIn;
-  dashboard.hidden = !signedIn;
-  $("#login-password").value = "";
-  $("#login-message").textContent = signedIn ? "" : "Entre com seu e-mail e senha.";
   if (!signedIn) {
+    welcome.hidden = false;
+    dashboard.hidden = true;
+    $("#login-password").value = "";
+    $("#login-message").textContent = "Entre com seu e-mail e senha.";
+    $("#login-form")?.removeAttribute("aria-busy");
     currentUserId = null;
     currentUserEmail = "";
     currentDisplayName = "";
@@ -814,19 +826,34 @@ async function updateAuthScreen(user) {
     mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
     return;
   }
-  const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
-  currentUserEmail = user.email || "";
-  currentDisplayName = user.user_metadata?.display_name || "";
-  $("#user-name").textContent = displayName;
-  await recordPrivacyAcceptance(user);
-  await refreshBetaInvitation();
-  await refreshBetaAdmin();
-  await refreshBetaFeatureFlags();
-  await refreshBetaOperationalMetrics();
+
+  currentUserId = user.id;
+  if (!(await enforceMfaForSession())) return;
+  welcome.hidden = true;
+  dashboard.hidden = true;
+  $("#login-password").value = "";
+  $("#login-message").textContent = "Carregando seus dados…";
+  $("#login-form")?.setAttribute("aria-busy", "true");
+  syncAuthIdentity(user, false);
+
   await loadUserData(user.id);
-  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
-  void checkOperationalHealth();
   render();
+  await Promise.resolve();
+
+  $("#login-message").textContent = "";
+  $("#login-form")?.removeAttribute("aria-busy");
+  welcome.hidden = true;
+  dashboard.hidden = false;
+
+  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
+  void Promise.allSettled([
+    recordPrivacyAcceptance(user),
+    refreshBetaInvitation(),
+    refreshBetaAdmin(),
+    refreshBetaFeatureFlags(),
+    refreshBetaOperationalMetrics(),
+    checkOperationalHealth()
+  ]);
 }
 
 function loadLegacySettings() {

@@ -44,15 +44,8 @@ def assert_clean(page, errors):
     assert errors + unhandled == [], errors + unhandled
 
 
-def unlock_maintenance(page):
-    expect(page.locator("#maintenance-screen")).to_be_visible()
-    expect(page.locator("#login-screen")).to_be_hidden()
-    expect(page.locator("#dashboard")).to_be_hidden()
-    for _ in range(4):
-        page.locator("#maintenance-unlock").click()
-    expect(page.locator("#maintenance-screen")).to_be_visible()
-    page.locator("#maintenance-unlock").click()
-    expect(page.locator("#maintenance-screen")).to_be_hidden()
+def assert_maintenance_removed(page):
+    expect(page.locator("#maintenance-screen")).to_have_count(0)
 
 
 def scenario_signed_out(browser, mobile=False):
@@ -60,7 +53,7 @@ def scenario_signed_out(browser, mobile=False):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     try:
         expect(page.locator("#login-screen")).to_be_visible()
     except Exception as error:
@@ -82,7 +75,7 @@ def scenario_authenticated(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=user")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     expect(page.locator("#dashboard")).to_be_visible()
     expect(page.locator("#login-screen")).to_be_hidden()
     expect(page.locator("#greeting")).to_have_text("Olá, Ana Volt!")
@@ -130,7 +123,7 @@ def scenario_mfa(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=mfa")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     expect(page.locator("#mfa-screen")).to_be_visible()
     expect(page.locator("#dashboard")).to_be_hidden()
     page.locator("#mfa-code").fill("123456")
@@ -146,7 +139,7 @@ def scenario_admin(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=admin")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     expect(page.locator("#dashboard")).to_be_visible()
     users = page.get_by_role("button", name="Usuários")
     expect(users).to_be_visible()
@@ -202,9 +195,9 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.3"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.4"]
     page.goto(BASE_URL + "/")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     expect_login("visita controlada")
     assert page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)")
     errors_before_missing_asset = len(errors)
@@ -240,7 +233,7 @@ def scenario_beta_redirect(browser):
     errors = install_gates(page)
     page.goto(BASE_URL + "/beta/?session=user")
     page.wait_for_url(BASE_URL + "/?session=user")
-    unlock_maintenance(page)
+    assert_maintenance_removed(page)
     expect(page.locator("#dashboard")).to_be_visible()
     assert page.locator("script[type=module]").count() == 1
     assert_clean(page, errors)

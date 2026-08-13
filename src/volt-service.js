@@ -1,4 +1,4 @@
-import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.3";
+import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.4";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });

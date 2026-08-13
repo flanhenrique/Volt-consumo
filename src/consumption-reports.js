@@ -1,0 +1,13 @@
+import { getApplicationStateSnapshot } from "./app-state.js?v=20260813.7";
+import { buildConsumptionReportData } from "./consumption-report-data.js?v=20260813.7";
+import { ensureGeneralConsumptionReport, renderGeneralConsumptionReport } from "./consumption-report-general.js?v=20260813.7";
+import { ensureUtilityConsumptionReport, renderUtilityConsumptionReport } from "./consumption-report-utility.js?v=20260813.7";
+import { exportConsumptionReport } from "./consumption-report-export.js?v=20260813.7";
+
+window.addEventListener("volt:startup-status",(event)=>{if(event.detail?.status==="READY")queueMicrotask(refresh)});
+document.addEventListener("change",(event)=>{if(event.target.matches?.("[data-report-period]"))setTimeout(refresh,0)});
+document.addEventListener("click",(event)=>{const button=event.target.closest?.("[data-report-export]");if(!button)return;const page=document.getElementById("page-reports");if(!page||page.hidden)return;const mode=document.querySelector("[data-report-tab][aria-pressed='true']")?.dataset.reportTab||"overview";if(!["overview","energy","water"].includes(mode))return;event.preventDefault();event.stopImmediatePropagation();const state=getApplicationStateSnapshot();if(state?.status!=="READY")return;const period=document.querySelector("[data-report-period]")?.value||"6m";exportConsumptionReport(mode,state,period)},true);
+document.addEventListener("click",(event)=>{const button=event.target.closest?.(".report-library-list button");if(button?.querySelector("strong")?.textContent!=="Relatório de consumo")return;setTimeout(()=>document.querySelector('[data-report-tab="overview"]')?.click(),0)});
+
+function refresh(){const state=getApplicationStateSnapshot();const page=document.getElementById("page-reports");if(!page||state?.status!=="READY"||!state.settings?.energy||!state.settings?.water)return;ensureStyles();ensureGeneralConsumptionReport();ensureUtilityConsumptionReport("energy");ensureUtilityConsumptionReport("water");const period=document.querySelector("[data-report-period]")?.value||"6m";const energy=buildConsumptionReportData("energy",state,period),water=buildConsumptionReportData("water",state,period);renderGeneralConsumptionReport(energy,water,period);renderUtilityConsumptionReport("energy",energy);renderUtilityConsumptionReport("water",water)}
+function ensureStyles(){if(document.querySelector('link[data-consumption-reports-style="true"]'))return;const link=document.createElement("link");link.rel="stylesheet";link.href="./styles/consumption-reports.css?v=20260813.7";link.dataset.consumptionReportsStyle="true";document.head.append(link)}

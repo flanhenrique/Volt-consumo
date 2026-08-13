@@ -27,7 +27,10 @@ const CORE_ACCOUNT_TABLES = new Set([
   "water_settings"
 ]);
 const DATA_REFRESH_COOLDOWN_MS = 1500;
-const REDUNDANT_AUTH_EVENTS = new Set(["INITIAL_SESSION", "TOKEN_REFRESHED"]);
+// TOKEN_REFRESHED não altera identidade. INITIAL_SESSION, porém, é o evento
+// canônico de hidratação da sessão do Supabase e precisa chegar aos consumidores
+// para popular e-mail, nome de exibição e estado de MFA após uma recarga.
+const REDUNDANT_AUTH_EVENTS = new Set(["TOKEN_REFRESHED"]);
 
 let apiTarget = null;
 let apiFacade = null;
@@ -111,9 +114,8 @@ function wrapAuthEvents(client) {
   const wrapped = function voltOnAuthStateChange(callback) {
     if (typeof callback !== "function") return original(callback);
     return original((event, session) => {
-      // Todos os consumidores atuais também consultam getSession() no bootstrap.
-      // INITIAL_SESSION repetia a carga inicial; TOKEN_REFRESHED repetia a carga
-      // completa dos dados sem qualquer mudança de identidade ou conteúdo.
+      // Mantém INITIAL_SESSION para hidratar identidade e MFA. Apenas refreshes
+      // de token, que não mudam o usuário, deixam de repetir cargas completas.
       if (REDUNDANT_AUTH_EVENTS.has(event)) return;
       return callback(event, session);
     });
@@ -134,8 +136,6 @@ function wrapHeavyRpc(client) {
     if (!startupReady && group) {
       deferredRpcGroups.add(group);
       scheduleDeferredWork();
-      // O chamador atual só verifica data/error. A resposta temporária permite
-      // que app.js avance até loadUserData sem esperar bootstrap/admin/métricas.
       return Promise.resolve({ data: null, error: null, status: 200, statusText: "deferred" });
     }
     return originalRpc(fn, args, options);
@@ -255,9 +255,6 @@ function installBetaDataCoalescer() {
   window.addEventListener("volt:beta-data", (event) => {
     if (event.detail?.__voltCoalesced === true) return;
 
-    // Todos os módulos publicam o mesmo sinal global. Sem esta barreira, uma
-    // única alteração pode fazer beta-shell, ciclos e módulos regionais
-    // renderizarem várias vezes no mesmo frame.
     event.stopImmediatePropagation();
     latestBetaDataDetail = event.detail && typeof event.detail === "object"
       ? { ...event.detail }
@@ -270,9 +267,6 @@ function installBetaDataCoalescer() {
       const detail = { ...(latestBetaDataDetail || {}), __voltCoalesced: true };
       latestBetaDataDetail = null;
 
-      // Depois que o bootstrap terminou, não repassa sinais cujo estado global
-      // é idêntico ao último já renderizado. Isso impede renders completos do
-      // beta-shell por eventos repetidos em frames diferentes.
       if (startupReady) {
         const signature = runtimeSnapshotSignature();
         if (signature && signature === lastBetaDataSignature) return;
@@ -299,14 +293,10 @@ function observeStartupReady() {
     flushDeferredRpcGroups();
   };
 
-  // Vários módulos administrativos também publicam volt:beta-data. Só aceitamos
-  // esse evento depois que as quatro consultas-base da conta finalizaram.
   window.addEventListener("volt:beta-data", () => {
     if (coreDataFetched) finish();
   });
 
-  // Fail-safe para falha de rede/SDK inesperada. O render principal do app
-  // continua sendo responsável por sua própria mensagem de erro/cache.
   window.setTimeout(finish, 5000);
 }
 

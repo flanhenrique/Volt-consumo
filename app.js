@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.4";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.4";
-import { VOLT_CONFIG } from "./config.js?v=20260813.4";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.4";
-import { createRenderer } from "./src/renderer.js?v=20260813.4";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.4";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.4";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.5";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.5";
+import { VOLT_CONFIG } from "./config.js?v=20260813.5";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.5";
+import { createRenderer } from "./src/renderer.js?v=20260813.5";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.5";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.5";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -19,6 +19,7 @@ let mfaFactorId = null;
 let readingPreviewUrl = null;
 let readingPhotoSequence = 0;
 let applicationStarted = false;
+const ACCENT_CHOICES = Object.freeze(["emerald", "azure", "violet", "amber", "coral", "teal"]);
 
 store.subscribe((state) => renderer.render(state));
 startApplication();
@@ -56,6 +57,7 @@ function handleAuthEvent(event, session) {
     pendingSessionKey = null;
     mfaFactorId = null;
     if (store.getState().status !== StartupStatus.SIGNED_OUT) store.resetPrivateState();
+    applyAccentToDocument("emerald");
     return;
   }
   if (event === "TOKEN_REFRESHED") {
@@ -101,8 +103,10 @@ async function restoreAuthenticatedApplication(session) {
     store.setStatus(StartupStatus.LOADING_DATA);
     const loaded = await service.loadApplicationData(session);
     const cycles = loadCycleState(session.user);
+    const accent = savedAccentFor(session.user);
+    applyAccentToDocument(accent);
     activeSessionKey = sessionKey(session);
-    store.update({ ...loaded, session, user: session.user, cycles, activePage: "home" });
+    store.update({ ...loaded, session, user: session.user, cycles, activePage: "home", view: { ...store.getState().view, accent } });
     store.setStatus(StartupStatus.READY);
   } catch (error) {
     failStartup(error);
@@ -137,12 +141,14 @@ function bindStaticUi() {
   document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => closeDialog(button.dataset.closeDialog)));
   document.querySelectorAll("[data-action='toggle-theme']").forEach((button) => button.addEventListener("click", toggleTheme));
   document.querySelectorAll("[data-theme-choice]").forEach((button) => button.addEventListener("click", () => setThemePreference(button.dataset.themeChoice)));
+  document.querySelectorAll("[data-accent-choice]").forEach((button) => button.addEventListener("click", () => setAccentPreference(button.dataset.accentChoice)));
   document.querySelectorAll("[data-consumption-type]").forEach((button) => button.addEventListener("click", () => updateView({ consumptionType: button.dataset.consumptionType })));
   document.querySelectorAll("[data-consumption-period]").forEach((button) => button.addEventListener("click", () => updateView({ consumptionPeriod: button.dataset.consumptionPeriod })));
   document.querySelectorAll("[data-reading-type]").forEach((button) => button.addEventListener("click", () => selectReadingType(button.dataset.readingType)));
   document.getElementById("reading-type").addEventListener("change", (event) => selectReadingType(event.target.value));
   document.getElementById("reading-photo").addEventListener("change", handleReadingPhoto);
   applySavedTheme();
+  applyAccentToDocument("emerald");
 }
 
 async function handleLogin(event) {
@@ -397,7 +403,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.4");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.5");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {
@@ -492,6 +498,23 @@ function setThemePreference(preference) {
 function applySavedTheme() {
   const saved = localStorage.getItem("volt-theme");
   setThemePreference(["system", "light", "dark"].includes(saved) ? saved : "system");
+}
+
+function setAccentPreference(preference) {
+  const accent = ACCENT_CHOICES.includes(preference) ? preference : "emerald";
+  const user = store.getState().user;
+  if (user?.id) localStorage.setItem(`volt-accent:${user.id}`, accent);
+  applyAccentToDocument(accent);
+  updateView({ accent });
+}
+
+function savedAccentFor(user) {
+  const saved = user?.id ? localStorage.getItem(`volt-accent:${user.id}`) : null;
+  return ACCENT_CHOICES.includes(saved) ? saved : "emerald";
+}
+
+function applyAccentToDocument(accent) {
+  document.documentElement.dataset.accent = ACCENT_CHOICES.includes(accent) ? accent : "emerald";
 }
 
 async function registerServiceWorker() {

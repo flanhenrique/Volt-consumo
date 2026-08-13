@@ -86,6 +86,19 @@
 .theme-swatch.system { background: linear-gradient(90deg, #f7fbf9 50%, #0a1c16 50%); }
 .theme-swatch.light { background: linear-gradient(145deg, #ffffff, #dcece7); }
 .theme-swatch.dark { background: linear-gradient(145deg, #17372d, #04100c); }
+.appearance-settings { gap: var(--space-5); }
+.accent-settings { display: grid; padding-top: var(--space-4); gap: var(--space-3); border-top: 1px solid var(--glass-border); }
+.accent-settings h3 { margin: 0 0 var(--space-1); }
+.accent-choices { display: grid; gap: var(--space-2); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.accent-choice { display: flex; min-height: 3.2rem; padding: var(--space-2); align-items: center; gap: var(--space-2); border: 1px solid var(--glass-border-strong); border-radius: var(--radius-sm); background: var(--glass-control); color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 800; }
+.accent-choice[aria-pressed="true"] { border-color: var(--volt-accent); color: var(--text-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--volt-accent) 20%, transparent); }
+.accent-swatch { width: 1.45rem; height: 1.45rem; flex: 0 0 auto; border: 2px solid rgba(255, 255, 255, .6); border-radius: 50%; box-shadow: 0 2px 8px rgba(0, 0, 0, .14); }
+.accent-swatch.emerald { background: #00a878; }
+.accent-swatch.azure { background: #2f8df4; }
+.accent-swatch.violet { background: #8057df; }
+.accent-swatch.amber { background: #dc9212; }
+.accent-swatch.coral { background: #e66558; }
+.accent-swatch.teal { background: #009e9a; }
 
 .help-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .help-topic { display: grid; min-height: 11rem; gap: var(--space-3); align-content: space-between; }
@@ -133,6 +146,7 @@
   .cycle-grid { grid-template-columns: 1fr; }
   .theme-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .theme-choice { min-height: 5.6rem; padding: var(--space-2); font-size: var(--font-size-xs); }
+  .accent-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .user-directory-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
   .user-directory-stats .card { min-height: 6.7rem; padding: var(--space-3); }
   .user-directory-stats .metric-value { font-size: 1.7rem; }

@@ -1,6 +1,7 @@
 import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.7";
 import { StartupStatus } from "./app-state.js?v=20260813.7";
+import { renderReports } from "./reports.js?v=20260813.7";
 
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
@@ -47,6 +48,7 @@ export function createRenderer() {
       renderConsumption(state, snapshot, byId);
       renderReadings(state, snapshot, byId);
       renderAlerts(snapshot, byId);
+      renderReports(state, snapshot);
       renderSettings(state, byId);
       renderUsers(state, byId);
       publishStartupStatus(state.status);

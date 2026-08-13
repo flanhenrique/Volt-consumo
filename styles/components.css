@@ -37,7 +37,6 @@
 .dialog-heading,
 .profile-row,
 .reading-item,
-.member-item,
 .alert-item {
   display: flex;
   align-items: center;

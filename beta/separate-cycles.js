@@ -258,8 +258,8 @@ function renderAll() {
     const water = buildContext(getCycle("water"));
     const energyConsumption = energy ? cycleConsumption(snapshot.energy?.readings || [], energy.current) : 0;
     const waterConsumption = water ? cycleConsumption(snapshot.water?.readings || [], water.current) : 0;
-    const energyEstimate = api.estimateEnergy?.(energyConsumption) || { totalCost: 0 };
-    const waterEstimate = api.estimateWater?.(waterConsumption) || { totalCost: 0 };
+    const energyEstimate = energy ? (api.estimateEnergy?.(energyConsumption) || { totalCost: 0 }) : { totalCost: 0 };
+    const waterEstimate = water ? (api.estimateWater?.(waterConsumption) || { totalCost: 0 }) : { totalCost: 0 };
     const totalCost = Number(energyEstimate.totalCost || 0) + Number(waterEstimate.totalCost || 0);
 
     const nextContext = { energy, water };
@@ -275,15 +275,6 @@ function renderAll() {
     window.VOLT_CYCLE_CONTEXT = Object.freeze(nextContext);
     window.VOLT_CYCLE_VALUES = Object.freeze(nextValues);
 
-    if (contextChanged) {
-      renderHeader(energy, water);
-      setText("#beta-energy-consumption", `${formatNumber(energyConsumption, 0)} kWh`);
-      setText("#beta-water-consumption", `${formatNumber(waterConsumption, 3)} m³`);
-      setText("#beta-energy-cost", currency(energyEstimate.totalCost));
-      setText("#beta-water-cost", currency(waterEstimate.totalCost));
-      setText("#beta-financial-total", currency(totalCost));
-      renderSummary(energyEstimate.totalCost, waterEstimate.totalCost, totalCost);
-    }
     syncSettingsInputs();
   } finally {
     rendering = false;

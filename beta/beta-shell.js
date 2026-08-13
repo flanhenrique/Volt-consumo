@@ -45,6 +45,7 @@ function initializeBetaExperience() {
   }, 60_000);
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
+  window.addEventListener("volt:cycle-context", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
   new MutationObserver(() => {
     if (!dashboard.hidden) {
@@ -781,6 +782,13 @@ function renderBetaExperience() {
   }
   if (activePage !== "home") return;
 
+  const canonicalContext = window.VOLT_CYCLE_CONTEXT;
+  const canonicalValues = window.VOLT_CYCLE_VALUES;
+  if (canonicalContext && canonicalValues) {
+    renderCanonicalHome(snapshot, canonicalContext, canonicalValues);
+    return;
+  }
+
   const cycle = getCycleRanges();
   const energyCurrent = cycleConsumption(snapshot.energy.readings, cycle.current);
   const energyPrevious = cycleConsumption(snapshot.energy.readings, cycle.previous);
@@ -800,6 +808,116 @@ function renderAdministrationNavigation() {
   const nav = document.querySelector("#beta-users-nav");
   if (!nav) return;
   nav.hidden = !api.getAdminSnapshot().authorized;
+}
+
+function renderCanonicalHome(snapshot, context, values) {
+  const energyCurrent = cycleEvidence(snapshot.energy.readings, context.energy?.current);
+  const energyPrevious = cycleEvidence(snapshot.energy.readings, context.energy?.previous);
+  const waterCurrent = cycleEvidence(snapshot.water.readings, context.water?.current);
+  const waterPrevious = cycleEvidence(snapshot.water.readings, context.water?.previous);
+  energyCurrent.consumption = Number(values.energy?.consumption || 0);
+  waterCurrent.consumption = Number(values.water?.consumption || 0);
+
+  renderCanonicalCycleHeader(context);
+  setText("#beta-energy-consumption", `${formatNumber(energyCurrent.consumption)} kWh`);
+  setText("#beta-water-consumption", `${formatNumber(waterCurrent.consumption, 3)} m³`);
+
+  if (window.VOLT_REGION_CONTEXT?.country === "UY") return;
+
+  setText("#beta-energy-cost", currency(values.energy?.estimate?.totalCost || 0));
+  setText("#beta-water-cost", currency(values.water?.estimate?.totalCost || 0));
+  renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
+  renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
+  renderCanonicalFinancialSummary(snapshot, context, values, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
+}
+
+function renderCanonicalCycleHeader(context) {
+  setText("#beta-home-title", "Ciclos atuais");
+  const label = document.querySelector("#beta-cycle-label");
+  if (!label) return;
+  label.classList.add("cycle-lines");
+  label.replaceChildren(
+    canonicalCycleLine("water", "●", "Água", context.water),
+    canonicalCycleLine("energy", "ϟ", "Energia", context.energy)
+  );
+}
+
+function canonicalCycleLine(type, icon, name, context) {
+  const row = document.createElement("span");
+  row.className = `cycle-line ${type}`;
+  const symbol = document.createElement("b");
+  symbol.className = "cycle-line-icon";
+  symbol.textContent = icon;
+  symbol.setAttribute("aria-hidden", "true");
+  const copy = document.createElement("span");
+  const utility = document.createElement("strong");
+  utility.textContent = name;
+  const range = document.createElement("small");
+  range.textContent = context?.label || "Não configurado";
+  copy.append(utility, range);
+  row.append(symbol, copy);
+  return row;
+}
+
+function cycleEvidence(items, range) {
+  if (!range) return { consumption: 0, count: 0 };
+  const sorted = [...items].sort((left, right) => new Date(left.date) - new Date(right.date));
+  const base = sorted.filter((item) => new Date(item.date) <= range.start).at(-1);
+  const latest = sorted.filter((item) => new Date(item.date) <= range.end).at(-1);
+  if (base && latest && new Date(latest.date) > new Date(base.date)) {
+    return { consumption: Math.max(0, Number(latest.value) - Number(base.value)), count: 2 };
+  }
+  const selected = sorted.filter((item) => {
+    const date = new Date(item.date);
+    return date >= range.start && date <= range.end;
+  });
+  return {
+    consumption: selected.length > 1 ? Math.max(0, Number(selected.at(-1).value) - Number(selected[0].value)) : 0,
+    count: selected.length
+  };
+}
+
+function renderCanonicalFinancialSummary(snapshot, context, values, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {
+  const energyCost = Number(values.energy?.estimate?.totalCost || 0);
+  const waterCost = Number(values.water?.estimate?.totalCost || 0);
+  const totalCost = energyCost + waterCost;
+  const previousEnergyCost = context.energy ? api.estimateEnergy(energyPrevious.consumption).totalCost : 0;
+  const previousWaterCost = context.water ? api.estimateWater(waterPrevious.consumption).totalCost : 0;
+  const previousTotal = previousEnergyCost + previousWaterCost;
+  const container = document.querySelector("#beta-summary-values");
+  setText("#beta-financial-total", currency(totalCost));
+  renderStatGrid(container, [["Energia", currency(energyCost)], ["Água", currency(waterCost)], ["Total geral", currency(totalCost)]]);
+
+  const comparison = document.querySelector("#beta-financial-comparison");
+  comparison.classList.remove("increase", "decrease", "steady");
+  const hasCurrentEvidence = energyCurrent.count >= 2 || waterCurrent.count >= 2;
+  const hasPreviousEvidence = energyPrevious.count >= 2 || waterPrevious.count >= 2;
+  if (!hasCurrentEvidence || !hasPreviousEvidence || previousTotal <= 0) {
+    comparison.textContent = "Aguardando leituras para comparar os ciclos.";
+  } else {
+    const difference = ((totalCost - previousTotal) / previousTotal) * 100;
+    const increased = difference > 0.1;
+    const decreased = difference < -0.1;
+    comparison.textContent = increased || decreased
+      ? `${increased ? "▲ +" : "▼ -"}${Math.abs(difference).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% em relação ao ciclo anterior.`
+      : "• Mesmo valor estimado do ciclo anterior.";
+    comparison.classList.add(increased ? "increase" : decreased ? "decrease" : "steady");
+  }
+
+  const energyForecast = snapshot.energy.forecast;
+  const waterForecast = snapshot.water.forecast;
+  const energyDays = context.energy?.current ? Math.max(1, Math.ceil((context.energy.current.end - context.energy.current.start) / 86_400_000)) : 0;
+  const waterDays = context.water?.current ? Math.max(1, Math.ceil((context.water.current.end - context.water.current.start) / 86_400_000)) : 0;
+  const hasEnergyForecast = Boolean(context.energy && energyForecast.valid && energyForecast.usage > 0);
+  const hasWaterForecast = Boolean(context.water && waterForecast.valid && waterForecast.usage > 0);
+  if (!hasEnergyForecast && !hasWaterForecast) {
+    setText("#beta-cycle-forecast", "Aguardando leituras para prever o encerramento.");
+    return;
+  }
+  const forecastEnergyCost = hasEnergyForecast ? api.estimateEnergy(energyForecast.usage * energyDays / 30).totalCost : 0;
+  const forecastWaterCost = hasWaterForecast ? api.estimateWater(waterForecast.usage * waterDays / 30).totalCost : 0;
+  const confidence = weakestConfidence(hasEnergyForecast ? energyForecast.confidence : "alta", hasWaterForecast ? waterForecast.confidence : "alta");
+  setText("#beta-cycle-forecast", `Previsão de encerramento: ${currency(forecastEnergyCost + forecastWaterCost)} · confiança ${confidence}.`);
 }
 
 function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {

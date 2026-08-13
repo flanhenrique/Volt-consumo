@@ -33,7 +33,7 @@ def install_gates(page, fake_backend=True):
       });
     """)
     if fake_backend:
-        page.route("**/vendor/supabase/supabase.js*", lambda route: route.fulfill(
+        page.route("**/vendor/supabase/supabase.js", lambda route: route.fulfill(
             status=200, content_type="application/javascript", body=FAKE_SUPABASE
         ))
     return errors
@@ -44,35 +44,24 @@ def assert_clean(page, errors):
     assert errors + unhandled == [], errors + unhandled
 
 
-def unlock_maintenance(page):
-    expect(page.locator("#maintenance-screen")).to_be_visible()
-    expect(page.locator("#login-screen")).to_be_hidden()
-    expect(page.locator("#dashboard")).to_be_hidden()
-    for _ in range(4):
-        page.locator("#maintenance-unlock").click()
-    expect(page.locator("#maintenance-screen")).to_be_visible()
-    page.locator("#maintenance-unlock").click()
-    expect(page.locator("#maintenance-screen")).to_be_hidden()
-
-
 def scenario_signed_out(browser, mobile=False):
     context = isolated_context(browser, viewport={"width": 390, "height": 844} if mobile else {"width": 1440, "height": 1000})
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/")
-    unlock_maintenance(page)
     try:
         expect(page.locator("#login-screen")).to_be_visible()
     except Exception as error:
         diagnostic = page.evaluate("""() => ({
           status: document.documentElement.dataset.startupStatus,
+          boot: !document.getElementById('boot-screen').hidden,
           login: !document.getElementById('login-screen').hidden,
           dashboard: !document.getElementById('dashboard').hidden,
           fatal: document.getElementById('fatal-error-message').textContent
         })""")
         raise AssertionError(f"estado inicial: {diagnostic}; erros: {errors}") from error
     expect(page.locator("#dashboard")).to_be_hidden()
-    expect(page.locator("#boot-screen")).to_have_count(0)
+    expect(page.locator("#boot-screen")).to_be_hidden()
     assert_clean(page, errors)
     context.close()
 
@@ -82,7 +71,6 @@ def scenario_authenticated(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=user")
-    unlock_maintenance(page)
     expect(page.locator("#dashboard")).to_be_visible()
     expect(page.locator("#login-screen")).to_be_hidden()
     expect(page.locator("#greeting")).to_have_text("Olá, Ana Volt!")
@@ -97,8 +85,7 @@ def scenario_authenticated(browser):
     page.locator("#reading-type").select_option("energy")
     page.locator("#reading-value").fill("1130")
     page.locator("#reading-date").fill("2026-08-10T12:00")
-    page.locator("#reading-reviewed").check()
-    page.locator("#reading-form").get_by_role("button", name="Confirmar leitura").click()
+    page.locator("#reading-form").get_by_role("button", name="Salvar leitura").click()
     expect(page.locator("#reading-dialog")).not_to_have_attribute("open", "")
     page.get_by_role("button", name="Início").click()
     expect(page.locator("#dashboard")).to_be_visible()
@@ -114,7 +101,8 @@ def scenario_authenticated(browser):
 
     page.get_by_role("button", name="Relatórios").click()
     expect(page.locator("#page-reports")).to_be_visible()
-    expect(page.locator("#page-reports")).to_be_empty()
+    assert page.locator("#page-reports").evaluate("element => element.children.length") == 0
+    assert page.locator("#page-reports").text_content().strip() == ""
 
     page.get_by_role("button", name="Configurações").click()
     page.locator("#logout").click()
@@ -130,7 +118,6 @@ def scenario_mfa(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=mfa")
-    unlock_maintenance(page)
     expect(page.locator("#mfa-screen")).to_be_visible()
     expect(page.locator("#dashboard")).to_be_hidden()
     page.locator("#mfa-code").fill("123456")
@@ -146,16 +133,11 @@ def scenario_admin(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/?session=admin")
-    unlock_maintenance(page)
     expect(page.locator("#dashboard")).to_be_visible()
     users = page.get_by_role("button", name="Usuários")
     expect(users).to_be_visible()
     users.click()
-    expect(page.locator("#users-list .user-account-item")).to_have_count(3)
-    expect(page.locator("#users-total")).to_have_text("3")
-    expect(page.locator("#users-confirmed")).to_have_text("2")
-    expect(page.locator("#page-users").get_by_text("Organização", exact=False)).to_have_count(0)
-    expect(page.get_by_text("ana@example.com")).to_be_visible()
+    expect(page.locator("#members-list .member-item")).to_have_count(1)
     page.locator("#invite-user").click()
     page.locator("#invite-email").fill("novo@volt.test")
     page.locator("#invite-form").get_by_role("button", name="Criar convite").click()
@@ -165,7 +147,7 @@ def scenario_admin(browser):
     page.get_by_role("button", name="Início").click()
     users.click()
     expect(page.locator("#page-users")).to_have_attribute("data-ownership-probe", "same-node")
-    expect(page.locator("#users-list .user-account-item")).to_have_count(3)
+    expect(page.locator("#members-list .member-item")).to_have_count(1)
     assert_clean(page, errors)
     context.close()
 
@@ -180,6 +162,7 @@ def scenario_service_worker(browser):
         except Exception as error:
             diagnostic = page.evaluate("""async () => ({
               status: document.documentElement.dataset.startupStatus,
+              boot: !document.getElementById('boot-screen').hidden,
               login: !document.getElementById('login-screen').hidden,
               dashboard: !document.getElementById('dashboard').hidden,
               fatal: document.getElementById('fatal-error-message').textContent,
@@ -190,7 +173,6 @@ def scenario_service_worker(browser):
     page.goto(BASE_URL + "/tests/fixtures/sw-harness.html")
     page.evaluate("""async () => {
       await caches.open('volt-app-v1');
-      await caches.open('volt-app-v3-liquid-glass');
       await caches.open('another-product-cache');
       await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     }""")
@@ -202,9 +184,8 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.3"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v2"]
     page.goto(BASE_URL + "/")
-    unlock_maintenance(page)
     expect_login("visita controlada")
     assert page.evaluate("() => Boolean(window.navigator.serviceWorker.controller)")
     errors_before_missing_asset = len(errors)
@@ -239,8 +220,7 @@ def scenario_beta_redirect(browser):
     page = context.new_page()
     errors = install_gates(page)
     page.goto(BASE_URL + "/beta/?session=user")
-    page.wait_for_url(BASE_URL + "/?session=user")
-    unlock_maintenance(page)
+    page.wait_for_url("**/?session=user")
     expect(page.locator("#dashboard")).to_be_visible()
     assert page.locator("script[type=module]").count() == 1
     assert_clean(page, errors)

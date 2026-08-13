@@ -24,7 +24,6 @@ const initialState = Object.freeze({
   organization: null,
   admin: null,
   activePage: "home",
-  view: { consumptionType: "energy", consumptionPeriod: "cycle", theme: "system" },
   error: null
 });
 
@@ -51,8 +50,7 @@ export function createApplicationStore() {
       publish();
     },
     resetPrivateState() {
-      const view = { ...state.view };
-      state = { ...structuredClone(initialState), status: StartupStatus.SIGNED_OUT, view };
+      state = { ...structuredClone(initialState), status: StartupStatus.SIGNED_OUT };
       publish();
     }
   });

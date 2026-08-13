@@ -1,35 +1,28 @@
-const RELEASE_ID = "20260813.3";
-const CACHE_NAME = `volt-app-v4-atomic-${RELEASE_ID}`;
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
-const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
+const CACHE_NAME = "volt-app-v2";
+const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
 const CORE_ASSETS = [
   "./",
   "./index.html",
-  releaseAsset("./styles/tokens.css"),
-  releaseAsset("./styles/glass.css"),
-  releaseAsset("./styles/layout.css"),
-  releaseAsset("./styles/components.css"),
-  releaseAsset("./styles/pages.css"),
-  releaseAsset("./app.js"),
-  releaseAsset("./config.js"),
+  "./styles.css",
+  "./app.js",
+  "./config.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
-  releaseAsset("./vendor/supabase/supabase.js"),
-  releaseAsset("./packages/consumption-domain/browser/index.js"),
-  releaseAsset("./data/national-energy-catalog.js"),
-  releaseAsset("./src/app-state.js"),
-  releaseAsset("./src/cycles.js"),
-  releaseAsset("./src/meter-ocr.js"),
-  releaseAsset("./src/renderer.js"),
-  releaseAsset("./src/supabase-loader.js"),
-  releaseAsset("./src/tariff.js"),
-  releaseAsset("./src/volt-service.js")
+  "./vendor/supabase/supabase.js",
+  "./packages/consumption-domain/browser/index.js",
+  "./data/national-energy-catalog.js",
+  "./src/app-state.js",
+  "./src/cycles.js",
+  "./src/renderer.js",
+  "./src/supabase-loader.js",
+  "./src/tariff.js",
+  "./src/volt-service.js"
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheApplicationShell().then(() => self.skipWaiting()));
+  event.waitUntil(cacheApplicationShell());
 });
 
 async function cacheApplicationShell() {

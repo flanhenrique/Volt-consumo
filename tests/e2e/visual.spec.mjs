@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }, testInfo) => {
     window.__voltUnhandled = [];
     window.addEventListener("unhandledrejection", (event) => window.__voltUnhandled.push(String(event.reason)));
   });
-  await page.route("**/vendor/supabase/supabase.js", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
+  await page.route("**/vendor/supabase/supabase.js*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
   page.__voltFailures = failures;
 });
 

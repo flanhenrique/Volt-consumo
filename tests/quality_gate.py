@@ -6,6 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+RELEASE_ID = "20260813.1"
 failures = []
 
 
@@ -39,11 +40,14 @@ def parse_html(relative):
     return parser
 
 
+index_source = (ROOT / "index.html").read_text(encoding="utf-8")
 root_html = parse_html("index.html")
 check(len(root_html.ids) == len(set(root_html.ids)), "index.html contém IDs duplicados")
-check(root_html.module_entries == ["./app.js"], "a raiz deve possuir exatamente uma entrada module: app.js")
+check(root_html.module_entries == [f"./app.js?v={RELEASE_ID}"], "a raiz deve possuir exatamente uma entrada module versionada: app.js")
 for reference in root_html.refs:
     check((ROOT / reference[2:]).exists(), f"referência local inexistente em index.html: {reference}")
+for asset in ["styles/tokens.css", "styles/glass.css", "styles/layout.css", "styles/components.css", "styles/pages.css", "app.js"]:
+    check(f'./{asset}?v={RELEASE_ID}' in index_source, f"asset mutável sem versão de release no HTML: {asset}")
 
 beta_html = parse_html("beta/index.html")
 check(not beta_html.module_entries, "/beta não pode inicializar uma segunda aplicação")
@@ -51,10 +55,14 @@ check((ROOT / "beta/redirect.js").exists(), "/beta precisa manter apenas a compa
 
 for javascript in [ROOT / "app.js", *sorted((ROOT / "src").glob("*.js"))]:
     source = javascript.read_text(encoding="utf-8")
-    for specifier in re.findall(r'from\s+["\']([^"\']+)["\']', source):
+    specifiers = re.findall(r'from\s+["\']([^"\']+)["\']', source)
+    specifiers += re.findall(r'import\(["\']([^"\']+)["\']\)', source)
+    for specifier in specifiers:
         if specifier.startswith("."):
-            target = (javascript.parent / specifier).resolve()
+            path, _, query = specifier.partition("?")
+            target = (javascript.parent / path).resolve()
             check(target.exists(), f"import local quebrado em {javascript.relative_to(ROOT)}: {specifier}")
+            check(query == f"v={RELEASE_ID}", f"import local sem versão atômica em {javascript.relative_to(ROOT)}: {specifier}")
 
 active_sources = "\n".join((ROOT / item).read_text(encoding="utf-8") for item in [
     "index.html", "app.js", "sw.js", "styles/tokens.css", "styles/glass.css", "styles/layout.css",
@@ -78,6 +86,9 @@ sw_source = (ROOT / "sw.js").read_text(encoding="utf-8")
 check('request.mode === "navigate"' in sw_source, "Service Worker deve separar navegação de assets")
 check("OWNED_CACHE_NAMES.has(name)" in sw_source, "Service Worker só pode limpar caches explicitamente próprios")
 check(sw_source.count("response.clone()") == 2, "cada estratégia de rede deve clonar a resposta exatamente uma vez")
+check(f'const RELEASE_ID = "{RELEASE_ID}"' in sw_source, "Service Worker e grafo de assets devem compartilhar a release")
+check("cacheApplicationShell().then(() => self.skipWaiting())" in sw_source, "Service Worker novo deve ativar somente após formar o cache completo")
+check(f'searchParams.set("v", "{RELEASE_ID}")' in (ROOT / "src/supabase-loader.js").read_text(encoding="utf-8"), "runtime Supabase deve pertencer à mesma release")
 
 checksum_file = ROOT / "vendor/SHA256SUMS"
 if checksum_file.exists():

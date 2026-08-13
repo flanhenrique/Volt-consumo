@@ -52,6 +52,10 @@ jobs:
           assert.match(app, /authEvent === "INITIAL_SESSION" \|\| authEvent === "TOKEN_REFRESHED"/, 'app voltou a repetir bootstrap em eventos redundantes de auth');
           assert.match(app, /await loadUserData\(user\.id\);\s*render\(\);[\s\S]*?dashboard\.hidden = false;/, 'dashboard voltou a aparecer antes dos dados críticos');
           assert.match(app, /function\s+loadTesseractRuntime\s*\(/, 'OCR perdeu carregamento sob demanda');
+          assert.match(app, /function\s+setControlValue\s*\(/, 'app perdeu guardas de escrita em controles opcionais');
+          const defaultDateBody = app.match(/function setDefaultDate\(\) \{([\s\S]*?)\n\}/)?.[1] || '';
+          assert.ok(defaultDateBody, 'setDefaultDate ausente');
+          assert.doesNotMatch(defaultDateBody, /\$\(["']#reading-date["']\)\.value/, 'setDefaultDate voltou a dereferenciar DOM sem guarda');
 
           const index = await readFile('beta/index.html', 'utf8');
           for (const id of ['login-form', 'dashboard', 'energy-panel', 'water-panel', 'settings-form']) {
@@ -59,6 +63,7 @@ jobs:
           }
           const moduleScripts = [...index.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["'][^>]*>/g)].map((match) => match[1]);
           assert.deepEqual(moduleScripts, ['./bootstrap.js'], 'beta/index.html deve possuir somente ./bootstrap.js como entry point module');
+          assert.match(index, /href=["']\.\/bootstrap-guards\.css["']/, 'index perdeu proteção estática de visibilidade');
           assert.doesNotMatch(index, /tesseract\.min\.js/, 'OCR voltou ao caminho crítico do HTML');
 
           const bootstrap = await readFile('beta/bootstrap.js', 'utf8');
@@ -107,12 +112,18 @@ jobs:
           }
           assert.match(sw, /CACHE_PREFIX\s*=\s*["']volt-beta-shell-/, 'service worker perdeu namespace próprio de cache');
           assert.match(sw, /["']\.\/bootstrap\.js["']/, 'service worker não publica o bootstrap único');
+          assert.match(sw, /["']\.\/bootstrap-guards\.css["']/, 'service worker não publica a proteção estática de visibilidade');
           assert.doesNotMatch(sw, /keys\.filter\([^\n]*key\s*!==\s*CACHE/, 'service worker voltou a apagar caches de outros aplicativos');
           assert.match(sw, /request\.mode === ["']navigate["']/, 'fallback HTML voltou a ser aplicado sem restringir navegação');
 
+          const visibilityGuards = await readFile('beta/bootstrap-guards.css', 'utf8');
+          assert.match(visibilityGuards, /\[hidden\]\s*\{\s*display:\s*none\s*!important/, 'proteção estática global de [hidden] ausente');
+          assert.match(visibilityGuards, /data-volt-home-ready/, 'barreira estática da Home ausente');
+          assert.match(visibilityGuards, /data-volt-financial-ready/, 'barreira estática de valores financeiros intermediários ausente');
+
           const betaV3 = await readFile('beta/beta-v3.js', 'utf8');
-          assert.match(betaV3, /\[hidden\]\s*\{\s*display:\s*none\s*!important/, 'proteção global de [hidden] ausente');
-          assert.match(betaV3, /data-volt-financial-ready/, 'barreira de valores financeiros intermediários ausente');
+          assert.doesNotMatch(betaV3, /data-volt-runtime-visibility|createElement\(["']style["']\)|style\.textContent/, 'runtime voltou a injetar CSS inline incompatível com CSP');
+          assert.match(betaV3, /data-volt-financial-ready|voltFinancialReady/, 'runtime perdeu controle do estado financeiro');
           assert.match(betaV3, /waitForStartupSignal/, 'startup perdeu espera explícita por sinais críticos');
           assert.match(betaV3, /reportStartupFailure/, 'startup perdeu estado explícito de falha');
           assert.doesNotMatch(betaV3, /5200|armFallback|loadPageModules|reports-v3\.js|platform-users\.js/, 'fallback temporal ou renderer concorrente reapareceu no runtime v3');
@@ -121,6 +132,8 @@ jobs:
           assert.match(shell, /activePage === "readings"/, 'shell perdeu renderização condicionada à página ativa');
           assert.match(shell, /renderCanonicalHome/, 'shell perdeu o renderer canônico da Home');
           assert.match(shell, /volt:cycle-context/, 'shell deixou de reagir ao estado canônico dos ciclos');
+          assert.doesNotMatch(shell, /new MutationObserver\(\(\) => \{\s*if \(!dashboard\.hidden\)/, 'shell voltou a observar dashboard durante toda a sessão');
+          assert.match(shell, /pageName === "users"\) void loadAdministrationPage/, 'admin deixou de ser carregado sob demanda na página Usuários');
 
           const cycles = await readFile('beta/separate-cycles.js', 'utf8');
           assert.doesNotMatch(cycles, /setTimeout\s*\(\s*\(\)\s*=>\s*waitForUi/, 'polling de UI dos ciclos reapareceu');
@@ -139,6 +152,8 @@ jobs:
           assert.match(startup, /__voltCoalesced/, 'runtime perdeu coalescência de volt:beta-data');
           assert.match(startup, /VOLT_STARTUP_STATE/, 'runtime perdeu estado explícito de startup');
           assert.match(startup, /volt:startup-error/, 'runtime perdeu evento explícito de falha de startup');
+          assert.match(startup, /new Proxy\(Object\.create\(null\)/, 'runtime voltou a usar Proxy incompatível com API congelada');
+          assert.doesNotMatch(startup, /new Proxy\(value,/, 'runtime voltou a usar a API congelada como target do Proxy');
           assert.doesNotMatch(startup, /setTimeout\(finish,\s*5000\)|setTimeout\(scheduleDeferredWork,\s*250\)/, 'runtime voltou a transformar polling/timeout em prontidão');
           NODE
       - name: Verify health endpoint semantics
@@ -181,6 +196,7 @@ jobs:
           set -euo pipefail
           test -s beta/index.html
           test -s beta/bootstrap.js
+          test -s beta/bootstrap-guards.css
           test -s beta/app.js
           test -s beta/sw.js
           test -s beta/icon-192.png

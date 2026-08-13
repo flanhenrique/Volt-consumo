@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import fs from "node:fs/promises";
 
 const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
+const onePixelPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZfWQAAAAASUVORK5CYII=", "base64");
 
 test.beforeEach(async ({ page }) => {
   const failures = [];
@@ -20,11 +21,30 @@ test.afterEach(async ({ page }) => {
   expect([...page.__voltFailures, ...unhandled], "zero console.error, pageerror e unhandledrejection").toEqual([]);
 });
 
+async function navigateTo(page, destination) {
+  const direct = page.locator(`[data-nav="${destination}"]:visible`).first();
+  if (await direct.count()) {
+    await direct.click();
+    return;
+  }
+  await page.locator("[data-action='open-more']:visible").click();
+  await page.locator(`#more-dialog [data-nav="${destination}"]:visible`).click();
+}
+
+async function signIn(page) {
+  await page.goto("/");
+  await page.locator("#login-email").fill("ana@volt.test");
+  await page.locator("#login-password").fill("senha-segura-123");
+  await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
+  await expect(page.locator("#dashboard")).toBeVisible();
+}
+
 test("A — usuário deslogado vê somente Login", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#login-screen")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeHidden();
   await expect(page.locator("#boot-screen")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Entrar no Volt" })).toBeVisible();
 });
 
 test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) => {
@@ -36,6 +56,8 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   await expect(page.locator("#home-water-consumption")).not.toHaveText("");
   await expect(page.getByText("Tarifas e encargos")).toHaveCount(0);
   await expect(page.getByText("Organização ativa")).toHaveCount(0);
+  await expect(page.getByText("Contas", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Ciclos anteriores", { exact: true })).toHaveCount(0);
   const visibility = await page.evaluate(() => ["boot-screen", "login-screen", "mfa-screen", "error-screen", "dashboard"].filter((id) => {
     const element = document.getElementById(id);
     return element && getComputedStyle(element).display !== "none";
@@ -44,13 +66,13 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
 });
 
 test("C/I — login e logout seguem uma única transição", async ({ page }) => {
-  await page.goto("/");
-  await page.locator("#login-email").fill("ana@volt.test");
-  await page.locator("#login-password").fill("senha-segura-123");
-  await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
-  await expect(page.locator("#dashboard")).toBeVisible();
-  await page.getByRole("button", { name: "Configurações" }).click();
-  await page.locator("#logout").click();
+  await signIn(page);
+  if (page.viewportSize().width < 1024) {
+    await page.locator("[data-action='open-more']:visible").click();
+    await page.locator("#mobile-logout").click();
+  } else {
+    await page.locator("#logout").click();
+  }
   await expect(page.locator("#dashboard")).toBeHidden();
   await expect(page.locator("#login-screen")).toBeVisible();
   expect(await page.evaluate(() => window.__voltFake.getSession())).toBeNull();
@@ -69,22 +91,34 @@ test("C — MFA bloqueia o Dashboard até AAL2", async ({ page }) => {
 test("E — registrar leitura preserva a Home", async ({ page }) => {
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
-  await page.getByRole("button", { name: "Leituras" }).click();
-  await page.getByRole("button", { name: "Nova leitura", exact: true }).click();
+  await navigateTo(page, "readings");
+  await page.locator("#page-readings [data-action='open-reading']").first().click();
   await page.locator("#reading-type").selectOption("energy");
   await page.locator("#reading-value").fill("1130");
   await page.locator("#reading-date").fill("2026-08-10T12:00");
-  await page.locator("#reading-form").getByRole("button", { name: "Salvar leitura" }).click();
+  await page.locator("#reading-reviewed").check();
+  await page.locator("#reading-form").getByRole("button", { name: "Confirmar leitura" }).click();
   await expect(page.locator("#reading-dialog")).not.toHaveAttribute("open", "");
-  await page.getByRole("button", { name: "Início" }).click();
+  await navigateTo(page, "home");
   await expect(page.locator("#home-energy-consumption")).not.toHaveText("");
   await expect(page.locator("#dashboard")).toBeVisible();
+});
+
+test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => {
+  await page.goto("/?session=user");
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await page.locator("[data-action='open-reading']:visible").first().click();
+  await page.locator("#reading-photo").setInputFiles({ name: "medidor.png", mimeType: "image/png", buffer: onePixelPng });
+  await expect(page.locator("#meter-preview")).toBeVisible();
+  await expect(page.locator("#ocr-message")).toContainText(/revise|Digite|disponível/i);
+  await expect(page.locator("#reading-value")).toHaveValue("");
+  await expect(page.locator("#reading-reviewed")).not.toBeChecked();
 });
 
 test("F — nome e e-mail persistem após reload", async ({ page }) => {
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
-  await page.getByRole("button", { name: "Configurações" }).click();
+  await navigateTo(page, "settings");
   await expect(page.locator("#account-email")).toHaveValue("ana@volt.test");
   await page.locator("#display-name").fill("Ana Persistente");
   await page.locator("#account-form").getByRole("button", { name: "Salvar nome" }).click();
@@ -92,7 +126,7 @@ test("F — nome e e-mail persistem após reload", async ({ page }) => {
   await page.reload();
   await expect(page.locator("#dashboard")).toBeVisible();
   await expect(page.locator("#greeting")).toHaveText("Olá, Ana Persistente!");
-  await page.getByRole("button", { name: "Configurações" }).click();
+  await navigateTo(page, "settings");
   await expect(page.locator("#display-name")).toHaveValue("Ana Persistente");
   await expect(page.locator("#account-email")).toHaveValue("ana@volt.test");
 });
@@ -100,9 +134,7 @@ test("F — nome e e-mail persistem após reload", async ({ page }) => {
 test("G — Usuários aparece por permissão e reabre sem destruir DOM", async ({ page }) => {
   await page.goto("/?session=admin");
   await expect(page.locator("#dashboard")).toBeVisible();
-  const nav = page.getByRole("button", { name: "Usuários" });
-  await expect(nav).toBeVisible();
-  await nav.click();
+  await navigateTo(page, "users");
   await expect(page.locator("#members-list .member-item")).toHaveCount(1);
   await page.locator("#invite-user").click();
   await page.locator("#invite-email").fill("novo@volt.test");
@@ -110,19 +142,55 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
   await expect(page.locator("#invite-message")).toHaveText("Convite criado por 48 horas.");
   await page.locator("[data-close-dialog='invite-dialog']").click();
   await page.locator("#page-users").evaluate((element) => { element.dataset.ownershipProbe = "same-node"; });
-  await page.getByRole("button", { name: "Início" }).click();
-  await nav.click();
+  await navigateTo(page, "home");
+  await navigateTo(page, "users");
   await expect(page.locator("#members-list .member-item")).toHaveCount(1);
   await expect(page.locator("#page-users")).toHaveAttribute("data-ownership-probe", "same-node");
 });
 
-test("H — Relatórios existe, abre e permanece vazio", async ({ page }) => {
+test("Relatórios tem shell honesto sem renderer legado", async ({ page }) => {
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
-  await page.getByRole("button", { name: "Relatórios" }).click();
+  await navigateTo(page, "reports");
   await expect(page.locator("#page-reports")).toBeVisible();
-  expect(await page.locator("#page-reports").evaluate((element) => element.children.length)).toBe(0);
-  expect((await page.locator("#page-reports").textContent()).trim()).toBe("");
+  await expect(page.getByText("Relatórios em preparação")).toBeVisible();
+  await expect(page.getByText("Nenhum dado foi fabricado")).toBeVisible();
+});
+
+test("Consumo, Alertas e Ajuda navegam com um único outlet", async ({ page }) => {
+  await page.goto("/?session=user");
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await navigateTo(page, "consumption");
+  await expect(page.locator("#page-consumption")).toBeVisible();
+  await expect(page.locator("#consumption-cost")).not.toHaveText("");
+  await page.getByRole("button", { name: "Água", exact: true }).first().click();
+  await expect(page.locator("[data-consumption-type='water']")).toHaveAttribute("aria-pressed", "true");
+  await navigateTo(page, "alerts");
+  await expect(page.locator("#page-alerts")).toBeVisible();
+  await navigateTo(page, "help");
+  await expect(page.locator("#page-help")).toBeVisible();
+  const visiblePages = await page.locator("[data-page]:visible").count();
+  expect(visiblePages).toBe(1);
+});
+
+test("Tema claro, escuro e sistema compartilham o mesmo DOM", async ({ page }) => {
+  await page.goto("/?session=user");
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await navigateTo(page, "settings");
+  await page.locator("[data-theme-choice='dark']").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.locator("[data-theme-choice='light']").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.locator("[data-theme-choice='system']").click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+  expect(await page.locator("#dashboard").count()).toBe(1);
+});
+
+test("layout não cria overflow horizontal", async ({ page }) => {
+  await page.goto("/?session=user");
+  await expect(page.locator("#dashboard")).toBeVisible();
+  const overflow = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }));
+  expect(overflow.width).toBeLessThanOrEqual(overflow.viewport + 1);
 });
 
 test("/beta é somente compatibilidade", async ({ page }) => {

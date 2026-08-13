@@ -57,7 +57,8 @@ for javascript in [ROOT / "app.js", *sorted((ROOT / "src").glob("*.js"))]:
             check(target.exists(), f"import local quebrado em {javascript.relative_to(ROOT)}: {specifier}")
 
 active_sources = "\n".join((ROOT / item).read_text(encoding="utf-8") for item in [
-    "index.html", "app.js", "sw.js", "styles.css", "src/app-state.js", "src/cycles.js", "src/renderer.js", "src/volt-service.js"
+    "index.html", "app.js", "sw.js", "styles/tokens.css", "styles/glass.css", "styles/layout.css",
+    "styles/components.css", "styles/pages.css", "src/app-state.js", "src/cycles.js", "src/renderer.js", "src/volt-service.js"
 ])
 for forbidden, reason in {
     "requestSubmit(": "persistência não pode simular submit",
@@ -68,8 +69,10 @@ for forbidden, reason in {
 }.items():
     check(forbidden not in active_sources, reason)
 
-check("[hidden] { display: none !important; }" in (ROOT / "styles.css").read_text(encoding="utf-8"), "proteção estática [hidden] ausente")
+check("[hidden] { display: none !important; }" in (ROOT / "styles/tokens.css").read_text(encoding="utf-8"), "proteção estática [hidden] ausente")
 check((ROOT / "index.html").read_text(encoding="utf-8").count('id="page-reports"') == 1, "Relatórios deve possuir uma única página")
+for removed_item in ('data-nav="accounts"', 'data-page="accounts"', "Ciclos anteriores"):
+    check(removed_item not in active_sources, f"item removido voltou ao código ativo: {removed_item}")
 
 sw_source = (ROOT / "sw.js").read_text(encoding="utf-8")
 check('request.mode === "navigate"' in sw_source, "Service Worker deve separar navegação de assets")

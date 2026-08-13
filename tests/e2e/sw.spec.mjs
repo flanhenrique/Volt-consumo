@@ -12,7 +12,7 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
     await navigator.serviceWorker.register("/sw.js", { scope: "/" });
   });
   await expect.poll(async () => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active))).toBe(true);
-  await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual(["another-product-cache", "volt-app-v2"]);
+  await expect.poll(async () => page.evaluate(async () => (await caches.keys()).sort())).toEqual(["another-product-cache", "volt-app-v3-liquid-glass"]);
   await page.goto("/");
   await expect(page.locator("#login-screen")).toBeVisible();
   expect(await page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);

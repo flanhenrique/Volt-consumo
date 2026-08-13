@@ -1,0 +1,10 @@
+/* Contrato de visibilidade do bootstrap.
+   Carregado antes das camadas visuais para impedir que regras de layout
+   sobrescrevam o atributo HTML hidden durante login, navegação ou falhas JS. */
+[hidden] {
+  display: none !important;
+}
+
+html[data-environment="beta"] [hidden] {
+  display: none !important;
+}

@@ -1,6 +1,6 @@
 // VOLT Service Worker — shell Beta com cache sob demanda para módulos secundários.
 const CACHE_PREFIX = "volt-beta-shell-";
-const CACHE = `${CACHE_PREFIX}v98`;
+const CACHE = "volt-beta-shell-v98";
 const CORE_ASSETS = [
   "./",
   "./index.html",

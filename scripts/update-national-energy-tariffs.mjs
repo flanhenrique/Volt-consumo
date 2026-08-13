@@ -3,7 +3,7 @@ import readline from "node:readline";
 import { Readable } from "node:stream";
 
 const SOURCE_URL = "https://dadosabertos.aneel.gov.br/dataset/5a583f3e-1646-4f67-bf0f-69db4203e89e/resource/fcf2906c-7c32-4b9b-a637-054e7a5234f4/download/tarifas-homologadas-distribuidoras-energia-eletrica.csv";
-const OUTPUT = "beta/national-energy-catalog.js";
+const OUTPUT = "data/national-energy-catalog.js";
 const now = new Date();
 const today = now.toISOString().slice(0, 10);
 

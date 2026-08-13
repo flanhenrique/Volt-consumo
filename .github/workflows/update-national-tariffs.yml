@@ -40,7 +40,7 @@ jobs:
       - name: Validar catálogo gerado
         run: |
           node --input-type=module <<'NODE'
-          const mod = await import(`./beta/national-energy-catalog.js?${Date.now()}`)
+          const mod = await import(`./data/national-energy-catalog.js?${Date.now()}`)
           if (!Array.isArray(mod.NATIONAL_ENERGY_CATALOG) || mod.NATIONAL_ENERGY_CATALOG.length === 0) {
             throw new Error('Catálogo nacional vazio')
           }
@@ -52,14 +52,14 @@ jobs:
       - name: Commitar atualização quando houver mudança
         run: |
           set -euo pipefail
-          if git diff --quiet -- beta/national-energy-catalog.js; then
+          if git diff --quiet -- data/national-energy-catalog.js; then
             echo "Sem alteração tarifária."
             exit 0
           fi
           git config user.name "volt-tariff-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add beta/national-energy-catalog.js
-          git commit -m "data(beta): atualizar tarifas nacionais ANEEL"
+          git add data/national-energy-catalog.js
+          git commit -m "data(tariff): atualizar tarifas nacionais ANEEL"
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main

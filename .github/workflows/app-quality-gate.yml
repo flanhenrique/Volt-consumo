@@ -1,0 +1,78 @@
+name: Volt application quality gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: volt-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Static, DOM, import and vendor integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f \( -name '*.js' -o -name '*.mjs' \) \
+            -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Validate DOM contract, imports, local references, SW and checksums
+        run: python tests/quality_gate.py
+      - name: Validate backend helper semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { createHealthHandler } from './supabase/functions/_shared/health-core.mjs';
+          import { createAuthLoginHandler } from './supabase/functions/_shared/auth-login-core.mjs';
+          const origin = 'https://flanhenrique.github.io';
+          const healthEnv = name => ({ SUPABASE_URL: 'https://volt.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'test-only', SUPABASE_ANON_KEY: 'public-test' })[name] || '';
+          const healthy = createHealthHandler({ env: healthEnv, fetchFn: async () => new Response(null, { status: 200 }) });
+          assert.equal((await healthy(new Request('https://edge.test/?probe=liveness'))).status, 200);
+          assert.equal((await healthy(new Request('https://edge.test/?probe=readiness'))).status, 200);
+          const authEnv = name => ({ BETA_APP_ORIGIN: origin, SUPABASE_URL: 'https://volt.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'public-test' })[name] || '';
+          const auth = createAuthLoginHandler({ env: authEnv, fetchFn: async () => Response.json({ access_token: 'a'.repeat(40), refresh_token: 'r'.repeat(40), expires_in: 3600, user: { id: 'user-1' } }) });
+          assert.equal((await auth(new Request('https://edge.test/auth-login', { method: 'POST', headers: { origin: 'https://evil.test', 'content-type': 'application/json' }, body: '{}' }))).status, 403);
+          NODE
+
+  browser:
+    name: Browser startup and Service Worker
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install test runtime
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run browser acceptance suite
+        run: npm run test:browser
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7

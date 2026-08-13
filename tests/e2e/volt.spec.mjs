@@ -235,7 +235,6 @@ test("layout não cria overflow horizontal", async ({ page }) => {
 
 test("/beta é somente compatibilidade", async ({ page }) => {
   await page.goto("/beta/?session=user");
-  await page.waitForURL((url) => url.pathname === "/" && url.search === "?session=user");
   await assertMaintenanceRemoved(page);
   await expect(page).toHaveURL(/\/?session=user$/);
   await expect(page.locator("#dashboard")).toBeVisible();

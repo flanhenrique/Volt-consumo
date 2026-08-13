@@ -1,10 +1,10 @@
 # Relatório de estabilização forense do Volt
 
-Data: 2026-08-13  
-Branch: `fix/volt-bootstrap-stabilization`  
-Baseline auditada: `c6145c5` (`main`)  
-SHA funcional testado: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`  
-SHA da suíte/harness testado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`
+- Data: 2026-08-13
+- Branch: `fix/volt-bootstrap-stabilization`
+- Baseline auditada: `c6145c5` (`main`)
+- SHA funcional testado: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`
+- SHA da suíte/harness testado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`
 
 ## Resumo executivo
 

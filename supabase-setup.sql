@@ -935,6 +935,46 @@ begin
   );
 end $$;
 
+-- Diretório global somente leitura. A organização continua sendo autoridade de
+-- permissão, mas nunca é usada como filtro da lista de contas da plataforma.
+create or replace function public.beta_platform_users_snapshot()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  caller_role text;
+begin
+  if caller is null
+     or lower(coalesce(auth.jwt() ->> 'email', '')) <> 'flanhenriquee@icloud.com'
+     or coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then
+    return jsonb_build_object('authorized', false);
+  end if;
+  select m.role into caller_role
+  from public.beta_memberships m
+  join public.beta_user_context c on c.user_id = m.user_id and c.organization_id = m.organization_id
+  where m.user_id = caller and m.status = 'active'
+  limit 1;
+  if caller_role not in ('owner', 'admin') then return jsonb_build_object('authorized', false); end if;
+  return jsonb_build_object(
+    'authorized', true,
+    'generated_at', clock_timestamp(),
+    'total_users', (select count(*) from auth.users where deleted_at is null),
+    'confirmed_users', (select count(*) from auth.users where deleted_at is null and confirmed_at is not null),
+    'active_last_30_days', (select count(*) from auth.users where deleted_at is null and last_sign_in_at >= now() - interval '30 days'),
+    'users', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'id', u.id,
+        'name', coalesce(nullif(trim(u.raw_user_meta_data ->> 'display_name'), ''), nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''), nullif(trim(u.raw_user_meta_data ->> 'name'), ''), split_part(u.email, '@', 1)),
+        'email', u.email,
+        'created_at', u.created_at,
+        'confirmed_at', u.confirmed_at,
+        'last_sign_in_at', u.last_sign_in_at,
+        'status', case when u.confirmed_at is null then 'pending_confirmation' else 'confirmed' end
+      ) order by u.last_sign_in_at desc nulls last, u.created_at desc), '[]'::jsonb)
+      from auth.users u where u.deleted_at is null
+    )
+  );
+end $$;
+
 -- Permissão mínima para o bootstrap. Não carrega diretório, convites, métricas
 -- ou flags; esses dados permanecem lazy e são obtidos somente ao abrir Usuários.
 create or replace function public.beta_user_permissions()
@@ -1330,8 +1370,8 @@ begin
     'volt_beta_operation_duration_p95_ms ' || (snapshot ->> 'latency_p95_ms') || E'\n';
 end $$;
 
-revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_user_permissions(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() from public, anon;
-grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_user_permissions(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() to authenticated;
+revoke all on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_platform_users_snapshot(), public.beta_user_permissions(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() from public, anon;
+grant execute on function public.beta_admin_bootstrap(text, text), public.beta_admin_snapshot(), public.beta_platform_users_snapshot(), public.beta_user_permissions(), public.beta_admin_invite_member(text, text), public.beta_invitation_preview(text), public.beta_accept_invitation(text, text), public.beta_decline_invitation(text), public.beta_admin_update_member(uuid, text, text, text), public.beta_admin_transfer_owner(uuid, text), public.beta_feature_flags_snapshot(), public.beta_admin_update_feature_flag(text, boolean, integer, boolean, text), public.beta_admin_operational_snapshot(), public.beta_admin_acknowledge_operational_alert(bigint, text), public.beta_admin_health_snapshot(), public.beta_admin_prometheus_metrics() to authenticated;
 revoke all on function public.beta_raise_operational_alert() from public, anon, authenticated;
 revoke all on function public.beta_service_readiness() from public, anon, authenticated;
 grant execute on function public.beta_service_readiness() to service_role;

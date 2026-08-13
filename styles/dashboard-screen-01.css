@@ -1,4 +1,9 @@
+@import url("./dashboard-screen-01-layout.css?v=20260813.4");
+@import url("./dashboard-screen-01-cards.css?v=20260813.4");
+@import url("./dashboard-screen-01-mobile.css?v=20260813.4");
+
 body:has(#page-home:not([hidden])) .desktop-topbar { display: none; }
-body:has(#page-home:not([hidden])) .home-grid { gap: .9rem; }
 body:has(#page-home:not([hidden])) #home-greeting::after { content: " 👋"; }
-body:has(#page-home:not([hidden])) .home-grid > .card { border-radius: 1rem; }
+body:has(#page-home:not([hidden])) #home-cycle-copy { font-size: 0; }
+body:has(#page-home:not([hidden])) #home-cycle-copy::after { content: "Aqui está o resumo do seu consumo."; color: var(--text-secondary); font-size: .98rem; }
+body:has(#page-home:not([hidden])) .home-page-header .primary-button[data-action="open-reading"] { display: none; }

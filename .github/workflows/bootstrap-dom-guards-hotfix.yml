@@ -55,7 +55,9 @@ jobs:
             'remember preference guard'
           );
           assert.match(source, /function setControlValue/, 'helper de controle ausente');
-          assert.doesNotMatch(source, /\$\("#reading-date"\)\.value/, 'setDefaultDate ainda dereferencia leitura sem guarda');
+          const defaultDateBody = source.match(/function setDefaultDate\(\) \{([\s\S]*?)\n\}/)?.[1] || '';
+          assert.ok(defaultDateBody, 'setDefaultDate ausente após patch');
+          assert.doesNotMatch(defaultDateBody, /\$\("#reading-date"\)\.value/, 'setDefaultDate ainda dereferencia leitura sem guarda');
           await writeFile(path, source);
           NODE
       - name: Validar JavaScript

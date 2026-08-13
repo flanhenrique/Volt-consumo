@@ -14,6 +14,7 @@ const PROFILES = Object.freeze({
         recurring: false,
         forecastable: false,
         extraordinary: true,
+        invoiceMatchers: Object.freeze(["itaipu", "lei 10.438", "art. 21"]),
         referencePeriodLabel: "Meses elegíveis de janeiro a dezembro de 2025",
         creditPeriodLabel: "Crédito nas faturas emitidas em agosto de 2026",
         officialRate: 0.00747181,

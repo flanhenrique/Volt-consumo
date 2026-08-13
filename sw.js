@@ -22,6 +22,7 @@ const CORE_ASSETS = [
   releaseAsset("./data/national-energy-catalog.js"),
   "./data/energy-billing-profiles.js",
   releaseAsset("./src/app-state.js"),
+  "./src/bill-detail.js",
   releaseAsset("./src/cycles.js"),
   releaseAsset("./src/meter-ocr.js"),
   releaseAsset("./src/renderer.js"),
@@ -83,9 +84,7 @@ async function navigationResponse(request, event) {
 async function assetResponse(request, event) {
   try {
     const response = await fetch(request, { cache: "no-store" });
-    if (!response.ok) {
-      return new Response(null, { status: response.status, statusText: response.statusText });
-    }
+    if (!response.ok) return new Response(null, { status: response.status, statusText: response.statusText });
     const cacheCopy = response.clone();
     event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
     return response;

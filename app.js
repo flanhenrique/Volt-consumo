@@ -1,2194 +1,412 @@
-import {
-  calculateConsumptionSummary,
-  calculateEnergyEstimate,
-  calculateGoalProgress,
-  calculateWaterEstimate,
-  detectContinuousWaterFlow,
-  forecastLegacyLinear
-} from "./packages/consumption-domain/browser/index.js";
-import { listEngineDefinitions } from "./packages/engine-core/browser/index.js";
-import {
-  PASSWORD_POLICY,
-  buildSignupRequestBody,
-  describeProviderError,
-  describeSignupOutcome,
-  messageForCode,
-  validateSignupInput
-} from "./packages/auth-client/browser/index.js";
-import {
-  environmentStorageKey,
-  environmentTableName,
-  resolveAppEnvironment
-} from "./packages/app-environment/browser/index.js";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js";
+import { VOLT_CONFIG } from "./config.js";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js";
+import { createRenderer } from "./src/renderer.js";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js";
 
-const APP_ENVIRONMENT = resolveAppEnvironment(window.VOLT_ENVIRONMENT);
-const READINGS_KEY = environmentStorageKey(APP_ENVIRONMENT, "readings-v2");
-const SETTINGS_KEY = environmentStorageKey(APP_ENVIRONMENT, "settings-v1");
-const THEME_KEY = environmentStorageKey(APP_ENVIRONMENT, "theme");
-const REMEMBER_KEY = environmentStorageKey(APP_ENVIRONMENT, "remember-user");
-const SAVED_EMAIL_KEY = environmentStorageKey(APP_ENVIRONMENT, "saved-email");
-const SESSION_MARKER_KEY = environmentStorageKey(APP_ENVIRONMENT, "session-active");
-const OFFLINE_DATA_KEY = environmentStorageKey(APP_ENVIRONMENT, "offline-data");
-const USER_DATA_PREFIX = environmentStorageKey(APP_ENVIRONMENT, "user-data-");
-const ONBOARDING_SEEN_KEY = environmentStorageKey(APP_ENVIRONMENT, "onboarding-seen");
-const dataTable = (name) => environmentTableName(APP_ENVIRONMENT, name);
-const PRIVACY_NOTICE_VERSION = "1.0";
-const BETA_ADMIN_EMAIL = "flanhenriquee@icloud.com";
-const BETA_INVITATION_TOKEN = APP_ENVIRONMENT.id === "beta"
-  ? new URLSearchParams(location.search).get("invite")?.trim().toLowerCase() || ""
-  : "";
-const BETA_PASSWORD_RECOVERY_ID = APP_ENVIRONMENT.id === "beta"
-  ? new URLSearchParams(location.search).get("password_recovery")?.trim().toLowerCase() || ""
-  : "";
-const SESSION_CORRELATION_ID = crypto.randomUUID();
-const SESSION_TRACE_ID = randomHex(16);
-const ROOT_SPAN_ID = randomHex(8);
-const DEFAULT_SETTINGS = { rate: 0.894560, goal: 250, flag: "yellow", lightingFee: 32 };
-const DEFAULT_WATER_SETTINGS = { rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 };
-const FLAGS = {
-  green: { name: "Bandeira verde", rate: 0, className: "flag-green" },
-  yellow: { name: "Bandeira amarela", rate: 0.01885, className: "flag-yellow" },
-  red1: { name: "Bandeira vermelha 1", rate: 0.04463, className: "flag-red" },
-  red2: { name: "Bandeira vermelha 2", rate: 0.07877, className: "flag-red" }
-};
-const ONBOARDING_SLIDES = [
-  {
-    title: "Volt Consumo",
-    content: "Acompanhe sua energia e água de forma clara e intuitiva. Registre as leituras dos seus medidores e entenda melhor seu consumo mês a mês."
-  },
-  {
-    title: "Ciclo de Contagem",
-    content: "Sua fatura segue um ciclo de contagem definido pela concessionária. Você pode registrar várias leituras durante o período e acompanhar o consumo em tempo real."
-  },
-  {
-    title: "Registrando Energia",
-    content: "<strong>Como registrar:</strong><ul><li>Localize o medidor na caixa de entrada</li><li>Anote o número exibido em kWh</li><li>Use a câmera para fotografar (OCR reconhece automaticamente)</li><li>Confirme a data e hora da leitura</li></ul>"
-  },
-  {
-    title: "Registrando Água",
-    content: "<strong>Como registrar:</strong><ul><li>Abra o hidrômetro geralmente próximo ao relógio de energia</li><li>Anote os dígitos pretos em m³</li><li>Você pode incluir decimais para detectar pequenos vazamentos</li><li>Confirme a data e hora da leitura</li></ul>"
-  },
-  {
-    title: "Entendendo a Estimativa",
-    content: "A estimativa é calculada automaticamente com base nas suas leituras e nas tarifas cadastradas. Ela inclui tarifa de energia, bandeira tarifária, iluminação pública e outros encargos aplicáveis."
-  },
-  {
-    title: "Relatórios e Insights",
-    content: "Veja seus gráficos de consumo, compare ciclos anteriores, identifique padrões e receba alertas de consumo anormal (possíveis vazamentos de água)."
-  }
-];
-const INITIAL_READINGS = [
-  { value: 28425, date: "2026-07-20T18:52:00-04:00" },
-  { value: 28431, date: "2026-07-21T18:30:00-04:00" },
-  { value: 28446, date: "2026-07-24T08:52:00-04:00" },
-  { value: 28475, date: "2026-07-27T09:08:00-04:00" },
-  { value: 28490, date: "2026-07-30T07:40:00-04:00" }
-];
+const store = createApplicationStore();
+const renderer = createRenderer();
+let service = null;
+let stopAuthSubscription = null;
 
-const $ = (selector) => document.querySelector(selector);
-const welcome = $("#welcome");
-const dashboard = $("#dashboard");
-const readingList = $("#reading-list");
-const emptyState = $("#empty-state");
-let readings = [];
-let settings = { ...DEFAULT_SETTINGS };
-let waterReadings = [];
-let waterSettings = { ...DEFAULT_WATER_SETTINGS };
-let supabaseClient = null;
-let currentUserId = null;
-let currentUserEmail = "";
-let currentDisplayName = "";
-let scannerTarget = null;
-let betaDataUpdateScheduled = false;
-let betaRefreshPromise = null;
-let betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
-let betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
-let betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
-let betaFeatureFlagsSnapshot = { available: false, canManage: false, flags: [], refreshedAt: null, message: "" };
-let betaOperationalSnapshot = { available: false, events: 0, errors: 0, warnings: 0, errorRate: 0, latencyP50Ms: 0, latencyP95Ms: 0, components: [], recentSpans: [], alerts: [], generatedAt: null, message: "" };
-let mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
-let operationalHealth = { status: "unknown", auth: false, database: false, checkedAt: null, durationMs: null };
+let initialSessionResolved = false;
+let activeSessionKey = null;
+let pendingSessionKey = null;
+let sessionQueue = Promise.resolve();
+let mfaFactorId = null;
 
-initializeEnvironment();
+store.subscribe((state) => renderer.render(state));
+bindStaticUi();
+void bootstrap();
 
-window.addEventListener("error", (event) => {
-  recordOperationalEvent("runtime.error", "error", "browser", { errorType: event.error?.name || "Error" });
-});
-window.addEventListener("unhandledrejection", (event) => {
-  recordOperationalEvent("runtime.error", "error", "promise", { errorType: event.reason?.name || "UnhandledRejection" });
-});
-enforceOfflineDataPreference();
-applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
-setDefaultDate();
-populateSettings();
-populateWaterSettings();
-renderEngineSettings();
-restoreRememberPreference();
-exposeBetaApi();
-initializeOnboarding();
-initializeAuth();
-
-function initializeEnvironment() {
-  document.documentElement.dataset.environment = APP_ENVIRONMENT.id;
-  document.title = APP_ENVIRONMENT.productName;
-  if (APP_ENVIRONMENT.badge) {
-    document.querySelectorAll(".environment-badge").forEach((badge) => {
-      badge.textContent = APP_ENVIRONMENT.badge;
-      badge.hidden = false;
-    });
-  }
-}
-
-function updateReadingFab(meter) {
-  const isWater = meter === "water";
-  const fab = $("#new-reading-fab");
-  fab.querySelector("span").textContent = isWater ? "💧" : "ϟ";
-  fab.setAttribute("aria-label", isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia");
-  fab.title = isWater ? "Registrar uma nova leitura de água" : "Registrar uma nova leitura de energia";
-}
-
-$("#mfa-enable").addEventListener("click", startMfaEnrollment);
-$("#mfa-disable").addEventListener("click", disableMfa);
-$("#mfa-backup-regenerate").addEventListener("click", generateMfaBackupCodes);
-$("#close-mfa-enrollment").addEventListener("click", cancelMfaEnrollment);
-$("#mfa-enrollment-form").addEventListener("submit", verifyMfaEnrollment);
-$("#mfa-challenge-form").addEventListener("submit", verifyMfaChallenge);
-$("#show-mfa-backup-recovery").addEventListener("click", () => {
-  $("#mfa-backup-recovery-panel").hidden = false;
-  $("#mfa-backup-code").required = true;
-  $("#mfa-backup-code").focus();
-});
-$("#recover-mfa-backup").addEventListener("click", recoverMfaWithBackupCode);
-$("#mfa-backup-confirmation").addEventListener("change", (event) => {
-  $("#close-mfa-backup-codes").disabled = !event.target.checked;
-});
-$("#close-mfa-backup-codes").addEventListener("click", () => {
-  $("#mfa-backup-codes").textContent = "";
-  $("#mfa-backup-confirmation").checked = false;
-  $("#close-mfa-backup-codes").disabled = true;
-  $("#mfa-backup-codes-dialog").close();
-});
-$("#cancel-mfa-challenge").addEventListener("click", async () => {
-  $("#mfa-challenge-dialog").close();
-  await supabaseClient?.auth.signOut({ scope: "local" });
-});
-
-/**
- * Ativa uma aba de medidor mantendo o estado ARIA sincronizado.
- * Correção AUD-002 / A11Y: as abas não expunham role, aria-selected nem
- * navegação por setas — leitores de tela não anunciavam a mudança.
- */
-function activateMeterTab(button) {
-  const meter = button.dataset.meter;
-  document.querySelectorAll(".meter-tab").forEach((tab) => {
-    const isActive = tab === button;
-    tab.classList.toggle("active", isActive);
-    tab.setAttribute("aria-selected", String(isActive));
-    tab.tabIndex = isActive ? 0 : -1;
-  });
-  $("#energy-panel").hidden = meter !== "energy";
-  $("#water-panel").hidden = meter !== "water";
-  updateReadingFab(meter);
-}
-
-document.querySelectorAll(".meter-tab").forEach((button) => {
-  button.addEventListener("click", () => activateMeterTab(button));
-
-  // Navegação por teclado conforme o padrão WAI-ARIA de tabs.
-  button.addEventListener("keydown", (event) => {
-    const tabs = [...document.querySelectorAll(".meter-tab")];
-    const current = tabs.indexOf(button);
-    let target = null;
-    if (event.key === "ArrowRight") target = tabs[(current + 1) % tabs.length];
-    if (event.key === "ArrowLeft") target = tabs[(current - 1 + tabs.length) % tabs.length];
-    if (event.key === "Home") target = tabs[0];
-    if (event.key === "End") target = tabs.at(-1);
-    if (!target) return;
-    event.preventDefault();
-    activateMeterTab(target);
-    target.focus();
-  });
-});
-
-updateReadingFab(document.querySelector(".meter-tab.active")?.dataset.meter || "energy");
-
-$("#new-reading-fab").addEventListener("click", () => {
-  const meter = document.querySelector(".meter-tab.active")?.dataset.meter || "energy";
-  const dialog = meter === "water" ? $("#water-reading-dialog") : $("#energy-reading-dialog");
-  setDefaultDate();
-  dialog.showModal();
-  dialog.querySelector("input")?.focus();
-});
-
-document.querySelectorAll(".close-reading-dialog").forEach((button) => {
-  button.addEventListener("click", () => button.closest("dialog").close());
-});
-
-document.querySelectorAll(".scan-button").forEach((button) => button.addEventListener("click", () => {
-  scannerTarget = button.dataset.scanTarget;
-  $("#scanner-result").step = scannerTarget === "reading" ? "1" : "0.001";
-  $("#scanner-result").value = "";
-  $("#scanner-message").textContent = `Fotografe o visor. A leitura em ${button.dataset.unit} não será salva sem sua confirmação.`;
-  $("#scanner-preview").hidden = true;
-  $("#meter-photo").value = "";
-  $("#scanner-dialog").showModal();
-}));
-
-$("#close-scanner").addEventListener("click", () => $("#scanner-dialog").close());
-$("#use-scanner-result").addEventListener("click", () => {
-  const value = $("#scanner-result").value;
-  if (!scannerTarget || value === "") {
-    $("#scanner-message").textContent = "Confira e informe um número válido.";
-    return;
-  }
-  $(`#${scannerTarget}`).value = scannerTarget === "reading" ? String(Math.round(Number(value))) : value;
-  $("#scanner-dialog").close();
-  $(`#${scannerTarget}`).focus();
-});
-
-$("#meter-photo").addEventListener("change", scanMeterPhoto);
-
-$("#login-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!supabaseClient) return;
-  const button = $("#login-button");
-  const message = $("#login-message");
-  const rememberUser = $("#remember-user").checked;
-  const email = $("#login-email").value.trim();
-  button.disabled = true;
-  button.textContent = "Entrando…";
-  message.textContent = "";
-  const { error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password: $("#login-password").value
-  });
-  button.disabled = false;
-  button.textContent = "Entrar";
-  if (error) {
-    message.textContent = "E-mail ou senha incorretos.";
-    return;
-  }
-  localStorage.setItem(REMEMBER_KEY, String(rememberUser));
-  if (rememberUser) {
-    localStorage.setItem(SAVED_EMAIL_KEY, email);
-    sessionStorage.removeItem(SESSION_MARKER_KEY);
-  } else {
-    localStorage.removeItem(SAVED_EMAIL_KEY);
-    sessionStorage.setItem(SESSION_MARKER_KEY, "true");
-  }
-});
-
-/**
- * Sistema de onboarding para novos usuários.
- */
-function initializeOnboarding() {
-  const dialog = $("#onboarding-dialog");
-  const content = $("#onboarding-content");
-  const footer = dialog.querySelector(".onboarding-footer");
-  const skipBtn = $("#onboarding-skip");
-  const nextBtn = $("#onboarding-next");
-  const indicators = footer.querySelector(".onboarding-indicators");
-
-  let currentSlide = 0;
-
-  // Renderiza os slides
-  content.innerHTML = ONBOARDING_SLIDES.map((slide, i) => `
-    <div class="onboarding-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
-      <h3>${slide.title}</h3>
-      <p>${slide.content}</p>
-    </div>
-  `).join("");
-
-  // Renderiza indicadores
-  indicators.innerHTML = ONBOARDING_SLIDES.map((_, i) => `
-    <div class="onboarding-indicator ${i === 0 ? 'active' : ''}"></div>
-  `).join("");
-
-  function showSlide(n) {
-    currentSlide = Math.max(0, Math.min(n, ONBOARDING_SLIDES.length - 1));
-    content.querySelectorAll(".onboarding-slide").forEach((slide) => {
-      slide.classList.toggle("active", parseInt(slide.dataset.slide) === currentSlide);
-    });
-    indicators.querySelectorAll(".onboarding-indicator").forEach((ind, i) => {
-      ind.classList.toggle("active", i === currentSlide);
-    });
-    nextBtn.textContent = currentSlide === ONBOARDING_SLIDES.length - 1 ? "Entendi" : "Próximo";
-  }
-
-  skipBtn.addEventListener("click", () => {
-    localStorage.setItem(ONBOARDING_SEEN_KEY, "true");
-    dialog.close();
-  });
-
-  nextBtn.addEventListener("click", () => {
-    if (currentSlide === ONBOARDING_SLIDES.length - 1) {
-      localStorage.setItem(ONBOARDING_SEEN_KEY, "true");
-      dialog.close();
-    } else {
-      showSlide(currentSlide + 1);
-    }
-  });
-
-  showSlide(0);
-  return dialog;
-}
-
-function showOnboarding() {
-  const dialog = $("#onboarding-dialog");
-  if (!dialog) return;
-  dialog.showModal();
-}
-
-function hasSeenOnboarding() {
-  return localStorage.getItem(ONBOARDING_SEEN_KEY) === "true";
-}
-
-function resetOnboardingStatus() {
-  localStorage.removeItem(ONBOARDING_SEEN_KEY);
-}
-
-// Expose onboarding functions to window for access from beta-shell
-window.showOnboarding = showOnboarding;
-window.resetOnboardingStatus = resetOnboardingStatus;
-
-/**
- * Rastro de diagnóstico do cadastro.
- *
- * Registra a etapa alcançada, nunca o conteúdo. Senha jamais aparece; o e-mail
- * é reduzido a domínio e comprimento, o suficiente para correlacionar sem
- * expor o endereço de quem tentou criar a conta.
- */
-function signupTrace(step, detail = {}) {
-  const entry = { scope: "signup", step, environment: APP_ENVIRONMENT.id, at: new Date().toISOString(), ...detail };
-  signupDiagnostics.push(entry);
-  if (signupDiagnostics.length > 30) signupDiagnostics.shift();
-  window.VOLT_SIGNUP_TRACE = signupDiagnostics;
-  return entry;
-}
-
-function emailShape(email) {
-  const at = email.lastIndexOf("@");
-  return { emailDomain: at >= 0 ? email.slice(at + 1) : "(sem domínio)", emailLength: email.length };
-}
-
-const signupDiagnostics = [];
-
-// O campo é compartilhado por entrar e criar conta. Ele não pode exigir o
-// mínimo de cadastro — quem já tem senha antiga ficaria impedido de entrar —,
-// então a regra aparece como dica e é validada só no caminho de cadastro.
-$("#login-password").title =
-  `Para criar uma conta, a senha precisa ter entre ${PASSWORD_POLICY.minLength} e ${PASSWORD_POLICY.maxLength} caracteres.`;
-
-/** Cadastro pela rota servidor da beta. Devolve o resultado já traduzido. */
-async function signUpThroughEdgeFunction(input) {
-  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-  if (!config.url) {
-    signupTrace("config_missing");
-    return describeSignupOutcome({ status: 503, code: "service_unavailable" });
-  }
-  let response;
+export async function bootstrap() {
+  store.setStatus(StartupStatus.RESTORING_SESSION);
   try {
-    signupTrace("provider_request", { route: "auth-login/signup" });
-    response = await tracedFetch(`${config.url}/functions/v1/auth-login/signup`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildSignupRequestBody(input, PRIVACY_NOTICE_VERSION))
-    });
+    if (!service) {
+      await loadSupabaseRuntime();
+      service = createVoltService(VOLT_CONFIG);
+      stopAuthSubscription = service.onAuthStateChange(handleAuthEvent);
+    }
+    const session = await service.restoreSession();
+    initialSessionResolved = true;
+    await enqueueSession(session);
+    await registerServiceWorker();
   } catch (error) {
-    signupTrace("network_failure", { reason: String(error?.name || "erro") });
-    return describeSignupOutcome({ status: 0 });
+    initialSessionResolved = true;
+    failStartup(error);
   }
-  let payload = {};
+}
+
+function handleAuthEvent(event, session) {
+  if (!initialSessionResolved && event === "INITIAL_SESSION") return;
+  if (event === "SIGNED_OUT") {
+    activeSessionKey = null;
+    pendingSessionKey = null;
+    mfaFactorId = null;
+    if (store.getState().status !== StartupStatus.SIGNED_OUT) store.resetPrivateState();
+    return;
+  }
+  if (event === "TOKEN_REFRESHED") {
+    if (session) store.update({ session, user: session.user });
+    return;
+  }
+  if (event === "USER_UPDATED" && session && store.getState().status === StartupStatus.READY) {
+    const identity = normalizeIdentity(session.user);
+    store.update({ session, user: session.user, identity, account: { ...store.getState().account, ...identity } });
+    return;
+  }
+  if (event === "SIGNED_IN" && session) void enqueueSession(session);
+}
+
+function enqueueSession(session, force = false) {
+  const key = sessionKey(session);
+  if (!force && key && (key === activeSessionKey || key === pendingSessionKey)) return sessionQueue;
+  pendingSessionKey = key;
+  sessionQueue = sessionQueue
+    .catch(() => undefined)
+    .then(() => restoreAuthenticatedApplication(session))
+    .finally(() => { if (pendingSessionKey === key) pendingSessionKey = null; });
+  return sessionQueue;
+}
+
+async function restoreAuthenticatedApplication(session) {
+  if (!session?.user) {
+    activeSessionKey = null;
+    store.resetPrivateState();
+    return;
+  }
+
+  store.update({ session, user: session.user });
+  store.setStatus(StartupStatus.LOADING_ACCOUNT);
   try {
-    payload = await response.json();
-  } catch {
-    payload = {};
-  }
-  const requestId = response.headers.get("x-request-id") || payload.request_id || "";
-  signupTrace("provider_response", { status: response.status, code: payload.code || "", requestId });
-  return describeSignupOutcome({ status: response.status, code: payload.code, requestId });
-}
-
-/** Cadastro pelo SDK, usado no ambiente oficial. */
-async function signUpThroughProvider(input, privacyAcceptedAt) {
-  signupTrace("provider_request", { route: "sdk/signUp" });
-  const { data, error } = await supabaseClient.auth.signUp({
-    email: input.email.trim().toLowerCase(),
-    password: input.password,
-    options: {
-      emailRedirectTo: `${location.origin}${location.pathname}`,
-      data: {
-        display_name: input.displayName.trim(),
-        privacy_notice_version: PRIVACY_NOTICE_VERSION,
-        privacy_notice_accepted_at: privacyAcceptedAt
-      }
+    const mfa = await service.getMfaState();
+    if (mfa.enrolled && mfa.currentLevel !== "aal2") {
+      mfaFactorId = mfa.factorId;
+      store.setStatus(StartupStatus.MFA_REQUIRED);
+      return;
     }
-  });
-  if (error) {
-    signupTrace("provider_error", { reason: error.message });
-    return { outcome: describeProviderError(error.message), user: null, session: null };
+
+    store.setStatus(StartupStatus.LOADING_DATA);
+    const loaded = await service.loadApplicationData(session);
+    const cycles = loadCycleState(session.user);
+    activeSessionKey = sessionKey(session);
+    store.update({ ...loaded, session, user: session.user, cycles, activePage: "home" });
+    store.setStatus(StartupStatus.READY);
+  } catch (error) {
+    failStartup(error);
   }
-  signupTrace("provider_response", { status: 200, hasSession: Boolean(data.session) });
-  return {
-    outcome: describeSignupOutcome({ status: 200 }),
-    user: data.user || null,
-    session: data.session || null
-  };
 }
 
-$("#signup-button").addEventListener("click", () => {
-  $("#signup-name").value = "";
-  $("#signup-email").value = $("#login-email").value.trim();
-  $("#signup-password").value = "";
-  $("#signup-password-confirmation").value = "";
-  $("#signup-privacy-ack").checked = $("#privacy-ack").checked;
-  $("#signup-message").textContent = "";
-  $("#signup-dialog").showModal();
-  setTimeout(() => $("#signup-name").focus(), 0);
-});
+function bindStaticUi() {
+  document.getElementById("login-form").addEventListener("submit", handleLogin);
+  document.getElementById("signup-button").addEventListener("click", handleSignup);
+  document.getElementById("forgot-password").addEventListener("click", handlePasswordReset);
+  document.getElementById("mfa-form").addEventListener("submit", handleMfa);
+  document.getElementById("mfa-cancel").addEventListener("click", () => void logout());
+  document.getElementById("retry-bootstrap").addEventListener("click", () => void bootstrap());
+  document.getElementById("error-logout").addEventListener("click", () => void logout());
+  document.getElementById("logout").addEventListener("click", () => void logout());
+  document.getElementById("account-form").addEventListener("submit", handleAccountUpdate);
+  document.getElementById("cycles-form").addEventListener("submit", handleCyclesUpdate);
+  document.getElementById("energy-settings-form").addEventListener("submit", handleEnergySettings);
+  document.getElementById("water-settings-form").addEventListener("submit", handleWaterSettings);
+  document.getElementById("locality-form").addEventListener("submit", handleLocality);
+  document.getElementById("reading-form").addEventListener("submit", handleReading);
+  document.getElementById("invite-user").addEventListener("click", () => openDialog("invite-dialog"));
+  document.getElementById("invite-form").addEventListener("submit", handleInvitation);
+  document.querySelectorAll("[data-nav]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.nav)));
+  document.querySelectorAll("[data-action='open-reading']").forEach((button) => button.addEventListener("click", openReadingDialog));
+  document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => closeDialog(button.dataset.closeDialog)));
+  document.querySelectorAll("[data-action='toggle-theme']").forEach((button) => button.addEventListener("click", toggleTheme));
+  applySavedTheme();
+}
 
-$("#close-signup").addEventListener("click", () => $("#signup-dialog").close());
-$("#close-email-confirmation").addEventListener("click", () => $("#email-confirmation-dialog").close());
-$("#change-confirmation-email").addEventListener("click", () => {
-  $("#email-confirmation-dialog").close();
-  $("#signup-dialog").showModal();
-  $("#signup-email").focus();
-});
-$("#confirmed-email").addEventListener("click", () => {
-  $("#email-confirmation-dialog").close();
-  $("#login-email").value = $("#confirmation-email").textContent;
-  $("#login-password").focus();
-  $("#login-message").textContent = "E-mail confirmado? Entre com sua senha para continuar.";
-});
-
-$("#signup-form").addEventListener("submit", async (event) => {
+async function handleLogin(event) {
   event.preventDefault();
-  const button = $("#create-account");
-  const message = $("#signup-message");
-  const password = $("#signup-password").value;
-  const input = {
-    displayName: $("#signup-name").value,
-    email: $("#signup-email").value,
-    password,
-    privacyAccepted: $("#signup-privacy-ack").checked
-  };
-
-  if (password !== $("#signup-password-confirmation").value) {
-    message.textContent = "As senhas não coincidem.";
-    $("#signup-password-confirmation").focus();
-    return;
-  }
-
-  signupDiagnostics.length = 0;
-  signupTrace("started", emailShape(input.email.trim()));
-  if (!supabaseClient) {
-    message.textContent = messageForCode("service_unavailable");
-    return;
-  }
-  const validation = validateSignupInput(input);
-  if (!validation.ok) {
-    signupTrace("validation_failed", { code: validation.code, field: validation.field });
-    message.textContent = validation.message;
-    const target = { name: "#signup-name", email: "#signup-email", password: "#signup-password", privacy: "#signup-privacy-ack" }[validation.field];
-    if (target) $(target).focus();
-    return;
-  }
-
-  const privacyAcceptedAt = new Date().toISOString();
+  const button = document.getElementById("login-submit");
   button.disabled = true;
-  button.textContent = "Criando conta…";
-  message.textContent = "";
-
-  let outcome;
-  let createdUser = null;
-  if (APP_ENVIRONMENT.id === "beta") outcome = await signUpThroughEdgeFunction(input);
-  else {
-    const result = await signUpThroughProvider(input, privacyAcceptedAt);
-    outcome = result.outcome;
-    createdUser = result.user;
-  }
-
-  button.disabled = false;
-  button.textContent = "Criar conta";
-  if (!outcome.ok) {
-    message.textContent = outcome.message;
-    return;
-  }
-
-  const normalizedEmail = input.email.trim().toLowerCase();
-  localStorage.setItem(SAVED_EMAIL_KEY, normalizedEmail);
-  localStorage.setItem(REMEMBER_KEY, "true");
-  $("#login-email").value = normalizedEmail;
-  $("#login-password").value = "";
-  if (createdUser) await recordPrivacyAcceptance(createdUser, privacyAcceptedAt);
-
-  $("#confirmation-email").textContent = normalizedEmail;
-  $("#signup-dialog").close();
-  $("#email-confirmation-message").textContent = "";
-  $("#email-confirmation-dialog").showModal();
-});
-
-$("#resend-confirmation").addEventListener("click", async (event) => {
-  const email = $("#confirmation-email").textContent.trim();
-  const button = event.currentTarget;
-  const message = $("#email-confirmation-message");
-  button.disabled = true;
-  message.textContent = "";
+  renderer.setMessage("login-message", "Autenticando…");
   try {
-    if (APP_ENVIRONMENT.id === "beta") {
-      const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-      const response = await tracedFetch(`${config.url}/functions/v1/auth-login/email-verifications`, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email })
-      });
-      message.textContent = response.ok ? "E-mail reenviado. Verifique sua caixa de entrada." : "Não foi possível reenviar agora. Tente novamente em instantes.";
-    } else {
-      const { error } = await supabaseClient.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${location.origin}${location.pathname}` } });
-      message.textContent = error ? "Não foi possível reenviar agora. Tente novamente em instantes." : "E-mail reenviado. Verifique sua caixa de entrada.";
-    }
-  } catch {
-    message.textContent = "Erro de conexão. Verifique a internet e tente novamente.";
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    const session = await service.signIn(email, password);
+    if (!session) throw new Error("O provedor não iniciou a sessão.");
+    renderer.setMessage("login-message", "");
+    await enqueueSession(session);
+  } catch (error) {
+    renderer.setMessage("login-message", authMessage(error), true);
   } finally {
     button.disabled = false;
   }
-});
+}
 
-$("#forgot-password").addEventListener("click", async () => {
-  if (!supabaseClient) return;
-  const emailInput = $("#login-email");
-  if (!emailInput.reportValidity()) return;
-  const button = $("#forgot-password");
-  button.disabled = true;
-  if (APP_ENVIRONMENT.id === "beta") {
-    const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-    await tracedFetch(`${config.url}/functions/v1/auth-login/password-recoveries`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: emailInput.value.trim() })
-    }).catch(() => null);
-  } else {
-    await supabaseClient.auth.resetPasswordForEmail(emailInput.value.trim(), {
-      redirectTo: `${location.origin}${location.pathname}`
-    });
-  }
-  button.disabled = false;
-  $("#login-message").textContent = "Se existir uma conta para este e-mail, enviaremos as instruções de recuperação.";
-});
-
-$("#close-password-recovery").addEventListener("click", () => $("#password-recovery-dialog").close());
-$("#password-recovery-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!supabaseClient) return;
-  const password = $("#recovery-password").value;
-  const confirmation = $("#recovery-password-confirmation").value;
-  const message = $("#password-recovery-message");
-  if (password !== confirmation) {
-    message.textContent = "As senhas não coincidem.";
+async function handleSignup() {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  if (!email || password.length < 12) {
+    renderer.setMessage("login-message", "Informe um e-mail válido e uma senha com pelo menos 12 caracteres.", true);
     return;
   }
-  const button = $("#save-recovery-password");
-  button.disabled = true;
-  if (APP_ENVIRONMENT.id === "beta") {
-    const length = [...password].length;
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    const accessToken = sessionData?.session?.access_token || "";
-    if (!BETA_PASSWORD_RECOVERY_ID || !accessToken || length < PASSWORD_POLICY.minLength || length > PASSWORD_POLICY.maxLength) {
-      button.disabled = false;
-      message.textContent = "O link expirou ou a senha não atende à política de 8 a 128 caracteres. Solicite uma nova recuperação.";
-      return;
-    }
-    const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-    const response = await tracedFetch(`${config.url}/functions/v1/auth-login/password-reset`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-      body: JSON.stringify({ request_id: BETA_PASSWORD_RECOVERY_ID, password })
-    }).catch(() => null);
-    if (!response?.ok) {
-      button.disabled = false;
-      message.textContent = "O link expirou ou já foi usado. Solicite uma nova recuperação.";
-      return;
-    }
-    await supabaseClient.auth.signOut({ scope: "local" });
-    const cleanUrl = new URL(location.href);
-    cleanUrl.searchParams.delete("password_recovery");
-    cleanUrl.hash = "";
-    history.replaceState(null, "", cleanUrl);
-    button.disabled = false;
+  renderer.setMessage("login-message", "Criando conta…");
+  try {
+    const result = await service.signUp(email, password);
+    renderer.setMessage("login-message", result.session ? "Conta criada. Carregando…" : "Confirme o e-mail enviado para concluir o cadastro.");
+    if (result.session) await enqueueSession(result.session);
+  } catch (error) {
+    renderer.setMessage("login-message", authMessage(error), true);
+  }
+}
+
+async function handlePasswordReset() {
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) {
+    renderer.setMessage("login-message", "Informe o e-mail da conta.", true);
+    return;
+  }
+  try {
+    await service.requestPasswordReset(email);
+    renderer.setMessage("login-message", "Enviamos as instruções de recuperação para seu e-mail.");
+  } catch (error) {
+    renderer.setMessage("login-message", authMessage(error), true);
+  }
+}
+
+async function handleMfa(event) {
+  event.preventDefault();
+  const code = document.getElementById("mfa-code").value.trim();
+  renderer.setMessage("mfa-message", "Verificando…");
+  try {
+    const session = await service.verifyMfa(mfaFactorId, code);
+    document.getElementById("mfa-form").reset();
+    renderer.setMessage("mfa-message", "");
+    await enqueueSession(session);
+  } catch {
+    renderer.setMessage("mfa-message", "Código inválido ou expirado.", true);
+  }
+}
+
+async function handleAccountUpdate(event) {
+  event.preventDefault();
+  renderer.setMessage("account-message", "Salvando…");
+  try {
+    const identity = await service.updateDisplayName(document.getElementById("display-name").value);
+    const state = store.getState();
+    store.update({ identity, account: { ...state.account, displayName: identity.displayName } });
+    renderer.setMessage("account-message", "Nome atualizado.");
+  } catch (error) {
+    renderer.setMessage("account-message", error.message, true);
+  }
+}
+
+async function handleCyclesUpdate(event) {
+  event.preventDefault();
+  const cycles = {
+    energy: normalizeCycle({ start: numericValue("energy-cycle-start"), end: numericValue("energy-cycle-end") }),
+    water: normalizeCycle({ start: numericValue("water-cycle-start"), end: numericValue("water-cycle-end") })
+  };
+  renderer.setMessage("cycles-message", "Salvando…");
+  try {
+    const user = await service.persistCycles(store.getState().user, cycles);
+    store.update({ user, session: { ...store.getState().session, user }, cycles });
+    renderer.setMessage("cycles-message", "Ciclos atualizados.");
+  } catch (error) {
+    renderer.setMessage("cycles-message", operationMessage(error), true);
+  }
+}
+
+async function handleEnergySettings(event) {
+  event.preventDefault();
+  const settings = {
+    rate: numericValue("energy-rate"), goal: numericValue("energy-goal"), flag: document.getElementById("energy-flag").value,
+    lightingFee: numericValue("lighting-fee")
+  };
+  if (settings.rate < 0 || settings.goal <= 0 || settings.lightingFee < 0) return renderer.setMessage("energy-settings-message", "Revise os valores informados.", true);
+  renderer.setMessage("energy-settings-message", "Salvando…");
+  try {
+    const energy = await service.saveEnergySettings(store.getState().user.id, settings);
+    store.update({ settings: { ...store.getState().settings, energy }, tariff: energy });
+    renderer.setMessage("energy-settings-message", "Preferências de energia atualizadas.");
+  } catch (error) {
+    renderer.setMessage("energy-settings-message", operationMessage(error), true);
+  }
+}
+
+async function handleWaterSettings(event) {
+  event.preventDefault();
+  const settings = {
+    rate: numericValue("water-rate"), goal: numericValue("water-goal"), sewerPercent: numericValue("sewer-percent"), fixedFee: numericValue("water-fixed-fee")
+  };
+  if (settings.rate < 0 || settings.goal <= 0 || settings.sewerPercent < 0 || settings.fixedFee < 0) return renderer.setMessage("water-settings-message", "Revise os valores informados.", true);
+  renderer.setMessage("water-settings-message", "Salvando…");
+  try {
+    const water = await service.saveWaterSettings(store.getState().user.id, settings);
+    store.update({ settings: { ...store.getState().settings, water } });
+    renderer.setMessage("water-settings-message", "Preferências de água atualizadas.");
+  } catch (error) {
+    renderer.setMessage("water-settings-message", operationMessage(error), true);
+  }
+}
+
+async function handleLocality(event) {
+  event.preventDefault();
+  const state = store.getState();
+  const locality = {
+    country: document.getElementById("locality-country").value,
+    state: document.getElementById("locality-state").value,
+    city: document.getElementById("locality-city").value,
+    energyProvider: document.getElementById("energy-provider").value,
+    waterProvider: document.getElementById("water-provider").value
+  };
+  renderer.setMessage("locality-message", "Resolvendo tarifa e salvando…");
+  try {
+    const result = await service.saveLocality(state.user, locality, state.settings.energy);
+    store.update({
+      user: result.user,
+      session: { ...state.session, user: result.user },
+      locality: result.locality,
+      tariff: result.tariff,
+      settings: { ...state.settings, energy: result.energySettings }
+    });
+    renderer.setMessage("locality-message", result.tariff.automatic ? "Região salva e tarifa oficial aplicada." : "Região salva; tarifa manual mantida.");
+  } catch (error) {
+    renderer.setMessage("locality-message", operationMessage(error), true);
+  }
+}
+
+async function handleReading(event) {
+  event.preventDefault();
+  const type = document.getElementById("reading-type").value;
+  const reading = { value: numericValue("reading-value"), date: new Date(document.getElementById("reading-date").value).toISOString() };
+  const state = store.getState();
+  const candidate = [...state.readings[type], reading].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+  const validation = calculateConsumptionSummary(candidate);
+  if (!validation.valid) return renderer.setMessage("reading-message", "A leitura precisa manter datas e valores em ordem crescente.", true);
+  renderer.setMessage("reading-message", "Salvando…");
+  try {
+    const readings = await service.addReading(type, state.user.id, reading);
+    store.update({ readings: { ...state.readings, [type]: readings } });
     event.target.reset();
-    $("#password-recovery-dialog").close();
-    $("#login-message").textContent = "Senha atualizada. Entre novamente; todas as sessões anteriores foram encerradas.";
-    return;
+    closeDialog("reading-dialog");
+    renderer.setMessage("readings-message", "Leitura registrada.");
+  } catch (error) {
+    renderer.setMessage("reading-message", operationMessage(error), true);
   }
-  const { error } = await supabaseClient.auth.updateUser({ password });
-  if (error) {
-    button.disabled = false;
-    message.textContent = "O link expirou ou a senha não atende à política de segurança. Solicite uma nova recuperação.";
-    return;
-  }
-  await supabaseClient.from(dataTable("auth_security_events")).insert({
-    user_id: currentUserId,
-    event_type: "password_changed",
-    details: { method: "recovery", sessions_revoked: true }
-  });
-  await supabaseClient.auth.signOut({ scope: "global" });
-  button.disabled = false;
-  event.target.reset();
-  $("#password-recovery-dialog").close();
-  $("#login-message").textContent = "Senha atualizada. Entre novamente; as sessões anteriores foram encerradas.";
-});
+}
 
-/**
- * Remove todo dado local do usuário no logout.
- *
- * Correção AUD-002 / TECH-007: leituras, preferências e e-mail salvo
- * permaneciam no dispositivo após o logout. Em aparelho compartilhado,
- * o próximo usuário tinha acesso à cópia local do usuário anterior.
- */
-async function clearLocalUserData(userId) {
-  removeAllUserCaches(userId);
-
-  // O e-mail salvo só permanece se "manter conectado" estiver ativo.
-  if (localStorage.getItem(REMEMBER_KEY) === "false") {
-    localStorage.removeItem(SAVED_EMAIL_KEY);
-  }
-
-  // Solicita ao service worker o expurgo do cache do shell (SEC-002).
+async function handleInvitation(event) {
+  event.preventDefault();
+  renderer.setMessage("invite-message", "Criando convite…");
   try {
-    const registration = await navigator.serviceWorker?.ready;
-    registration?.active?.postMessage({ type: "VOLT_CLEAR_CACHE" });
-  } catch {
-    // Sem service worker ativo — nada a limpar.
+    const result = await service.inviteMember(document.getElementById("invite-email").value.trim(), document.getElementById("invite-role").value);
+    document.getElementById("invite-result-row").hidden = false;
+    document.getElementById("invite-result").value = result.invitationUrl;
+    renderer.setMessage("invite-message", "Convite criado por 48 horas.");
+    const admin = await service.loadAdministration();
+    store.update({ admin });
+  } catch (error) {
+    renderer.setMessage("invite-message", operationMessage(error), true);
   }
 }
 
-$("#logout").addEventListener("click", async () => {
-  const userId = currentUserId;
-  sessionStorage.removeItem(SESSION_MARKER_KEY);
-  if (supabaseClient) await supabaseClient.auth.signOut();
-  await clearLocalUserData(userId);
-});
-
-$("#open-settings").addEventListener("click", () => {
-  $("#offline-data").checked = offlineDataAllowed();
-  $("#privacy-message").textContent = "";
-  $("#privacy-dialog").showModal();
-  refreshMfa().then(renderMfaStatus);
-});
-
-$("#close-privacy").addEventListener("click", () => $("#privacy-dialog").close());
-
-$("#offline-data").addEventListener("change", () => {
-  const enabled = $("#offline-data").checked;
-  localStorage.setItem(OFFLINE_DATA_KEY, String(enabled));
-  if (enabled) {
-    cacheUserData();
-    $("#privacy-message").textContent = "Cópia offline ativada neste dispositivo.";
-  } else {
-    removeAllUserCaches(currentUserId);
-    $("#privacy-message").textContent = "Cópia offline removida deste dispositivo.";
-  }
-});
-
-$("#export-data").addEventListener("click", exportCurrentUserData);
-
-$("#privacy-request-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!supabaseClient || !currentUserId) return;
-
-  const requestType = $("#privacy-request-type").value;
-  if (requestType === "deletion" && !confirm("Registrar solicitação de exclusão da conta e dos dados? O pedido passará por verificação antes da execução.")) return;
-
-  const button = $("#submit-privacy-request");
-  const message = $("#privacy-message");
-  const requestId = crypto.randomUUID();
-  button.disabled = true;
-  message.textContent = "Registrando solicitação…";
-
-  const { error } = await supabaseClient.from(dataTable("data_subject_requests")).insert({
-    id: requestId,
-    user_id: currentUserId,
-    request_type: requestType,
-    status: "requested",
-    privacy_notice_version: PRIVACY_NOTICE_VERSION
-  });
-
-  button.disabled = false;
-  message.textContent = error
-    ? "Não foi possível registrar agora. Tente novamente ou procure o responsável pelo seu acesso."
-    : `Solicitação registrada. Protocolo: ${requestId.slice(0, 8).toUpperCase()}.`;
-});
-
-document.querySelectorAll(".theme-toggle").forEach((button) => {
-  button.addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
-});
-
-$("#reading-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const value = Number($("#reading").value);
-  const localDate = $("#reading-date").value;
-  const date = new Date(localDate);
-  const previous = readings.at(-1)?.value ?? 0;
-  const previousDate = readings.at(-1) ? new Date(readings.at(-1).date) : null;
-  const message = $("#reading-message");
-
-  if (!Number.isFinite(value) || value < previous) {
-    message.textContent = `A leitura deve ser igual ou maior que ${previous.toLocaleString("pt-BR")} kWh.`;
-    return;
-  }
-  if (!localDate || Number.isNaN(date.getTime())) {
-    message.textContent = "Informe uma data e hora válidas.";
-    return;
-  }
-  if (previousDate && date <= previousDate) {
-    message.textContent = `A data deve ser posterior a ${previousDate.toLocaleString("pt-BR")}.`;
-    return;
-  }
-  if (readings.some((item) => item.value === value && new Date(item.date).getTime() === date.getTime())) {
-    message.textContent = "Esta leitura já está registrada.";
-    return;
-  }
-
-  const reading = { value, date: date.toISOString() };
-  const { error } = await supabaseClient.from(dataTable("meter_readings")).insert({
-    user_id: currentUserId,
-    value: reading.value,
-    measured_at: reading.date
-  });
-  if (error) {
-    message.textContent = "Não foi possível salvar a leitura. Tente novamente.";
-    return;
-  }
-  readings.push(reading);
-  readings.sort((a, b) => new Date(a.date) - new Date(b.date));
-  readings = readings.slice(-100);
-  cacheUserData();
-  $("#reading").value = "";
-  setDefaultDate();
-  message.textContent = "Leitura salva com segurança na sua conta.";
-  render();
-  $("#energy-reading-dialog").close();
-});
-
-$("#water-reading-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const value = Number($("#water-reading").value);
-  const date = new Date($("#water-reading-date").value);
-  const previous = waterReadings.at(-1)?.value ?? 0;
-  const previousDate = waterReadings.at(-1) ? new Date(waterReadings.at(-1).date) : null;
-  const message = $("#water-reading-message");
-  if (!Number.isFinite(value) || value < previous) {
-    message.textContent = `A leitura deve ser igual ou maior que ${previous.toLocaleString("pt-BR")} m³.`;
-    return;
-  }
-  if (Number.isNaN(date.getTime()) || (previousDate && date <= previousDate)) {
-    message.textContent = previousDate ? `A data deve ser posterior a ${previousDate.toLocaleString("pt-BR")}.` : "Informe uma data válida.";
-    return;
-  }
-  const reading = { value, date: date.toISOString() };
-  const { error } = await supabaseClient.from(dataTable("water_readings")).insert({ user_id: currentUserId, value, measured_at: reading.date });
-  if (error) {
-    message.textContent = "Não foi possível salvar. A atualização do banco de água pode estar pendente.";
-    return;
-  }
-  waterReadings.push(reading);
-  waterReadings.sort((a, b) => new Date(a.date) - new Date(b.date));
-  cacheUserData();
-  $("#water-reading").value = "";
-  setDefaultDate();
-  message.textContent = "Leitura de água salva com segurança.";
-  renderWater();
-  $("#water-reading-dialog").close();
-});
-
-$("#water-settings-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const next = {
-    rate: Number($("#water-rate").value),
-    goal: Number($("#water-goal").value),
-    sewerPercent: Number($("#sewer-percent").value),
-    fixedFee: Number($("#water-fixed-fee").value)
-  };
-  if (next.rate < 0 || next.goal <= 0 || next.sewerPercent < 0 || next.fixedFee < 0) return;
-  const { error } = await supabaseClient.from(dataTable("water_settings")).upsert({
-    user_id: currentUserId, rate: next.rate, goal: next.goal,
-    sewer_percent: next.sewerPercent, fixed_fee: next.fixedFee, updated_at: new Date().toISOString()
-  });
-  if (error) {
-    $("#water-settings-message").textContent = "Não foi possível salvar as preferências de água.";
-    return;
-  }
-  waterSettings = next;
-  cacheUserData();
-  $("#water-settings-message").textContent = "Preferências de água atualizadas.";
-  renderWater();
-});
-
-$("#clear-water-readings").addEventListener("click", async () => {
-  if (!confirm("Limpar todas as leituras de água desta conta?")) return;
-  const { error } = await supabaseClient.from(dataTable("water_readings")).delete().eq("user_id", currentUserId);
-  if (error) return;
-  waterReadings = [];
-  cacheUserData();
-  renderWater();
-});
-
-$("#settings-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const rate = Number($("#rate").value);
-  const goal = Number($("#goal").value);
-  const lightingFee = Number($("#lighting-fee").value);
-  const flag = $("#tariff-flag").value;
-  if (rate <= 0 || goal <= 0 || lightingFee < 0 || !FLAGS[flag]) return;
-  const nextSettings = { rate, goal, flag, lightingFee };
-  const { error } = await supabaseClient.from(dataTable("user_settings")).upsert({
-    user_id: currentUserId,
-    rate,
-    goal,
-    flag,
-    lighting_fee: lightingFee,
-    updated_at: new Date().toISOString()
-  });
-  if (error) {
-    $("#settings-message").textContent = "Não foi possível salvar as preferências.";
-    return;
-  }
-  settings = nextSettings;
-  cacheUserData();
-  $("#settings-message").textContent = "Preferências atualizadas.";
-  render();
-});
-
-$("#clear-readings").addEventListener("click", () => $("#clear-dialog").showModal());
-$("#clear-dialog").addEventListener("close", async () => {
-  if ($("#clear-dialog").returnValue !== "confirm") return;
-  const { error } = await supabaseClient.from(dataTable("meter_readings")).delete().eq("user_id", currentUserId);
-  if (error) {
-    $("#reading-message").textContent = "Não foi possível limpar as leituras.";
-    return;
-  }
-  readings = [];
-  cacheUserData();
-  render();
-});
-
-function loadLegacyReadings() {
-  try {
-    const saved = localStorage.getItem(READINGS_KEY);
-    if (saved !== null) {
-      const data = JSON.parse(saved);
-      return Array.isArray(data) ? data : [];
-    }
-    return structuredClone(INITIAL_READINGS);
-  } catch {
-    return structuredClone(INITIAL_READINGS);
-  }
-}
-
-async function initializeAuth() {
-  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-  const configured = /^https:\/\/.+\.supabase\.co$/.test(config.url || "")
-    && config.publishableKey
-    && !config.publishableKey.startsWith("COLE_AQUI");
-
-  if (!configured || !window.supabase?.createClient) {
-    $("#login-button").disabled = true;
-    $("#login-message").textContent = "Login aguardando a configuração segura do Supabase.";
-    return;
-  }
-
-  supabaseClient = window.supabase.createClient(config.url, config.publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    global: { fetch: tracedFetch }
-  });
-
-  supabaseClient.auth.onAuthStateChange((authEvent, session) => {
-    setTimeout(async () => {
-      if (authEvent === "PASSWORD_RECOVERY") {
-        currentUserId = session?.user?.id || null;
-        welcome.hidden = false;
-        dashboard.hidden = true;
-        $("#password-recovery-message").textContent = "";
-        $("#password-recovery-dialog").showModal();
-        $("#recovery-password").focus();
-        return;
-      }
-      await updateAuthScreen(session?.user || null);
-    }, 0);
-  });
-
-  const { data, error } = await supabaseClient.auth.getSession();
-  if (error) $("#login-message").textContent = "Não foi possível verificar a sessão.";
-  const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
-  const sessionOnlyExpired = !rememberUser
-    && !sessionStorage.getItem(SESSION_MARKER_KEY)
-    && data?.session;
-  if (sessionOnlyExpired) {
-    await supabaseClient.auth.signOut();
-    updateAuthScreen(null);
-    return;
-  }
-  await updateAuthScreen(data?.session?.user || null);
-
-}
-
-function restoreRememberPreference() {
-  const rememberUser = localStorage.getItem(REMEMBER_KEY) !== "false";
-  $("#remember-user").checked = rememberUser;
-  if (rememberUser) $("#login-email").value = localStorage.getItem(SAVED_EMAIL_KEY) || "";
-}
-
-async function updateAuthScreen(user) {
-  const signedIn = Boolean(user);
-  if (signedIn) {
-    currentUserId = user.id;
-    if (!(await enforceMfaForSession())) return;
-  }
-  welcome.hidden = signedIn;
-  dashboard.hidden = !signedIn;
-  $("#login-password").value = "";
-  $("#login-message").textContent = signedIn ? "" : "Entre com seu e-mail e senha.";
-  if (!signedIn) {
-    currentUserId = null;
-    currentUserEmail = "";
-    currentDisplayName = "";
-    readings = [];
-    waterReadings = [];
-    settings = { ...DEFAULT_SETTINGS };
-    waterSettings = { ...DEFAULT_WATER_SETTINGS };
-    betaAdminSnapshot = { available: false, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
-    betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "" };
-    betaInvitationSnapshot = { present: Boolean(BETA_INVITATION_TOKEN), available: false, organization: null, role: null, expiresAt: null, message: "" };
-    mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
-    return;
-  }
-  const displayName = user.user_metadata?.name || user.email?.split("@")[0] || "usuário";
-  currentUserEmail = user.email || "";
-  currentDisplayName = user.user_metadata?.display_name || "";
-  $("#user-name").textContent = displayName;
-  await recordPrivacyAcceptance(user);
-  await refreshBetaInvitation();
-  await refreshBetaAdmin();
-  await refreshBetaFeatureFlags();
-  await refreshBetaOperationalMetrics();
-  await loadUserData(user.id);
-  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
-  void checkOperationalHealth();
-  render();
-  // Mostrar onboarding para usuários novos
-  if (!hasSeenOnboarding()) {
-    setTimeout(() => showOnboarding(), 800);
-  }
-}
-
-function loadLegacySettings() {
-  try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-async function loadUserData(userId) {
-  currentUserId = userId;
-  const [readingResult, settingsResult, waterReadingResult, waterSettingsResult] = await Promise.all([
-    supabaseClient.from(dataTable("meter_readings")).select("value, measured_at").order("measured_at"),
-    supabaseClient.from(dataTable("user_settings")).select("rate, goal, flag, lighting_fee").maybeSingle(),
-    supabaseClient.from(dataTable("water_readings")).select("value, measured_at").order("measured_at"),
-    supabaseClient.from(dataTable("water_settings")).select("rate, goal, sewer_percent, fixed_fee").maybeSingle()
-  ]);
-
-  if (readingResult.error || settingsResult.error) {
-    const cached = loadUserCache(userId);
-    readings = cached.readings;
-    settings = cached.settings;
-    $("#reading-message").textContent = "Sem conexão: exibindo a última cópia deste dispositivo.";
-    populateSettings();
-    return;
-  }
-
-  const cached = loadUserCache(userId);
-  if (waterReadingResult.error || waterSettingsResult.error) {
-    waterReadings = cached.waterReadings;
-    waterSettings = cached.waterSettings;
-    $("#water-reading-message").textContent = "O banco de água precisa receber a atualização antes do primeiro uso.";
-  } else {
-    waterReadings = (waterReadingResult.data || []).map((item) => ({ value: Number(item.value), date: item.measured_at }));
-    if (waterSettingsResult.data) {
-      waterSettings = {
-        rate: Number(waterSettingsResult.data.rate), goal: Number(waterSettingsResult.data.goal),
-        sewerPercent: Number(waterSettingsResult.data.sewer_percent), fixedFee: Number(waterSettingsResult.data.fixed_fee)
-      };
-    } else {
-      waterSettings = cached.waterSettings;
-      await supabaseClient.from(dataTable("water_settings")).upsert({
-        user_id: userId, rate: waterSettings.rate, goal: waterSettings.goal,
-        sewer_percent: waterSettings.sewerPercent, fixed_fee: waterSettings.fixedFee
-      });
+async function navigate(page) {
+  const state = store.getState();
+  if (state.status !== StartupStatus.READY) return;
+  if (page === "users" && !state.permissions.canManageUsers) return;
+  store.update({ activePage: page });
+  document.getElementById("page-container").scrollTo({ top: 0, behavior: "auto" });
+  if (page === "users" && !state.admin) {
+    renderer.setMessage("users-message", "Carregando usuários…");
+    try {
+      const admin = await service.loadAdministration();
+      store.update({ admin });
+      renderer.setMessage("users-message", "");
+    } catch (error) {
+      renderer.setMessage("users-message", operationMessage(error), true);
     }
   }
-
-  readings = (readingResult.data || []).map((item) => ({
-    value: Number(item.value),
-    date: item.measured_at
-  }));
-
-  if (readings.length === 0 && localStorage.getItem(READINGS_KEY) !== null) {
-    const legacy = loadLegacyReadings();
-    if (legacy.length) {
-      const { error } = await supabaseClient.from(dataTable("meter_readings")).insert(legacy.map((item) => ({
-        user_id: userId,
-        value: item.value,
-        measured_at: item.date
-      })));
-      if (!error) {
-        readings = legacy;
-        localStorage.removeItem(READINGS_KEY);
-      }
-    }
-  }
-
-  if (settingsResult.data) {
-    settings = {
-      rate: Number(settingsResult.data.rate),
-      goal: Number(settingsResult.data.goal),
-      flag: settingsResult.data.flag,
-      lightingFee: Number(settingsResult.data.lighting_fee)
-    };
-  } else {
-    settings = loadLegacySettings();
-    const { error } = await supabaseClient.from(dataTable("user_settings")).upsert({
-      user_id: userId,
-      rate: settings.rate,
-      goal: settings.goal,
-      flag: settings.flag,
-      lighting_fee: settings.lightingFee
-    });
-    if (!error) localStorage.removeItem(SETTINGS_KEY);
-  }
-  cacheUserData();
-  populateSettings();
-  populateWaterSettings();
 }
 
-function cacheUserData() {
-  if (!currentUserId) return;
-  const cacheKey = userCacheKey(currentUserId);
-  if (!offlineDataAllowed()) {
-    localStorage.removeItem(cacheKey);
-    return;
-  }
-  localStorage.setItem(cacheKey, JSON.stringify({ readings, settings, waterReadings, waterSettings }));
+function openReadingDialog() {
+  const dateInput = document.getElementById("reading-date");
+  dateInput.value = toLocalDateTime(new Date());
+  renderer.setMessage("reading-message", "");
+  openDialog("reading-dialog");
 }
 
-function userCacheKey(userId) {
-  const organizationSuffix = APP_ENVIRONMENT.id === "beta"
-    ? `-${betaOrganizationSnapshot.activeOrganizationId || "no-context"}`
-    : "";
-  return `${USER_DATA_PREFIX}${userId}${organizationSuffix}`;
+function openDialog(id) {
+  const dialog = document.getElementById(id);
+  if (!dialog.open) dialog.showModal();
 }
 
-function offlineDataAllowed() {
-  return localStorage.getItem(OFFLINE_DATA_KEY) === "true";
+function closeDialog(id) {
+  const dialog = document.getElementById(id);
+  if (dialog.open) dialog.close();
 }
 
-function removeAllUserCaches(userId) {
-  for (const key of Object.keys(localStorage)) {
-    if (key.startsWith(USER_DATA_PREFIX) && (!userId || key.startsWith(`${USER_DATA_PREFIX}${userId}`))) localStorage.removeItem(key);
+async function logout() {
+  try { await service.signOut(); }
+  finally {
+    activeSessionKey = null;
+    pendingSessionKey = null;
+    mfaFactorId = null;
+    if (store.getState().status !== StartupStatus.SIGNED_OUT) store.resetPrivateState();
   }
 }
 
-function enforceOfflineDataPreference() {
-  if (!offlineDataAllowed()) removeAllUserCaches();
+function failStartup(error) {
+  const message = operationMessage(error);
+  store.setStatus(StartupStatus.ERROR, message);
 }
 
-async function recordPrivacyAcceptance(user, acceptedAtOverride) {
-  const metadata = user?.user_metadata || {};
-  const noticeVersion = acceptedAtOverride ? PRIVACY_NOTICE_VERSION : metadata.privacy_notice_version;
-  const acceptedAt = acceptedAtOverride || metadata.privacy_notice_accepted_at;
-  if (!supabaseClient || !user?.id || noticeVersion !== PRIVACY_NOTICE_VERSION || !acceptedAt) return;
-
-  // O registro é append-only. Conflito de unicidade em logins seguintes é esperado.
-  await supabaseClient.from(dataTable("privacy_acceptances")).insert({
-    user_id: user.id,
-    notice_version: noticeVersion,
-    accepted_at: acceptedAt,
-    channel: "web_signup"
-  });
+function numericValue(id) {
+  return Number(document.getElementById(id).value);
 }
 
-function exportCurrentUserData() {
-  if (!currentUserId) return;
-  const exportPayload = {
-    schemaVersion: "1.0",
-    privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
-    exportedAt: new Date().toISOString(),
-    account: { id: currentUserId, email: currentUserEmail },
-    energy: { readings, settings },
-    water: { readings: waterReadings, settings: waterSettings }
-  };
-  const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${APP_ENVIRONMENT.storagePrefix}-dados-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-  $("#privacy-message").textContent = "Arquivo preparado com os dados disponíveis nesta conta.";
+function sessionKey(session) {
+  return session ? `${session.user?.id || ""}:${session.access_token || ""}` : "SIGNED_OUT";
 }
 
-function exposeBetaApi() {
-  if (APP_ENVIRONMENT.id !== "beta") return;
-  window.VOLT_BETA_API = Object.freeze({
-    acknowledgeOperationalAlert: acknowledgeBetaOperationalAlert,
-    deleteReading: deleteBetaReading,
-    estimateEnergy: estimateBetaEnergy,
-    estimateWater: estimateBetaWater,
-    exportData: exportCurrentUserData,
-    exportOperationalMetrics: exportBetaOperationalMetrics,
-    getSnapshot: getBetaSnapshot,
-    getAdminSnapshot: () => structuredClone(betaAdminSnapshot),
-    getOrganizationSnapshot: () => structuredClone(betaOrganizationSnapshot),
-    getInvitationSnapshot: () => structuredClone(betaInvitationSnapshot),
-    getFeatureFlagsSnapshot: () => structuredClone(betaFeatureFlagsSnapshot),
-    getMfaSnapshot: () => structuredClone(mfaSnapshot),
-    getOperationalHealth: () => structuredClone(operationalHealth),
-    getOperationalSnapshot: () => structuredClone(betaOperationalSnapshot),
-    enableMfa: startMfaEnrollment,
-    disableMfa,
-    inviteMember: inviteBetaMember,
-    acceptInvitation: acceptBetaInvitation,
-    declineInvitation: declineBetaInvitation,
-    refreshData: refreshBetaData,
-    refreshAdmin: refreshBetaAdmin,
-    refreshFeatureFlags: refreshBetaFeatureFlags,
-    refreshOperationalMetrics: refreshBetaOperationalMetrics,
-    refreshOrganizations: refreshBetaOrganizationContext,
-    refreshMfa,
-    checkOperationalHealth,
-    resetApplication: resetBetaApplication,
-    switchOrganization: switchBetaOrganization,
-    setTheme: applyTheme,
-    updateDisplayName: updateBetaDisplayName,
-    updateMember: updateBetaMember,
-    transferOwner: transferBetaOwner,
-    updateFeatureFlag: updateBetaFeatureFlag,
-    updateReading: updateBetaReading
-  });
+function toLocalDateTime(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
-async function recordOperationalEvent(eventType, severity, component, details = {}, durationMs = null) {
-  if (!supabaseClient || !currentUserId) return;
-  const safeDetails = Object.fromEntries(
-    Object.entries(details).filter(([key, value]) => /^[a-zA-Z][a-zA-Z0-9]{0,30}$/.test(key) && ["string", "number", "boolean"].includes(typeof value))
-  );
+function authMessage(error) {
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("invalid login")) return "E-mail ou senha inválidos.";
+  if (message.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  return "Não foi possível autenticar agora. Tente novamente.";
+}
+
+function operationMessage(error) {
+  const message = String(error?.message || "").trim();
+  return message && !message.toLowerCase().includes("jwt") ? message : "Não foi possível concluir a operação agora.";
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem("volt-theme", next);
+}
+
+function applySavedTheme() {
+  const saved = localStorage.getItem("volt-theme");
+  if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+  else if (matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.theme = "dark";
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return null;
+  document.documentElement.dataset.serviceWorker = "registering";
   try {
-    await supabaseClient.from(dataTable("operational_events")).insert({
-      user_id: currentUserId,
-      correlation_id: SESSION_CORRELATION_ID,
-      trace_id: SESSION_TRACE_ID,
-      span_id: randomHex(8),
-      parent_span_id: ROOT_SPAN_ID,
-      event_type: eventType,
-      severity,
-      component,
-      duration_ms: durationMs,
-      details: safeDetails
-    });
-  } catch {
-    // Telemetria nunca interrompe o fluxo principal.
-  }
-}
-
-function tracedFetch(input, init = {}) {
-  const headers = new Headers(init.headers || {});
-  headers.set("traceparent", `00-${SESSION_TRACE_ID}-${randomHex(8)}-01`);
-  headers.set("x-request-id", SESSION_CORRELATION_ID);
-  return fetch(input, { ...init, headers });
-}
-
-function randomHex(byteLength) {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function checkOperationalHealth() {
-  if (!supabaseClient || !currentUserId) return operationalHealth;
-  const startedAt = performance.now();
-  const deepHealth = await checkBetaDeepHealth();
-  if (deepHealth) {
-    const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
-    operationalHealth = {
-      status: deepHealth.status === "healthy" ? "healthy" : "degraded",
-      auth: deepHealth.checks?.auth_database_rbac === "up",
-      database: deepHealth.checks?.auth_database_rbac === "up",
-      checkedAt: deepHealth.checked_at || new Date().toISOString(),
-      durationMs
-    };
-    await recordOperationalEvent("health.checked", operationalHealth.status === "healthy" ? "info" : "warning", "edge-health", { auth: operationalHealth.auth, database: operationalHealth.database }, durationMs);
-    notifyBetaDataUpdate();
-    return operationalHealth;
-  }
-  const [authResult, databaseResult] = await Promise.all([
-    supabaseClient.auth.getSession(),
-    supabaseClient.from(dataTable("user_settings")).select("user_id").maybeSingle()
-  ]);
-  const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
-  operationalHealth = {
-    status: !authResult.error && !databaseResult.error ? "healthy" : "degraded",
-    auth: !authResult.error,
-    database: !databaseResult.error,
-    checkedAt: new Date().toISOString(),
-    durationMs
-  };
-  await recordOperationalEvent(
-    "health.checked",
-    operationalHealth.status === "healthy" ? "info" : "warning",
-    "web-client",
-    { auth: operationalHealth.auth, database: operationalHealth.database },
-    durationMs
-  );
-  notifyBetaDataUpdate();
-  return operationalHealth;
-}
-
-async function checkBetaDeepHealth() {
-  if (APP_ENVIRONMENT.id !== "beta" || currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") return null;
-  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-  if (!/^https:\/\/.+\.supabase\.co$/.test(config.url || "")) return null;
-  try {
-    const { data, error } = await supabaseClient.auth.getSession();
-    const token = data?.session?.access_token;
-    if (error || !token) return null;
-    const response = await tracedFetch(`${config.url}/functions/v1/health?probe=deep`, {
-      method: "GET",
-      headers: { authorization: `Bearer ${token}`, apikey: config.publishableKey }
-    });
-    if (response.status === 404) return null;
-    if ([401, 403].includes(response.status)) return { status: "unhealthy", checks: { auth_database_rbac: "down" }, checked_at: new Date().toISOString() };
-    if (![200, 503].includes(response.status)) return null;
-    const payload = await response.json();
-    return payload && typeof payload === "object" ? payload : null;
-  } catch {
+    const registration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    document.documentElement.dataset.serviceWorker = "registered";
+    return registration;
+  } catch (error) {
+    document.documentElement.dataset.serviceWorker = "unavailable";
+    document.documentElement.dataset.serviceWorkerError = error?.name || "Error";
     return null;
   }
-}
-
-async function refreshMfa() {
-  if (!supabaseClient?.auth?.mfa || !currentUserId) {
-    mfaSnapshot = { available: false, enrolled: false, currentLevel: "aal1", nextLevel: "aal1", factorId: null, enrollment: null };
-    return mfaSnapshot;
-  }
-  const [factorResult, assuranceResult] = await Promise.all([
-    supabaseClient.auth.mfa.listFactors(),
-    supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel()
-  ]);
-  if (factorResult.error || assuranceResult.error) {
-    mfaSnapshot = { ...mfaSnapshot, available: false };
-    return mfaSnapshot;
-  }
-  const verified = (factorResult.data?.totp || []).find((factor) => factor.status === "verified") || null;
-  mfaSnapshot = {
-    ...mfaSnapshot,
-    available: true,
-    enrolled: Boolean(verified),
-    factorId: verified?.id || null,
-    currentLevel: assuranceResult.data?.currentLevel || "aal1",
-    nextLevel: assuranceResult.data?.nextLevel || "aal1"
-  };
-  return mfaSnapshot;
-}
-
-function renderMfaStatus() {
-  const status = $("#mfa-status");
-  if (!status) return;
-  status.textContent = !mfaSnapshot.available
-    ? "MFA indisponível até a configuração do provedor de identidade."
-    : mfaSnapshot.enrolled
-      ? `Autenticador ativo. Sessão atual em ${mfaSnapshot.currentLevel.toUpperCase()}.`
-      : "Autenticador ainda não configurado.";
-  $("#mfa-enable").hidden = mfaSnapshot.enrolled;
-  $("#mfa-disable").hidden = !mfaSnapshot.enrolled;
-  $("#mfa-backup-regenerate").hidden = APP_ENVIRONMENT.id !== "beta" || !mfaSnapshot.enrolled || mfaSnapshot.currentLevel !== "aal2";
-  notifyBetaDataUpdate();
-}
-
-async function callMfaBackupEndpoint(route, body) {
-  if (APP_ENVIRONMENT.id !== "beta" || !supabaseClient) return null;
-  const { data } = await supabaseClient.auth.getSession();
-  const accessToken = data?.session?.access_token || "";
-  const config = window[APP_ENVIRONMENT.dataConfigGlobal] || {};
-  if (!accessToken || !config.url) return null;
-  return tracedFetch(`${config.url}/functions/v1/auth-login/${route}`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify(body)
-  }).catch(() => null);
-}
-
-async function generateMfaBackupCodes() {
-  if (mfaSnapshot.currentLevel !== "aal2") {
-    $("#mfa-status").textContent = "Confirme o código do autenticador antes de gerar novos códigos de backup.";
-    await enforceMfaForSession();
-    return { ok: false, message: "Reautenticação necessária." };
-  }
-  const button = $("#mfa-backup-regenerate");
-  button.disabled = true;
-  const response = await callMfaBackupEndpoint("mfa-backup-codes", {});
-  button.disabled = false;
-  let payload = null;
-  try { payload = response?.ok ? await response.json() : null; } catch { payload = null; }
-  if (!payload?.one_time_display || payload.backup_codes?.length !== 10) {
-    $("#mfa-status").textContent = "O autenticador está ativo, mas não foi possível gerar os códigos de backup. Tente novamente nesta sessão AAL2.";
-    return { ok: false, message: "Falha ao gerar códigos de backup." };
-  }
-  $("#mfa-backup-codes").textContent = payload.backup_codes.join("\n");
-  $("#mfa-backup-confirmation").checked = false;
-  $("#close-mfa-backup-codes").disabled = true;
-  $("#mfa-backup-codes-dialog").showModal();
-  return { ok: true, message: "Códigos de backup gerados." };
-}
-
-async function recoverMfaWithBackupCode() {
-  const input = $("#mfa-backup-code");
-  if (!input.reportValidity()) return { ok: false, message: "Código inválido." };
-  const button = $("#recover-mfa-backup");
-  const message = $("#mfa-challenge-message");
-  button.disabled = true;
-  const response = await callMfaBackupEndpoint("mfa-backup-recovery", { code: input.value.trim() });
-  button.disabled = false;
-  let payload = null;
-  try { payload = await response?.json(); } catch { payload = null; }
-  if (!response?.ok || !payload?.recovered) {
-    message.textContent = response?.status === 429
-      ? "Muitas tentativas inválidas. Aguarde 15 minutos e tente novamente."
-      : "Código de backup inválido ou já utilizado.";
-    return { ok: false, message: message.textContent };
-  }
-  input.value = "";
-  input.required = false;
-  $("#mfa-backup-recovery-panel").hidden = true;
-  $("#mfa-challenge-dialog").close();
-  await supabaseClient.auth.signOut({ scope: "local" });
-  $("#login-message").textContent = "Acesso recuperado. Entre novamente e cadastre um novo autenticador; todas as sessões anteriores foram encerradas.";
-  return { ok: true, message: "Acesso recuperado." };
-}
-
-async function startMfaEnrollment() {
-  if (!supabaseClient?.auth?.mfa) return { ok: false, message: "MFA indisponível." };
-  const { data, error } = await supabaseClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "Volt" });
-  if (error || !data?.id || !data?.totp) return { ok: false, message: "Não foi possível iniciar a configuração do autenticador." };
-  mfaSnapshot = { ...mfaSnapshot, enrollment: { factorId: data.id, secret: data.totp.secret, qrCode: data.totp.qr_code } };
-  $("#mfa-qr-code").src = data.totp.qr_code;
-  $("#mfa-secret").value = data.totp.secret;
-  $("#mfa-enrollment-code").value = "";
-  $("#mfa-enrollment-message").textContent = "";
-  $("#mfa-enrollment-dialog").showModal();
-  return { ok: true, message: "Configuração iniciada." };
-}
-
-async function cancelMfaEnrollment() {
-  const factorId = mfaSnapshot.enrollment?.factorId;
-  if (factorId) await supabaseClient?.auth?.mfa?.unenroll({ factorId });
-  mfaSnapshot = { ...mfaSnapshot, enrollment: null };
-  $("#mfa-enrollment-dialog").close();
-  await refreshMfa();
-  renderMfaStatus();
-  await refreshBetaAdmin();
-  await refreshBetaData();
-}
-
-async function verifyMfaEnrollment(event) {
-  event.preventDefault();
-  const factorId = mfaSnapshot.enrollment?.factorId;
-  if (!factorId) return;
-  const code = $("#mfa-enrollment-code").value.trim();
-  const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId, code });
-  if (error) {
-    $("#mfa-enrollment-message").textContent = "Código inválido ou expirado. Aguarde o próximo código e tente novamente.";
-    return;
-  }
-  await supabaseClient.from(dataTable("auth_security_events")).insert({
-    user_id: currentUserId,
-    event_type: "mfa_changed",
-    details: { action: "enrolled", factor_type: "totp" }
-  });
-  mfaSnapshot = { ...mfaSnapshot, enrollment: null };
-  event.target.reset();
-  $("#mfa-enrollment-dialog").close();
-  await refreshMfa();
-  renderMfaStatus();
-  if (APP_ENVIRONMENT.id === "beta") await generateMfaBackupCodes();
-  await refreshBetaAdmin();
-  await refreshBetaData();
-}
-
-async function disableMfa() {
-  if (!mfaSnapshot.factorId || !confirm("Desativar a autenticação em duas etapas desta conta?")) return { ok: false, message: "Ação cancelada." };
-  const { error } = await supabaseClient.auth.mfa.unenroll({ factorId: mfaSnapshot.factorId });
-  if (error) return { ok: false, message: "Não foi possível desativar o autenticador. Confirme a sessão em AAL2." };
-  await supabaseClient.from(dataTable("auth_security_events")).insert({
-    user_id: currentUserId,
-    event_type: "mfa_changed",
-    details: { action: "unenrolled", factor_type: "totp" }
-  });
-  await refreshMfa();
-  renderMfaStatus();
-  await refreshBetaAdmin();
-  return { ok: true, message: "Autenticador desativado." };
-}
-
-async function verifyMfaChallenge(event) {
-  event.preventDefault();
-  const code = $("#mfa-challenge-code").value.trim();
-  const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId: mfaSnapshot.factorId, code });
-  if (error) {
-    $("#mfa-challenge-message").textContent = "Código inválido ou expirado.";
-    return;
-  }
-  event.target.reset();
-  $("#mfa-challenge-dialog").close();
-  await refreshMfa();
-  await updateAuthScreen((await supabaseClient.auth.getUser()).data?.user || null);
-}
-
-async function enforceMfaForSession() {
-  await refreshMfa();
-  renderMfaStatus();
-  if (!mfaSnapshot.enrolled || mfaSnapshot.currentLevel === "aal2") return true;
-  welcome.hidden = true;
-  dashboard.hidden = true;
-  $("#mfa-challenge-message").textContent = "";
-  if (!$("#mfa-challenge-dialog").open) $("#mfa-challenge-dialog").showModal();
-  $("#mfa-challenge-code").focus();
-  return false;
-}
-
-async function refreshBetaAdmin() {
-  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaAdminSnapshot;
-  const isConsoleOwner = currentUserEmail.trim().toLowerCase() === BETA_ADMIN_EMAIL;
-  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Usuário";
-  const bootstrap = await supabaseClient.rpc("beta_admin_bootstrap", {
-    p_organization_name: "Minha organização",
-    p_display_name: displayName
-  });
-  if (bootstrap.error) {
-    betaAdminSnapshot = {
-      available: true,
-      authorized: false,
-      organization: null,
-      membership: null,
-      members: [],
-      invitations: [],
-      message: isConsoleOwner ? "Administração indisponível até a atualização do banco da Beta." : ""
-    };
-    notifyBetaDataUpdate();
-    return betaAdminSnapshot;
-  }
-  await refreshBetaOrganizationContext();
-  if (!isConsoleOwner || mfaSnapshot.currentLevel !== "aal2") {
-    betaAdminSnapshot = { available: true, authorized: false, organization: null, membership: null, members: [], invitations: [], message: "" };
-    notifyBetaDataUpdate();
-    return betaAdminSnapshot;
-  }
-  const response = await supabaseClient.rpc("beta_admin_snapshot");
-  if (response.error || !response.data) {
-    betaAdminSnapshot = { ...betaAdminSnapshot, message: "Não foi possível carregar a organização agora." };
-  } else {
-    betaAdminSnapshot = { available: true, message: "", ...response.data };
-  }
-  notifyBetaDataUpdate();
-  return betaAdminSnapshot;
-}
-
-async function refreshBetaOrganizationContext() {
-  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaOrganizationSnapshot;
-  const { data, error } = await supabaseClient.rpc("beta_organization_context");
-  if (error || !data) {
-    betaOrganizationSnapshot = { available: false, activeOrganizationId: null, organizations: [], message: "Contexto de organização indisponível." };
-  } else {
-    betaOrganizationSnapshot = {
-      available: true,
-      activeOrganizationId: data.active_organization_id || null,
-      organizations: Array.isArray(data.organizations) ? data.organizations : [],
-      message: ""
-    };
-  }
-  notifyBetaDataUpdate();
-  return betaOrganizationSnapshot;
-}
-
-async function switchBetaOrganization(organizationId) {
-  if (!currentUserId || !supabaseClient?.rpc) return { ok: false, message: "Entre novamente para trocar de organização." };
-  if (!betaOrganizationSnapshot.organizations.some((organization) => organization.id === organizationId)) {
-    return { ok: false, message: "Organização não autorizada." };
-  }
-  readings = [];
-  waterReadings = [];
-  settings = { ...DEFAULT_SETTINGS };
-  waterSettings = { ...DEFAULT_WATER_SETTINGS };
-  removeAllUserCaches(currentUserId);
-  notifyBetaDataUpdate();
-  const { error } = await supabaseClient.rpc("beta_switch_organization", { p_organization_id: organizationId });
-  if (error) {
-    await refreshBetaOrganizationContext();
-    await loadUserData(currentUserId);
-    render();
-    return { ok: false, message: "A troca foi recusada pelo servidor. O contexto anterior foi restaurado." };
-  }
-  await refreshBetaOrganizationContext();
-  await loadUserData(currentUserId);
-  await refreshBetaAdmin();
-  await refreshBetaFeatureFlags();
-  await refreshBetaOperationalMetrics();
-  render();
-  return { ok: true, message: "Organização alterada com segurança." };
-}
-
-async function inviteBetaMember({ email, role }) {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) return { ok: false, message: "Acesso administrativo não autorizado." };
-  if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
-  const { data, error } = await supabaseClient.rpc("beta_admin_invite_member", { p_email: email, p_role: role });
-  if (error || !data?.token) return { ok: false, message: adminErrorMessage(error) };
-  const invitationUrl = new URL(location.href);
-  invitationUrl.search = "";
-  invitationUrl.hash = "";
-  invitationUrl.searchParams.set("invite", data.token);
-  await refreshBetaAdmin();
-  return { ok: true, message: "Convite seguro criado por 48 horas.", invitationUrl: invitationUrl.href };
-}
-
-async function refreshBetaInvitation() {
-  if (!BETA_INVITATION_TOKEN || !currentUserId || !supabaseClient?.rpc) return betaInvitationSnapshot;
-  const { data, error } = await supabaseClient.rpc("beta_invitation_preview", { p_token: BETA_INVITATION_TOKEN });
-  betaInvitationSnapshot = error || !data
-    ? { present: true, available: false, organization: null, role: null, expiresAt: null, message: "Este convite é inválido, expirou ou pertence a outro e-mail." }
-    : { present: true, available: true, organization: data.organization, role: data.role, expiresAt: data.expires_at, message: "" };
-  notifyBetaDataUpdate();
-  return betaInvitationSnapshot;
-}
-
-async function acceptBetaInvitation() {
-  if (!betaInvitationSnapshot.available || !BETA_INVITATION_TOKEN) return { ok: false, message: "Convite indisponível." };
-  const displayName = currentDisplayName || currentUserEmail.split("@")[0] || "Usuário";
-  const { error } = await supabaseClient.rpc("beta_accept_invitation", { p_token: BETA_INVITATION_TOKEN, p_display_name: displayName });
-  if (error) return { ok: false, message: "Não foi possível aceitar. O convite pode ter sido utilizado ou expirado." };
-  clearBetaInvitationFromAddress();
-  await refreshBetaAdmin();
-  await loadUserData(currentUserId);
-  render();
-  return { ok: true, message: "Convite aceito. A organização foi ativada." };
-}
-
-async function declineBetaInvitation() {
-  if (!betaInvitationSnapshot.available || !BETA_INVITATION_TOKEN) return { ok: false, message: "Convite indisponível." };
-  const { error } = await supabaseClient.rpc("beta_decline_invitation", { p_token: BETA_INVITATION_TOKEN });
-  if (error) return { ok: false, message: "Não foi possível recusar o convite agora." };
-  clearBetaInvitationFromAddress();
-  return { ok: true, message: "Convite recusado. Nenhum acesso foi concedido." };
-}
-
-function clearBetaInvitationFromAddress() {
-  const cleanUrl = new URL(location.href);
-  cleanUrl.searchParams.delete("invite");
-  history.replaceState({}, "", cleanUrl);
-  betaInvitationSnapshot = { present: false, available: false, organization: null, role: null, expiresAt: null, message: "" };
-  notifyBetaDataUpdate();
-}
-
-async function updateBetaMember({ membershipId, role, status, reason }) {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL) return { ok: false, message: "Acesso administrativo não autorizado." };
-  if (!supabaseClient?.rpc) return { ok: false, message: "Administração indisponível." };
-  const { error } = await supabaseClient.rpc("beta_admin_update_member", {
-    p_membership_id: membershipId,
-    p_role: role,
-    p_status: status,
-    p_reason: reason
-  });
-  if (error) return { ok: false, message: adminErrorMessage(error) };
-  await refreshBetaAdmin();
-  return { ok: true, message: "Acesso atualizado e registrado na auditoria." };
-}
-
-async function transferBetaOwner({ membershipId, reason }) {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    return { ok: false, message: "A transferência exige o console autorizado e MFA AAL2." };
-  }
-  const { error } = await supabaseClient.rpc("beta_admin_transfer_owner", {
-    p_membership_id: membershipId,
-    p_reason: reason
-  });
-  if (error) return { ok: false, message: adminErrorMessage(error) };
-  await refreshBetaAdmin();
-  return { ok: true, message: "Propriedade transferida atomicamente e registrada na auditoria." };
-}
-
-async function refreshBetaFeatureFlags() {
-  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaFeatureFlagsSnapshot;
-  const { data, error } = await supabaseClient.rpc("beta_feature_flags_snapshot");
-  if (error || !data) {
-    betaFeatureFlagsSnapshot = { ...betaFeatureFlagsSnapshot, available: false, message: "Configuração dinâmica indisponível." };
-  } else {
-    betaFeatureFlagsSnapshot = {
-      available: true,
-      canManage: Boolean(data.can_manage),
-      flags: Array.isArray(data.flags) ? data.flags : [],
-      refreshedAt: data.refreshed_at || new Date().toISOString(),
-      message: ""
-    };
-  }
-  notifyBetaDataUpdate();
-  return betaFeatureFlagsSnapshot;
-}
-
-async function updateBetaFeatureFlag({ key, enabled, rolloutPercentage, killSwitch, reason }) {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    return { ok: false, message: "A gestão de flags exige o console autorizado e MFA AAL2." };
-  }
-  const { error } = await supabaseClient.rpc("beta_admin_update_feature_flag", {
-    p_key: key,
-    p_enabled: enabled,
-    p_rollout_percentage: rolloutPercentage,
-    p_kill_switch: killSwitch,
-    p_reason: reason
-  });
-  if (error) return { ok: false, message: adminErrorMessage(error) };
-  await refreshBetaFeatureFlags();
-  return { ok: true, message: "Feature flag atualizada e registrada na auditoria." };
-}
-
-async function refreshBetaOperationalMetrics() {
-  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient?.rpc) return betaOperationalSnapshot;
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    betaOperationalSnapshot = { ...betaOperationalSnapshot, available: false, message: "" };
-    return betaOperationalSnapshot;
-  }
-  const { data, error } = await supabaseClient.rpc("beta_admin_operational_snapshot");
-  if (error || !data) {
-    betaOperationalSnapshot = { ...betaOperationalSnapshot, available: false, message: "Métricas indisponíveis até a atualização do banco." };
-  } else {
-    betaOperationalSnapshot = {
-      available: true,
-      events: Number(data.events || 0),
-      errors: Number(data.errors || 0),
-      warnings: Number(data.warnings || 0),
-      errorRate: Number(data.error_rate || 0),
-      latencyP50Ms: Number(data.latency_p50_ms || 0),
-      latencyP95Ms: Number(data.latency_p95_ms || 0),
-      components: Array.isArray(data.components) ? data.components : [],
-      recentSpans: Array.isArray(data.recent_spans) ? data.recent_spans : [],
-      alerts: Array.isArray(data.alerts) ? data.alerts : [],
-      generatedAt: data.generated_at || new Date().toISOString(),
-      message: ""
-    };
-  }
-  notifyBetaDataUpdate();
-  return betaOperationalSnapshot;
-}
-
-async function exportBetaOperationalMetrics() {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    return { ok: false, message: "A exportação exige o console autorizado e MFA AAL2." };
-  }
-  const { data, error } = await supabaseClient.rpc("beta_admin_prometheus_metrics");
-  if (error || typeof data !== "string" || !data.startsWith("# HELP volt_beta_")) {
-    return { ok: false, message: "Não foi possível exportar as métricas agora." };
-  }
-  const blob = new Blob([data], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `volt-beta-metrics-${new Date().toISOString().slice(0, 10)}.prom`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-  return { ok: true, message: "Métricas Prometheus exportadas sem dados pessoais." };
-}
-
-async function acknowledgeBetaOperationalAlert({ alertId, reason }) {
-  if (currentUserEmail.trim().toLowerCase() !== BETA_ADMIN_EMAIL || mfaSnapshot.currentLevel !== "aal2") {
-    return { ok: false, message: "O reconhecimento exige o console autorizado e MFA AAL2." };
-  }
-  const { error } = await supabaseClient.rpc("beta_admin_acknowledge_operational_alert", {
-    p_alert_id: Number(alertId),
-    p_reason: reason
-  });
-  if (error) return { ok: false, message: adminErrorMessage(error) };
-  await refreshBetaOperationalMetrics();
-  return { ok: true, message: "Alerta reconhecido e registrado na auditoria." };
-}
-
-function adminErrorMessage(error) {
-  const message = String(error?.message || "");
-  if (message.includes("last_admin")) return "A organização não pode ficar sem administrador.";
-  if (message.includes("use_owner_transfer") || message.includes("owner_invariant")) return "Use o fluxo protegido de transferência de propriedade.";
-  if (message.includes("invalid_successor")) return "Selecione outro membro ativo para receber a propriedade.";
-  if (message.includes("permission_denied")) return "Você não possui permissão para esta ação.";
-  if (message.includes("invalid_")) return "Revise os dados informados.";
-  return "Não foi possível concluir a ação administrativa.";
-}
-
-function getBetaSnapshot() {
-  const energySummary = calculateConsumptionSummary(readings);
-  const waterSummary = calculateConsumptionSummary(waterReadings);
-  const flag = FLAGS[settings.flag] || FLAGS.yellow;
-  const energyConsumption = energySummary.valid ? energySummary.consumption : 0;
-  const waterConsumption = waterSummary.valid ? waterSummary.consumption : 0;
-  return structuredClone({
-    account: { displayName: currentDisplayName, email: currentUserEmail },
-    energy: {
-      readings,
-      settings,
-      summary: energySummary,
-      forecast: getForecast(readings),
-      estimate: calculateEnergyEstimate(energyConsumption, {
-        rate: settings.rate,
-        flagRate: flag.rate,
-        lightingFee: settings.lightingFee
-      })
-    },
-    water: {
-      readings: waterReadings,
-      settings: waterSettings,
-      summary: waterSummary,
-      forecast: getForecast(waterReadings),
-      estimate: calculateWaterEstimate(waterConsumption, waterSettings)
-    }
-  });
-}
-
-function estimateBetaEnergy(consumption) {
-  const flag = FLAGS[settings.flag] || FLAGS.yellow;
-  return calculateEnergyEstimate(Number(consumption) || 0, {
-    rate: settings.rate,
-    flagRate: flag.rate,
-    lightingFee: settings.lightingFee
-  });
-}
-
-function estimateBetaWater(consumption) {
-  return calculateWaterEstimate(Number(consumption) || 0, waterSettings);
-}
-
-async function updateBetaDisplayName(value) {
-  const displayName = String(value || "").trim();
-  if (!displayName || displayName.length > 40) {
-    return { ok: false, message: "Informe um nome de exibição com até 40 caracteres." };
-  }
-  const { error } = await supabaseClient.auth.updateUser({ data: { display_name: displayName } });
-  if (error) return { ok: false, message: "Não foi possível salvar o nome agora." };
-  currentDisplayName = displayName;
-  notifyBetaDataUpdate();
-  return { ok: true, message: "Nome de exibição atualizado." };
-}
-
-function betaReadingCollection(type) {
-  if (type === "energy") return { items: readings, table: "meter_readings" };
-  if (type === "water") return { items: waterReadings, table: "water_readings" };
-  throw new TypeError("Tipo de leitura desconhecido.");
-}
-
-function validateBetaReading(type, originalDate, value, date) {
-  if (!currentUserId || !supabaseClient) return "Entre novamente para alterar a leitura.";
-  if (!Number.isFinite(value) || value < 0 || Number.isNaN(new Date(date).getTime())) {
-    return "Informe uma leitura, data e hora válidas.";
-  }
-  const { items } = betaReadingCollection(type);
-  const candidate = items
-    .map((item) => item.date === originalDate ? { value, date: new Date(date).toISOString() } : item)
-    .sort((left, right) => new Date(left.date) - new Date(right.date));
-  if (new Set(candidate.map((item) => item.date)).size !== candidate.length) {
-    return "Já existe uma leitura neste horário.";
-  }
-  if (!calculateConsumptionSummary(candidate).valid) {
-    return "A alteração quebraria a sequência crescente das leituras.";
-  }
-  return "";
-}
-
-async function updateBetaReading({ type, originalDate, value, date }) {
-  const numericValue = Number(value);
-  const parsedDate = new Date(date);
-  const isoDate = Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString();
-  const validationMessage = validateBetaReading(type, originalDate, numericValue, isoDate);
-  if (validationMessage) return { ok: false, message: validationMessage };
-  const { items, table } = betaReadingCollection(type);
-  const original = items.find((item) => item.date === originalDate);
-  if (!original) return { ok: false, message: "A leitura não foi encontrada." };
-  const { error } = await supabaseClient
-    .from(dataTable(table))
-    .update({ value: numericValue, measured_at: isoDate })
-    .eq("user_id", currentUserId)
-    .eq("value", original.value)
-    .eq("measured_at", original.date);
-  if (error) return { ok: false, message: "Não foi possível editar a leitura." };
-  original.value = numericValue;
-  original.date = isoDate;
-  items.sort((left, right) => new Date(left.date) - new Date(right.date));
-  cacheUserData();
-  render();
-  return { ok: true, message: "Leitura atualizada." };
-}
-
-async function deleteBetaReading({ type, date }) {
-  if (!currentUserId || !supabaseClient) return { ok: false, message: "Entre novamente para excluir a leitura." };
-  const { items, table } = betaReadingCollection(type);
-  const reading = items.find((item) => item.date === date);
-  if (!reading) return { ok: false, message: "A leitura não foi encontrada." };
-  const { error } = await supabaseClient
-    .from(dataTable(table))
-    .delete()
-    .eq("user_id", currentUserId)
-    .eq("value", reading.value)
-    .eq("measured_at", reading.date);
-  if (error) return { ok: false, message: "Não foi possível excluir a leitura." };
-  items.splice(items.indexOf(reading), 1);
-  cacheUserData();
-  render();
-  return { ok: true, message: "Leitura excluída." };
-}
-
-async function resetBetaApplication() {
-  const keys = Object.keys(localStorage).filter((key) => key.startsWith(`${APP_ENVIRONMENT.storagePrefix}-`));
-  keys.forEach((key) => localStorage.removeItem(key));
-  sessionStorage.removeItem(SESSION_MARKER_KEY);
-  if ("caches" in window) {
-    const cacheKeys = await caches.keys();
-    await Promise.all(cacheKeys.filter((key) => key.startsWith(`volt-${APP_ENVIRONMENT.id}-`)).map((key) => caches.delete(key)));
-  }
-  await supabaseClient?.auth.signOut();
-  location.reload();
-}
-
-async function refreshBetaData() {
-  if (APP_ENVIRONMENT.id !== "beta" || !currentUserId || !supabaseClient) return false;
-  if (betaRefreshPromise) return betaRefreshPromise;
-  betaRefreshPromise = (async () => {
-    await loadUserData(currentUserId);
-    render();
-    return true;
-  })().finally(() => {
-    betaRefreshPromise = null;
-  });
-  return betaRefreshPromise;
-}
-
-function notifyBetaDataUpdate() {
-  if (APP_ENVIRONMENT.id !== "beta" || betaDataUpdateScheduled) return;
-  betaDataUpdateScheduled = true;
-  queueMicrotask(() => {
-    betaDataUpdateScheduled = false;
-    window.dispatchEvent(new CustomEvent("volt:beta-data", {
-      detail: { updatedAt: new Date().toISOString() }
-    }));
-  });
-}
-
-function renderEngineSettings() {
-  const rows = listEngineDefinitions().map((engine) => {
-    const row = document.createElement("li");
-    row.className = "engine-row";
-
-    const summary = document.createElement("button");
-    summary.className = "engine-summary";
-    summary.type = "button";
-    summary.setAttribute("aria-expanded", "false");
-
-    const detailsId = `engine-details-${engine.id}`;
-    const itemLabel = engine.id === "rule-engine" ? "regras" : "funções";
-    summary.setAttribute("aria-controls", detailsId);
-    summary.setAttribute("aria-label", `Ver ${itemLabel} do ${engine.displayName}`);
-
-    const details = document.createElement("div");
-    const name = document.createElement("strong");
-    name.textContent = engine.displayName;
-    const description = document.createElement("p");
-    description.className = "note";
-    description.textContent = engine.capabilities.join(" · ");
-    details.append(name, description);
-
-    const status = document.createElement("span");
-    status.className = "confidence";
-    status.textContent = engine.lifecycle === "ready"
-      ? "Ativo"
-      : engine.lifecycle === "development"
-        ? "Em desenvolvimento"
-        : "Desativado";
-    status.setAttribute("aria-label", `${engine.displayName}: ${status.textContent}`);
-
-    const chevron = document.createElement("span");
-    chevron.className = "engine-chevron";
-    chevron.textContent = "⌄";
-    chevron.setAttribute("aria-hidden", "true");
-
-    const summaryMeta = document.createElement("span");
-    summaryMeta.className = "engine-summary-meta";
-    summaryMeta.append(status, chevron);
-    summary.append(details, summaryMeta);
-
-    const detailPanel = document.createElement("div");
-    detailPanel.id = detailsId;
-    detailPanel.className = "engine-details";
-    detailPanel.hidden = true;
-
-    const detailList = document.createElement("ul");
-    detailList.className = "engine-detail-list";
-    engine.items.forEach((item) => {
-      const detailItem = document.createElement("li");
-      const detailHeader = document.createElement("div");
-      detailHeader.className = "engine-detail-header";
-      const detailId = document.createElement("strong");
-      detailId.textContent = item.id;
-      const detailStatus = document.createElement("span");
-      detailStatus.className = "engine-detail-status";
-      detailStatus.textContent = item.status === "available" ? "Disponível" : "Em desenvolvimento";
-      detailHeader.append(detailId, detailStatus);
-
-      const detailTitle = document.createElement("h4");
-      detailTitle.textContent = item.title;
-      const detailDescription = document.createElement("p");
-      detailDescription.className = "note";
-      detailDescription.textContent = item.description;
-      detailItem.append(detailHeader, detailTitle, detailDescription);
-      detailList.append(detailItem);
-    });
-    detailPanel.append(detailList);
-
-    summary.addEventListener("click", () => {
-      const expanded = summary.getAttribute("aria-expanded") === "true";
-      summary.setAttribute("aria-expanded", String(!expanded));
-      summary.setAttribute("aria-label", `${expanded ? "Ver" : "Ocultar"} ${itemLabel} do ${engine.displayName}`);
-      detailPanel.hidden = expanded;
-      row.classList.toggle("expanded", !expanded);
-    });
-
-    row.append(summary, detailPanel);
-    return row;
-  });
-  $("#engine-list").replaceChildren(...rows);
-}
-
-function loadUserCache(userId) {
-  try {
-    const cached = JSON.parse(localStorage.getItem(userCacheKey(userId)) || "{}");
-    return {
-      readings: Array.isArray(cached.readings) ? cached.readings : [],
-      settings: { ...DEFAULT_SETTINGS, ...(cached.settings || {}) },
-      waterReadings: Array.isArray(cached.waterReadings) ? cached.waterReadings : [],
-      waterSettings: { ...DEFAULT_WATER_SETTINGS, ...(cached.waterSettings || {}) }
-    };
-  } catch {
-    return { readings: [], settings: { ...DEFAULT_SETTINGS }, waterReadings: [], waterSettings: { ...DEFAULT_WATER_SETTINGS } };
-  }
-}
-
-function populateSettings() {
-  $("#rate").value = settings.rate.toFixed(6);
-  $("#goal").value = settings.goal;
-  $("#tariff-flag").value = settings.flag;
-  $("#lighting-fee").value = settings.lightingFee.toFixed(2);
-}
-
-function populateWaterSettings() {
-  $("#water-rate").value = waterSettings.rate.toFixed(2);
-  $("#water-goal").value = waterSettings.goal;
-  $("#sewer-percent").value = waterSettings.sewerPercent;
-  $("#water-fixed-fee").value = waterSettings.fixedFee.toFixed(2);
-}
-
-function setDefaultDate() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  $("#reading-date").value = now.toISOString().slice(0, 16);
-  if ($("#water-reading-date")) $("#water-reading-date").value = now.toISOString().slice(0, 16);
-}
-
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem(THEME_KEY, theme);
-  document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#0e171d" : "#f3f6f9";
-  document.querySelectorAll(".theme-toggle").forEach((button) => {
-    button.textContent = theme === "dark" ? "☀" : "☾";
-    button.setAttribute("aria-label", theme === "dark" ? "Ativar modo claro" : "Ativar modo noturno");
-  });
-}
-
-/**
- * Monta um item da lista de leituras usando nós DOM.
- *
- * Correção AUD-002 / SEC-005: a versão anterior usava innerHTML com
- * interpolação de template. Embora os valores atuais sejam numéricos e
- * formatados, innerHTML com dado dinâmico é vetor de XSS assim que a
- * origem do dado mudar. Criação de nós com textContent elimina a classe
- * inteira do problema.
- */
-function buildReadingItem(valueLabel, isoDate, deltaLabel) {
-  const li = document.createElement("li");
-
-  const info = document.createElement("div");
-  const strong = document.createElement("strong");
-  strong.textContent = valueLabel;
-
-  const time = document.createElement("time");
-  time.dateTime = isoDate;
-  time.textContent = new Date(isoDate).toLocaleString("pt-BR");
-
-  info.append(strong, document.createElement("br"), time);
-
-  const delta = document.createElement("span");
-  delta.textContent = deltaLabel;
-
-  li.append(info, delta);
-  return li;
-}
-
-function render() {
-  const summary = calculateConsumptionSummary(readings);
-  const integrityAlert = $("#energy-integrity-alert");
-  integrityAlert.hidden = summary.valid;
-  const consumption = summary.valid ? summary.consumption : 0;
-  const progress = calculateGoalProgress(consumption, settings.goal);
-  const flag = FLAGS[settings.flag] || FLAGS.yellow;
-  const estimate = calculateEnergyEstimate(consumption, {
-    rate: settings.rate,
-    flagRate: flag.rate,
-    lightingFee: settings.lightingFee
-  });
-  const currency = (value) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  $("#cycle-consumption").textContent = summary.valid ? consumption.toLocaleString("pt-BR") : "—";
-  $("#estimated-cost").textContent = summary.valid ? currency(estimate.totalCost) : "—";
-  $("#daily-average").textContent = summary.valid ? `${summary.dailyAverage.toFixed(1).replace(".", ",")} kWh` : "—";
-  $("#goal-label").textContent = `Meta: ${settings.goal.toLocaleString("pt-BR")} kWh`;
-  $("#goal-percent").textContent = `${progress}%`;
-  $("#rate-label").textContent = `R$ ${settings.rate.toLocaleString("pt-BR", { minimumFractionDigits: 6, maximumFractionDigits: 6 })}/kWh`;
-  $("#base-cost").textContent = summary.valid ? currency(estimate.baseCost) : "—";
-  $("#flag-cost").textContent = summary.valid ? currency(estimate.flagCost) : "—";
-  $("#flag-cost-label").textContent = `${flag.name} (R$ ${flag.rate.toLocaleString("pt-BR", { minimumFractionDigits: 5, maximumFractionDigits: 5 })}/kWh)`;
-  $("#lighting-cost").textContent = currency(settings.lightingFee);
-  $("#breakdown-total").textContent = summary.valid ? currency(estimate.totalCost) : "—";
-  const badge = $("#flag-badge");
-  badge.textContent = flag.name;
-  badge.className = `flag-badge ${flag.className}`;
-  $("#progress-fill").style.width = `${progress}%`;
-  $("#energy-progress").setAttribute("aria-valuenow", String(progress));
-
-  readingList.replaceChildren(...[...readings].reverse().map((item, reverseIndex) => {
-    const index = readings.length - 1 - reverseIndex;
-    const previous = readings[index - 1]?.value;
-    const delta = previous === undefined ? "Leitura inicial" : `+${(item.value - previous).toLocaleString("pt-BR")} kWh`;
-    return buildReadingItem(`${item.value.toLocaleString("pt-BR")} kWh`, item.date, delta);
-  }));
-  emptyState.hidden = readings.length > 0;
-  renderForecast(readings, settings, "");
-  renderWater();
-}
-
-function getForecast(items, cycleDays = 30) {
-  return forecastLegacyLinear(items, cycleDays);
-}
-
-function renderForecast(items, currentSettings, prefix) {
-  const forecast = getForecast(items);
-  const flag = FLAGS[currentSettings.flag] || FLAGS.yellow;
-  const cost = forecast.usage * (currentSettings.rate + flag.rate) + currentSettings.lightingFee;
-  const low = Math.max(currentSettings.lightingFee, cost * (1 - forecast.uncertainty));
-  const high = cost * (1 + forecast.uncertainty);
-  const currency = (value) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  $(`#${prefix}forecast-consumption`).textContent = forecast.valid ? `${Math.round(forecast.usage).toLocaleString("pt-BR")} kWh` : "—";
-  $(`#${prefix}forecast-cost`).textContent = forecast.valid ? currency(cost) : "—";
-  $(`#${prefix}forecast-confidence`).textContent = `Confiança ${forecast.confidence}`;
-  $(`#${prefix}forecast-confidence`).dataset.level = forecast.confidence;
-  $(`#${prefix}forecast-range`).textContent = !forecast.valid
-    ? "Previsão indisponível até a correção das leituras inconsistentes."
-    : items.length < 2
-    ? "Adicione mais leituras para melhorar a previsão."
-    : `Faixa provável: ${currency(low)} a ${currency(high)}, mantendo o ritmo atual por 30 dias.`;
-}
-
-function waterCost(consumption) {
-  return calculateWaterEstimate(consumption, waterSettings).totalCost;
-}
-
-function renderWater() {
-  const summary = calculateConsumptionSummary(waterReadings);
-  const integrityAlert = $("#water-integrity-alert");
-  integrityAlert.hidden = summary.valid;
-  const consumption = summary.valid ? summary.consumption : 0;
-  const progress = calculateGoalProgress(consumption, waterSettings.goal);
-  const currency = (value) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  $("#water-consumption").textContent = summary.valid ? consumption.toLocaleString("pt-BR", { maximumFractionDigits: 3 }) : "—";
-  $("#water-estimated-cost").textContent = summary.valid ? currency(waterCost(consumption)) : "—";
-  $("#water-daily-average").textContent = summary.valid ? `${summary.dailyAverage.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} m³` : "—";
-  $("#water-goal-label").textContent = `Meta: ${waterSettings.goal.toLocaleString("pt-BR")} m³`;
-  $("#water-goal-percent").textContent = `${progress}%`;
-  $("#water-progress-fill").style.width = `${progress}%`;
-  $("#water-progress").setAttribute("aria-valuenow", String(progress));
-
-  const forecast = getForecast(waterReadings);
-  const forecastCost = waterCost(forecast.usage);
-  const low = Math.max(waterSettings.fixedFee, forecastCost * (1 - forecast.uncertainty));
-  const high = forecastCost * (1 + forecast.uncertainty);
-  $("#water-forecast-consumption").textContent = forecast.valid ? `${forecast.usage.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} m³` : "—";
-  $("#water-forecast-cost").textContent = forecast.valid ? currency(forecastCost) : "—";
-  $("#water-forecast-confidence").textContent = `Confiança ${forecast.confidence}`;
-  $("#water-forecast-confidence").dataset.level = forecast.confidence;
-  $("#water-forecast-range").textContent = !forecast.valid
-    ? "Previsão indisponível até a correção das leituras inconsistentes."
-    : waterReadings.length < 2
-      ? "Adicione mais leituras para melhorar a previsão."
-      : `Faixa provável: ${currency(low)} a ${currency(high)} em 30 dias.`;
-
-  const continuousFlow = detectContinuousWaterFlow(waterReadings);
-  $("#leak-alert").hidden = !continuousFlow.suspicious;
-  if (continuousFlow.suspicious) $("#leak-alert").textContent = `⚠ Avanço médio de ${continuousFlow.litersPerHour.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L/h. Se não houve uso, verifique vazamentos.`;
-
-  $("#water-reading-list").replaceChildren(...[...waterReadings].reverse().map((item, reverseIndex) => {
-    const index = waterReadings.length - 1 - reverseIndex;
-    const previous = waterReadings[index - 1]?.value;
-    const delta = previous === undefined ? "Leitura inicial" : `+${(item.value - previous).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} m³`;
-    const label = `${item.value.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} m³`;
-    return buildReadingItem(label, item.date, delta);
-  }));
-  $("#water-empty-state").hidden = waterReadings.length > 0;
-  notifyBetaDataUpdate();
-}
-
-async function scanMeterPhoto(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  const preview = $("#scanner-preview");
-  const objectUrl = URL.createObjectURL(file);
-  preview.src = objectUrl;
-  preview.hidden = false;
-  $("#scanner-progress").hidden = false;
-  $("#scanner-message").textContent = "Reconhecendo os dígitos…";
-  try {
-    if (!window.Tesseract) throw new Error("OCR indisponível");
-    const result = await window.Tesseract.recognize(file, "eng", {
-      workerPath: "./vendor/tesseract/worker.min.js",
-      corePath: "./vendor/tesseract-core",
-      langPath: "./vendor/tessdata",
-      logger: ({ progress }) => {
-        if (Number.isFinite(progress)) $("#scanner-progress span").style.width = `${Math.round(progress * 100)}%`;
-      }
-    });
-    const candidates = (result.data.text.match(/\d+(?:[.,]\d+)?/g) || [])
-      .map((text) => text.replace(",", ".").replace(/[^\d.]/g, ""))
-      .filter(Boolean)
-      .sort((a, b) => b.replace(".", "").length - a.replace(".", "").length);
-    if (!candidates.length) throw new Error("Nenhum número encontrado");
-    $("#scanner-result").value = candidates[0];
-    $("#scanner-message").textContent = "Número sugerido. Compare com o visor antes de usar.";
-  } catch {
-    $("#scanner-message").textContent = "Não consegui ler com segurança. Digite o número observado na foto.";
-  } finally {
-    $("#scanner-progress").hidden = true;
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
-if ("serviceWorker" in navigator) {
-  addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
 }

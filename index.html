@@ -3,368 +3,186 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f3f6f9">
-  <meta name="description" content="Acompanhe suas leituras e seu consumo de energia.">
+  <meta name="theme-color" content="#0b1720">
+  <meta name="description" content="Acompanhe leituras e consumo de energia e água com o Volt.">
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; child-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <title>Volt</title>
 </head>
 <body>
-  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
-  <noscript>
-    <div class="noscript-warning">
-      <strong>JavaScript desativado.</strong>
-      O Volt precisa de JavaScript para registrar leituras e calcular o consumo.
-      Ative-o nas configurações do navegador e recarregue a página.
-    </div>
-  </noscript>
-  <main class="shell" id="conteudo">
-    <section id="welcome" class="screen auth-screen">
-      <div class="welcome-actions">
-        <div class="brand-mark" aria-hidden="true">ϟ</div>
-        <button class="theme-toggle icon-button" type="button" aria-label="Ativar modo noturno" title="Alternar tema">☾</button>
-      </div>
-      <p class="eyebrow">VOLT CONSUMO <span id="auth-environment-badge" class="environment-badge" hidden></span></p>
+  <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+  <noscript><p class="fatal-message">O Volt precisa de JavaScript para funcionar.</p></noscript>
+
+  <main id="main-content" class="app-shell">
+    <section id="boot-screen" class="state-screen" aria-live="polite">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <h1>Volt</h1>
+      <p id="boot-message">Iniciando com segurança…</p>
+    </section>
+
+    <section id="login-screen" class="state-screen auth-screen" hidden>
+      <header class="brand-header">
+        <span class="brand-mark" aria-hidden="true">V</span>
+        <button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema">◐</button>
+      </header>
+      <p class="eyebrow">VOLT CONSUMO</p>
       <h1>Sua energia,<br>mais clara.</h1>
-      <p class="lead">Registre o medidor, acompanhe seu consumo e antecipe o valor da próxima conta.</p>
+      <p class="lead">Registre o medidor, acompanhe o consumo e antecipe a próxima conta.</p>
       <form id="login-form" class="card form">
-        <label><span>E-mail</span><input id="login-email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required></label>
-        <label><span>Senha</span><input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
-        <label class="remember-option"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
-        <label class="remember-option"><input id="privacy-ack" type="checkbox"><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a> (necessário somente para criar conta)</span></label>
-        <button id="login-button" class="primary-button" type="submit">Entrar</button>
+        <label><span>E-mail</span><input id="login-email" name="email" type="email" autocomplete="username" required></label>
+        <label><span>Senha</span><input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+        <label class="checkbox-row"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
+        <button id="login-submit" class="primary-button" type="submit">Entrar</button>
         <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
         <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
+        <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
       </form>
-      <p id="login-message" class="note auth-note" role="status" aria-live="polite">Verificando sessão…</p>
     </section>
 
-    <section id="dashboard" class="screen dashboard" hidden>
-      <header class="topbar">
-        <div><p class="eyebrow">MEU CONSUMO <span id="environment-badge" class="environment-badge" hidden></span></p><h1>Olá, <span id="user-name">usuário</span></h1></div>
-        <div class="header-actions">
-          <button class="theme-toggle icon-button" type="button" aria-label="Ativar modo noturno" title="Alternar tema">☾</button>
-          <button id="open-settings" class="icon-button" type="button" aria-label="Configurações" title="Configurações">⚙</button>
-          <button id="logout" class="icon-button" type="button" aria-label="Sair" title="Sair">↗</button>
-        </div>
+    <section id="mfa-screen" class="state-screen auth-screen" hidden>
+      <p class="eyebrow">VERIFICAÇÃO</p>
+      <h1>Confirme seu acesso</h1>
+      <form id="mfa-form" class="card form">
+        <label><span>Código do autenticador</span><input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+        <button class="primary-button" type="submit">Verificar</button>
+        <button id="mfa-cancel" class="secondary-button" type="button">Cancelar e sair</button>
+        <p id="mfa-message" class="status-message" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="error-screen" class="state-screen auth-screen" hidden>
+      <p class="eyebrow">INICIALIZAÇÃO INTERROMPIDA</p>
+      <h1>O Volt não pôde carregar</h1>
+      <p id="fatal-error-message" class="fatal-message"></p>
+      <button id="retry-bootstrap" class="primary-button" type="button">Tentar novamente</button>
+      <button id="error-logout" class="secondary-button" type="button">Sair da conta</button>
+    </section>
+
+    <section id="dashboard" class="dashboard" hidden>
+      <header class="app-header">
+        <div><p class="eyebrow">VOLT CONSUMO</p><h1 id="greeting">Olá!</h1></div>
+        <button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema">◐</button>
       </header>
 
-      <div class="meter-tabs" role="tablist" aria-label="Tipo de medidor">
-        <button class="meter-tab active" type="button" role="tab" id="tab-energy"
-                aria-selected="true" aria-controls="energy-panel" data-meter="energy">⚡ Energia</button>
-        <button class="meter-tab" type="button" role="tab" id="tab-water"
-                aria-selected="false" aria-controls="water-panel" tabindex="-1" data-meter="water">💧 Água</button>
-      </div>
-
-      <div id="energy-panel" class="meter-panel" role="tabpanel" aria-labelledby="tab-energy" tabindex="0">
-      <p id="energy-integrity-alert" class="leak-alert" role="alert" hidden>As leituras estão inconsistentes. O consumo não foi calculado; revise o histórico.</p>
-
-      <article class="hero-card">
-        <div class="row hero-heading"><p>Consumo neste ciclo</p><span id="flag-badge" class="flag-badge">Bandeira amarela</span></div>
-        <strong><span id="cycle-consumption">0</span> <small>kWh</small></strong>
-        <div id="energy-progress" class="progress" role="progressbar" aria-label="Progresso da meta mensal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
-        <div class="row"><span id="goal-label">Meta: 250 kWh</span><span id="goal-percent">0%</span></div>
-      </article>
-
-      <div class="metrics">
-        <article class="card metric"><p>Total estimado</p><strong id="estimated-cost">R$ 0,00</strong><small>Energia + bandeira + iluminação</small></article>
-        <article class="card metric"><p>Média diária</p><strong id="daily-average">0 kWh</strong><small>No ciclo atual</small></article>
-      </div>
-
-      <section class="card forecast-card" aria-labelledby="forecast-title">
-        <div class="section-heading"><h2 id="forecast-title">Previsão do próximo ciclo</h2><span id="forecast-confidence" class="confidence">Confiança baixa</span></div>
-        <div class="forecast-grid">
-          <div><small>Consumo previsto</small><strong id="forecast-consumption">0 kWh</strong></div>
-          <div><small>Conta prevista</small><strong id="forecast-cost">R$ 32,00</strong></div>
-        </div>
-        <p id="forecast-range" class="note">Adicione mais leituras para melhorar a previsão.</p>
-      </section>
-
-      <section class="card cost-breakdown" aria-labelledby="cost-title">
-        <div class="section-heading"><h2 id="cost-title">Composição estimada</h2><span id="rate-label">R$ 0,894560/kWh</span></div>
-        <dl>
-          <div><dt>Energia consumida</dt><dd id="base-cost">R$ 0,00</dd></div>
-          <div><dt id="flag-cost-label">Bandeira amarela</dt><dd id="flag-cost">R$ 0,00</dd></div>
-          <div><dt>Iluminação pública</dt><dd id="lighting-cost">R$ 32,00</dd></div>
-          <div class="breakdown-total"><dt>Total</dt><dd id="breakdown-total">R$ 0,00</dd></div>
-        </dl>
-        <p class="note">Estimativa sem impostos ou outros encargos que possam constar na fatura.</p>
-      </section>
-
-      <dialog id="energy-reading-dialog" class="reading-dialog" aria-labelledby="energy-reading-title">
-      <section class="dialog-card reading-card">
-        <div class="section-heading"><p class="eyebrow">NOVA LEITURA</p><button class="icon-button close-reading-dialog" type="button" aria-label="Fechar">×</button></div>
-        <h2 id="energy-reading-title">Registre seu medidor</h2>
-        <p class="note">Informe o valor exibido no medidor e a data exata da leitura.</p>
-        <form id="reading-form" class="form">
-          <label><span>Leitura atual (kWh)</span><input id="reading" type="number" inputmode="numeric" min="0" step="1" placeholder="00000" required></label>
-          <label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label>
-          <button class="scan-button secondary-button" type="button" data-scan-target="reading" data-unit="kWh">📷 Escanear medidor</button>
-          <button class="primary-button" type="submit">Salvar leitura</button>
-        </form>
-        <p id="reading-message" class="note status-message" role="status" aria-live="polite"></p>
-      </section>
-      </dialog>
-
-      <details class="card settings-card">
-        <summary>Preferências de cálculo</summary>
-        <form id="settings-form" class="form compact-form">
-          <label><span>Tarifa por kWh (R$)</span><input id="rate" type="number" inputmode="decimal" min="0" step="0.000001" required></label>
-          <label><span>Meta mensal (kWh)</span><input id="goal" type="number" inputmode="numeric" min="1" step="1" required></label>
-          <label><span>Bandeira tarifária</span><select id="tariff-flag" required><option value="green">Verde — sem adicional</option><option value="yellow">Amarela — R$ 0,01885/kWh</option><option value="red1">Vermelha 1 — R$ 0,04463/kWh</option><option value="red2">Vermelha 2 — R$ 0,07877/kWh</option></select></label>
-          <label><span>Iluminação pública fixa (R$)</span><input id="lighting-fee" type="number" inputmode="decimal" min="0" step="0.01" required></label>
-          <button class="secondary-button" type="submit">Salvar preferências</button>
-        </form>
-        <p id="settings-message" class="note status-message" role="status" aria-live="polite"></p>
-      </details>
-
-      <div class="section-heading"><h2>Últimas leituras</h2><button id="clear-readings" class="text-button" type="button">Limpar</button></div>
-      <div id="empty-state" class="empty">Nenhuma leitura registrada ainda.</div>
-      <ul id="reading-list" class="reading-list"></ul>
-      </div>
-
-      <div id="water-panel" class="meter-panel" role="tabpanel" aria-labelledby="tab-water" tabindex="0" hidden>
-        <p id="water-integrity-alert" class="leak-alert" role="alert" hidden>As leituras de água estão inconsistentes. O consumo não foi calculado; revise o histórico.</p>
-        <article class="hero-card water-hero">
-          <div class="row hero-heading"><p>Consumo de água neste ciclo</p><span class="flag-badge water-badge">Água</span></div>
-          <strong><span id="water-consumption">0</span> <small>m³</small></strong>
-          <div id="water-progress" class="progress" role="progressbar" aria-label="Progresso da meta de água" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="water-progress-fill"></span></div>
-          <div class="row"><span id="water-goal-label">Meta: 15 m³</span><span id="water-goal-percent">0%</span></div>
-        </article>
-
-        <div class="metrics">
-          <article class="card metric"><p>Total estimado</p><strong id="water-estimated-cost">R$ 0,00</strong><small>Água + esgoto + taxa fixa</small></article>
-          <article class="card metric"><p>Média diária</p><strong id="water-daily-average">0 m³</strong><small>No ciclo atual</small></article>
-        </div>
-
-        <section class="card forecast-card">
-          <div class="section-heading"><h2>Previsão do próximo ciclo</h2><span id="water-forecast-confidence" class="confidence">Confiança baixa</span></div>
-          <div class="forecast-grid">
-            <div><small>Consumo previsto</small><strong id="water-forecast-consumption">0 m³</strong></div>
-            <div><small>Conta prevista</small><strong id="water-forecast-cost">R$ 0,00</strong></div>
+      <main id="page-container" class="page-container">
+        <section id="page-home" class="page" data-page="home" aria-labelledby="home-title">
+          <div class="page-heading"><div><p class="eyebrow">CICLOS ATUAIS</p><h2 id="home-title">Consumo consolidado</h2></div><span id="cycle-label" class="chip"></span></div>
+          <div class="utility-grid">
+            <article class="utility-card energy"><p>Energia</p><strong id="home-energy-consumption"></strong><small id="home-energy-cycle"></small><strong id="home-energy-cost"></strong></article>
+            <article class="utility-card water"><p>Água</p><strong id="home-water-consumption"></strong><small id="home-water-cycle"></small><strong id="home-water-cost"></strong></article>
           </div>
-          <p id="water-forecast-range" class="note">Adicione mais leituras para melhorar a previsão.</p>
-          <p id="leak-alert" class="leak-alert" hidden>⚠ Consumo contínuo detectado. Verifique possíveis vazamentos.</p>
+          <article class="card summary-card"><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Total estimado</h2><strong id="home-total-cost" class="total-value"></strong><div id="home-summary" class="summary-grid"></div></article>
         </section>
 
-        <dialog id="water-reading-dialog" class="reading-dialog" aria-labelledby="water-reading-title">
-        <section class="dialog-card reading-card">
-          <div class="section-heading"><p class="eyebrow">NOVA LEITURA DE ÁGUA</p><button class="icon-button close-reading-dialog" type="button" aria-label="Fechar">×</button></div>
-          <h2 id="water-reading-title">Registre seu hidrômetro</h2>
-          <p class="note">Use os dígitos pretos em m³. Os decimais podem ser informados para detectar pequenos vazamentos.</p>
-          <form id="water-reading-form" class="form">
-            <label><span>Leitura atual (m³)</span><input id="water-reading" type="number" inputmode="decimal" min="0" step="0.001" placeholder="00000,000" required></label>
-            <label><span>Data e hora</span><input id="water-reading-date" type="datetime-local" required></label>
-            <button class="scan-button secondary-button" type="button" data-scan-target="water-reading" data-unit="m³">📷 Escanear hidrômetro</button>
-            <button class="primary-button" type="submit">Salvar leitura</button>
-          </form>
-          <p id="water-reading-message" class="note status-message" role="status" aria-live="polite"></p>
+        <section id="page-readings" class="page" data-page="readings" aria-labelledby="readings-title" hidden>
+          <div class="page-heading"><div><p class="eyebrow">HISTÓRICO</p><h2 id="readings-title">Leituras</h2></div><button class="primary-button compact" type="button" data-action="open-reading">Nova leitura</button></div>
+          <p id="readings-message" class="status-message" role="status" aria-live="polite"></p>
+          <div id="readings-empty" class="empty" hidden>Nenhuma leitura registrada ainda.</div>
+          <ul id="readings-list" class="reading-list"></ul>
         </section>
-        </dialog>
 
-        <details class="card settings-card">
-          <summary>Preferências de água</summary>
-          <form id="water-settings-form" class="form compact-form">
-            <label><span>Tarifa média por m³ (R$)</span><input id="water-rate" type="number" inputmode="decimal" min="0" step="0.01" required></label>
-            <label><span>Meta mensal (m³)</span><input id="water-goal" type="number" inputmode="decimal" min="0.1" step="0.1" required></label>
-            <label><span>Esgoto sobre a água (%)</span><input id="sewer-percent" type="number" inputmode="decimal" min="0" step="1" required></label>
-            <label><span>Taxa fixa (R$)</span><input id="water-fixed-fee" type="number" inputmode="decimal" min="0" step="0.01" required></label>
-            <button class="secondary-button" type="submit">Salvar preferências</button>
-          </form>
-          <p id="water-settings-message" class="note status-message" role="status" aria-live="polite"></p>
-        </details>
+        <section id="page-reports" class="page empty-page" data-page="reports" aria-label="Relatórios" hidden></section>
 
-        <div class="section-heading"><h2>Últimas leituras de água</h2><button id="clear-water-readings" class="text-button" type="button">Limpar</button></div>
-        <div id="water-empty-state" class="empty">Nenhuma leitura de água registrada ainda.</div>
-        <ul id="water-reading-list" class="reading-list"></ul>
-      </div>
-      <button id="new-reading-fab" class="reading-fab" type="button" aria-label="Registrar uma nova leitura" title="Registrar uma nova leitura"><span aria-hidden="true">ϟ</span></button>
+        <section id="page-users" class="page" data-page="users" aria-labelledby="users-title" hidden>
+          <div class="page-heading"><div><p class="eyebrow">ADMINISTRAÇÃO</p><h2 id="users-title">Usuários</h2></div><button id="invite-user" class="primary-button compact" type="button">Convidar usuário</button></div>
+          <p id="users-message" class="status-message" role="status" aria-live="polite"></p>
+          <article id="organization-summary" class="card admin-summary"></article>
+          <section class="card"><h3>Membros</h3><div id="members-list" class="member-list"></div></section>
+          <section class="card"><h3>Convites pendentes</h3><div id="invitations-list" class="member-list"></div></section>
+        </section>
+
+        <section id="page-settings" class="page" data-page="settings" aria-labelledby="settings-title" hidden>
+          <div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="settings-title">Configurações</h2></div></div>
+          <section class="card settings-group">
+            <div class="settings-heading"><h3>Conta</h3><button id="logout" class="text-button" type="button">Sair</button></div>
+            <form id="account-form" class="form two-columns">
+              <label><span>Nome de exibição</span><input id="display-name" type="text" maxlength="40" autocomplete="name" required></label>
+              <label><span>E-mail</span><input id="account-email" type="email" readonly aria-readonly="true"></label>
+              <button class="secondary-button" type="submit">Salvar nome</button>
+              <p id="account-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+          <section class="card settings-group">
+            <h3>Ciclos de contagem</h3>
+            <form id="cycles-form" class="form cycle-grid">
+              <fieldset><legend>Energia</legend><label><span>Início</span><input id="energy-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="energy-cycle-end" type="number" min="1" max="31" required></label></fieldset>
+              <fieldset><legend>Água</legend><label><span>Início</span><input id="water-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="water-cycle-end" type="number" min="1" max="31" required></label></fieldset>
+              <button class="secondary-button" type="submit">Salvar ciclos</button>
+              <p id="cycles-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+          <section class="card settings-group">
+            <h3>Energia</h3>
+            <form id="energy-settings-form" class="form two-columns">
+              <label><span>Tarifa por kWh (R$)</span><input id="energy-rate" type="number" min="0" step="0.000001" required></label>
+              <label><span>Meta mensal (kWh)</span><input id="energy-goal" type="number" min="1" step="1" required></label>
+              <label><span>Bandeira</span><select id="energy-flag"><option value="green">Verde</option><option value="yellow">Amarela</option><option value="red1">Vermelha 1</option><option value="red2">Vermelha 2</option></select></label>
+              <label><span>Iluminação pública (R$)</span><input id="lighting-fee" type="number" min="0" step="0.01" required></label>
+              <button class="secondary-button" type="submit">Salvar energia</button><p id="energy-settings-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+          <section class="card settings-group">
+            <h3>Água</h3>
+            <form id="water-settings-form" class="form two-columns">
+              <label><span>Tarifa por m³ (R$)</span><input id="water-rate" type="number" min="0" step="0.01" required></label>
+              <label><span>Meta mensal (m³)</span><input id="water-goal" type="number" min="0.1" step="0.1" required></label>
+              <label><span>Esgoto (%)</span><input id="sewer-percent" type="number" min="0" step="1" required></label>
+              <label><span>Taxa fixa (R$)</span><input id="water-fixed-fee" type="number" min="0" step="0.01" required></label>
+              <button class="secondary-button" type="submit">Salvar água</button><p id="water-settings-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+          <section class="card settings-group">
+            <h3>Região e concessionárias</h3>
+            <form id="locality-form" class="form two-columns">
+              <label><span>País</span><select id="locality-country"><option value="BR">Brasil</option></select></label>
+              <label><span>UF</span><input id="locality-state" type="text" minlength="2" maxlength="2" autocomplete="address-level1" placeholder="AM" required></label>
+              <label><span>Município</span><input id="locality-city" type="text" maxlength="80" autocomplete="address-level2" required></label>
+              <label><span>Concessionária de energia</span><input id="energy-provider" type="text" maxlength="120"></label>
+              <label><span>Concessionária de água</span><input id="water-provider" type="text" maxlength="120"></label>
+              <button class="secondary-button" type="submit">Salvar região</button>
+              <p id="locality-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+        </section>
+      </main>
+
+      <button id="reading-fab" class="reading-fab" type="button" data-action="open-reading">Registrar nova leitura</button>
+      <nav class="bottom-navigation" aria-label="Navegação principal">
+        <button type="button" data-nav="home" aria-current="page">Início</button>
+        <button type="button" data-nav="readings">Leituras</button>
+        <button type="button" data-nav="reports">Relatórios</button>
+        <button id="users-nav" type="button" data-nav="users" hidden>Usuários</button>
+        <button type="button" data-nav="settings">Configurações</button>
+      </nav>
     </section>
   </main>
-  <dialog id="clear-dialog" aria-labelledby="clear-dialog-title">
-    <form method="dialog" class="dialog-card">
-      <h2 id="clear-dialog-title">Limpar histórico?</h2>
-      <p>As leituras salvas neste aparelho serão removidas.</p>
-      <div class="dialog-actions"><button value="cancel" class="secondary-button">Cancelar</button><button value="confirm" class="danger-button">Limpar</button></div>
-    </form>
-  </dialog>
-  <dialog id="scanner-dialog" aria-labelledby="scanner-dialog-title">
-    <div class="dialog-card scanner-card">
-      <div class="section-heading"><h2 id="scanner-dialog-title">Escanear medidor</h2><button id="close-scanner" class="icon-button" type="button" aria-label="Fechar">×</button></div>
-      <p class="note">Enquadre apenas os números do visor, evite reflexos e mantenha a câmera firme.</p>
-      <label class="camera-picker"><span>📷 Abrir câmera</span><input id="meter-photo" type="file" accept="image/*" capture="environment"></label>
-      <img id="scanner-preview" alt="Prévia do medidor" hidden>
-      <div id="scanner-progress" class="scanner-progress" hidden><span></span><p>Analisando os números…</p></div>
-      <label><span>Número reconhecido — confira antes de usar</span><input id="scanner-result" type="number" inputmode="decimal" min="0" step="0.001" placeholder="Aguardando foto"></label>
-      <p id="scanner-message" class="note status-message" role="status"></p>
-      <button id="use-scanner-result" class="primary-button" type="button">Usar esta leitura</button>
-    </div>
-  </dialog>
-  <dialog id="privacy-dialog" class="privacy-dialog" aria-labelledby="privacy-dialog-title">
-    <div class="dialog-card privacy-card">
-      <div class="section-heading">
-        <div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="privacy-dialog-title">Configurações</h2></div>
-        <button id="close-privacy" class="icon-button" type="button" aria-label="Fechar">×</button>
-      </div>
 
-      <section class="privacy-section settings-section" aria-labelledby="engines-title">
-        <h3 id="engines-title">Motores</h3>
-        <p class="note">Estrutura modular em desenvolvimento. Somente regras e fórmulas de exemplo estão habilitadas para validação local.</p>
-        <ul id="engine-list" class="engine-list" aria-label="Motores disponíveis"></ul>
-      </section>
-
-      <section class="privacy-section settings-section" aria-labelledby="privacy-title">
-        <h3 id="privacy-title">Privacidade e dados</h3>
-        <p class="note">Controle a cópia deste dispositivo, exporte seus dados ou registre uma solicitação. Operações ficam vinculadas à sua conta autenticada.</p>
-      </section>
-
-      <section class="privacy-section" aria-labelledby="mfa-title">
-        <h3 id="mfa-title">Autenticação em duas etapas</h3>
-        <p id="mfa-status" class="note status-message">Verificando proteção da conta…</p>
-        <div class="dialog-actions"><button id="mfa-enable" class="secondary-button" type="button">Ativar autenticador</button><button id="mfa-backup-regenerate" class="secondary-button" type="button" hidden>Gerar novos códigos de backup</button><button id="mfa-disable" class="danger-button" type="button" hidden>Desativar autenticador</button></div>
-      </section>
-
-      <section class="privacy-section" aria-labelledby="device-data-title">
-        <h3 id="device-data-title">Dados neste dispositivo</h3>
-        <label class="remember-option"><input id="offline-data" type="checkbox"><span>Permitir cópia offline das leituras e preferências</span></label>
-        <p class="note">Desativado por padrão. Ao desligar, a cópia local é removida imediatamente; os dados salvos na conta permanecem no banco.</p>
-      </section>
-
-      <section class="privacy-section" aria-labelledby="portability-title">
-        <h3 id="portability-title">Acesso e portabilidade</h3>
-        <button id="export-data" class="secondary-button" type="button">Baixar meus dados (JSON)</button>
-      </section>
-
-      <section class="privacy-section" aria-labelledby="rights-title">
-        <h3 id="rights-title">Exercer um direito</h3>
-        <form id="privacy-request-form" class="form">
-          <label><span>Tipo de solicitação</span>
-            <select id="privacy-request-type" required>
-              <option value="confirmation">Confirmação de tratamento</option>
-              <option value="access">Acesso aos dados</option>
-              <option value="correction">Correção de dados</option>
-              <option value="portability">Portabilidade</option>
-              <option value="anonymization">Anonimização ou bloqueio</option>
-              <option value="deletion">Exclusão da conta e dos dados</option>
-              <option value="opposition">Oposição ao tratamento</option>
-            </select>
-          </label>
-          <button id="submit-privacy-request" class="primary-button" type="submit">Registrar solicitação</button>
-        </form>
-        <p id="privacy-message" class="note status-message" role="status" aria-live="polite"></p>
-      </section>
-
-      <p class="note privacy-policy-link"><a href="./privacy.html" target="_blank" rel="noopener">Ler o Aviso de Privacidade completo</a></p>
-    </div>
-  </dialog>
-
-  <dialog id="signup-dialog" aria-labelledby="signup-title">
-    <form id="signup-form" class="dialog-card form">
-      <div class="section-heading">
-        <div><p class="eyebrow">PRIMEIRO ACESSO</p><h2 id="signup-title">Criar conta</h2></div>
-        <button id="close-signup" class="icon-button" type="button" aria-label="Fechar">×</button>
-      </div>
-      <p class="note">Informe seu nome, e-mail e uma senha para começar.</p>
-      <label><span>Nome</span><input id="signup-name" type="text" maxlength="80" autocomplete="name" placeholder="Seu nome" required></label>
-      <label><span>E-mail</span><input id="signup-email" type="email" autocomplete="email" placeholder="voce@exemplo.com" required></label>
-      <label><span>Senha</span><input id="signup-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="Mínimo de 8 caracteres" required></label>
-      <label><span>Confirmar senha</span><input id="signup-password-confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
-      <label class="remember-option"><input id="signup-privacy-ack" type="checkbox" required><span>Li o <a href="./privacy.html" target="_blank" rel="noopener">Aviso de Privacidade</a>.</span></label>
-      <p id="signup-message" class="note status-message" role="status" aria-live="polite"></p>
-      <button id="create-account" class="primary-button" type="submit">Criar conta</button>
+  <dialog id="reading-dialog">
+    <form id="reading-form" class="dialog-card form">
+      <div class="dialog-heading"><h2>Nova leitura</h2><button class="icon-button" type="button" data-close-dialog="reading-dialog" aria-label="Fechar">×</button></div>
+      <label><span>Tipo</span><select id="reading-type"><option value="energy">Energia (kWh)</option><option value="water">Água (m³)</option></select></label>
+      <label><span>Leitura atual</span><input id="reading-value" type="number" min="0" step="0.001" required></label>
+      <label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label>
+      <button class="primary-button" type="submit">Salvar leitura</button>
+      <p id="reading-message" class="status-message" role="status" aria-live="polite"></p>
     </form>
   </dialog>
 
-  <dialog id="email-confirmation-dialog" aria-labelledby="email-confirmation-title">
-    <div class="dialog-card form">
-      <div class="section-heading">
-        <div><p class="eyebrow">CONFIRMAÇÃO</p><h2 id="email-confirmation-title">Confira seu e-mail</h2></div>
-        <button id="close-email-confirmation" class="icon-button" type="button" aria-label="Fechar">×</button>
-      </div>
-      <p>Enviamos um link de confirmação para <strong id="confirmation-email">—</strong>.</p>
-      <p class="note">Abra o link recebido antes de entrar. Verifique também a caixa de spam.</p>
-      <p id="email-confirmation-message" class="note status-message" role="status" aria-live="polite"></p>
-      <button id="resend-confirmation" class="secondary-button" type="button">Reenviar e-mail</button>
-      <button id="change-confirmation-email" class="text-button" type="button">Alterar e-mail</button>
-      <button id="confirmed-email" class="primary-button" type="button">Já confirmei</button>
-    </div>
-  </dialog>
-
-  <dialog id="password-recovery-dialog" aria-labelledby="password-recovery-title">
-    <form id="password-recovery-form" class="dialog-card form">
-      <div class="section-heading">
-        <div><p class="eyebrow">SEGURANÇA</p><h2 id="password-recovery-title">Definir nova senha</h2></div>
-        <button id="close-password-recovery" class="icon-button" type="button" aria-label="Fechar">×</button>
-      </div>
-      <p class="note">Use pelo menos 8 caracteres. Uma senha longa e exclusiva é mais segura.</p>
-      <label><span>Nova senha</span><input id="recovery-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
-      <label><span>Confirmar nova senha</span><input id="recovery-password-confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
-      <p id="password-recovery-message" class="note status-message" role="status" aria-live="polite"></p>
-      <button id="save-recovery-password" class="primary-button" type="submit">Atualizar senha</button>
+  <dialog id="invite-dialog">
+    <form id="invite-form" class="dialog-card form">
+      <div class="dialog-heading"><h2>Convidar usuário</h2><button class="icon-button" type="button" data-close-dialog="invite-dialog" aria-label="Fechar">×</button></div>
+      <label><span>E-mail</span><input id="invite-email" type="email" required></label>
+      <label><span>Papel</span><select id="invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label>
+      <button class="primary-button" type="submit">Criar convite</button>
+      <label id="invite-result-row" hidden><span>Link de uso único</span><input id="invite-result" readonly aria-readonly="true"></label>
+      <p id="invite-message" class="status-message" role="status" aria-live="polite"></p>
     </form>
   </dialog>
 
-  <dialog id="onboarding-dialog" aria-labelledby="onboarding-title" class="onboarding-dialog">
-    <div class="dialog-card onboarding-card">
-      <div class="section-heading">
-        <div><p class="eyebrow">BEM-VINDO</p><h2 id="onboarding-title">Volt Consumo</h2></div>
-      </div>
-      <div id="onboarding-content" class="onboarding-content">
-        <!-- Slides serão inseridos aqui via JavaScript -->
-      </div>
-      <div class="onboarding-footer">
-        <button id="onboarding-skip" class="text-button" type="button">Pular</button>
-        <div class="onboarding-indicators">
-          <!-- Indicadores serão inseridos aqui via JavaScript -->
-        </div>
-        <button id="onboarding-next" class="primary-button" type="button">Próximo</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="mfa-enrollment-dialog" aria-labelledby="mfa-enrollment-title">
-    <form id="mfa-enrollment-form" class="dialog-card form">
-      <div class="section-heading"><div><p class="eyebrow">SEGURANÇA</p><h2 id="mfa-enrollment-title">Ativar autenticador</h2></div><button id="close-mfa-enrollment" class="icon-button" type="button" aria-label="Fechar">×</button></div>
-      <p class="note">Leia o QR code no Google Authenticator, Authy ou aplicativo compatível.</p>
-      <img id="mfa-qr-code" class="mfa-qr-code" alt="QR code para configurar o autenticador">
-      <label><span>Chave para configuração manual</span><input id="mfa-secret" type="text" readonly aria-readonly="true"></label>
-      <label><span>Código de 6 dígitos</span><input id="mfa-enrollment-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
-      <p id="mfa-enrollment-message" class="note status-message" role="status" aria-live="polite"></p>
-      <button class="primary-button" type="submit">Confirmar e ativar</button>
-    </form>
-  </dialog>
-  <dialog id="mfa-challenge-dialog" aria-labelledby="mfa-challenge-title">
-    <form id="mfa-challenge-form" class="dialog-card form">
-      <div class="section-heading"><div><p class="eyebrow">VERIFICAÇÃO</p><h2 id="mfa-challenge-title">Código do autenticador</h2></div></div>
-      <p class="note">Confirme o código atual para concluir o acesso.</p>
-      <label><span>Código de 6 dígitos</span><input id="mfa-challenge-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
-      <p id="mfa-challenge-message" class="note status-message" role="status" aria-live="polite"></p>
-      <div class="dialog-actions"><button id="cancel-mfa-challenge" class="secondary-button" type="button">Cancelar e sair</button><button class="primary-button" type="submit">Verificar</button></div>
-      <button id="show-mfa-backup-recovery" class="text-button" type="button">Usar um código de backup</button>
-      <section id="mfa-backup-recovery-panel" class="mfa-backup-panel" hidden>
-        <label><span>Código de backup</span><input id="mfa-backup-code" type="text" inputmode="text" autocomplete="one-time-code" spellcheck="false" pattern="[0-9A-Fa-f]{4}(?:-[0-9A-Fa-f]{4}){3}" maxlength="19"></label>
-        <p class="note">A recuperação remove os fatores MFA e encerra todas as sessões. Depois, entre novamente e cadastre um novo autenticador.</p>
-        <button id="recover-mfa-backup" class="danger-button" type="button">Recuperar acesso</button>
-      </section>
-    </form>
-  </dialog>
-  <dialog id="mfa-backup-codes-dialog" aria-labelledby="mfa-backup-codes-title">
-    <div class="dialog-card form">
-      <div class="section-heading"><div><p class="eyebrow">SEGURANÇA</p><h2 id="mfa-backup-codes-title">Códigos de backup</h2></div></div>
-      <p class="note">Guarde estes códigos em local seguro. Cada código funciona uma única vez e esta lista não será exibida novamente.</p>
-      <pre id="mfa-backup-codes" class="mfa-backup-codes" aria-label="Dez códigos de backup"></pre>
-      <label class="remember-option"><input id="mfa-backup-confirmation" type="checkbox"><span>Salvei os códigos em um local seguro</span></label>
-      <button id="close-mfa-backup-codes" class="primary-button" type="button" disabled>Concluir</button>
-    </div>
-  </dialog>
-  <script src="./vendor/supabase/supabase.js" defer></script>
-  <script src="./vendor/tesseract/tesseract.min.js" defer></script>
-  <script src="./config.js" defer></script>
-  <script type="module" src="./environment.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // VOLT Service Worker — shell same-origin com cache sob demanda para módulos secundários.
-const CACHE="volt-beta-shell-v95";
+const CACHE="volt-beta-shell-v96";
 const CORE_ASSETS=[
   "./",
   "./index.html",
@@ -42,6 +42,8 @@ const OPTIONAL_ASSETS=[
   "./initial-bill-setup.css",
   "./separate-cycles.js",
   "./cycle-authority.css",
+  "./reports-v3.js",
+  "./reports-v3.css",
   "./test-account-reset.js",
   "./test-account-onboarding-prefill.js",
   "./energy-detail.js",

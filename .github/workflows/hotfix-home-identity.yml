@@ -1,0 +1,72 @@
+name: Corrigir Home e identidade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hotfix-home-identity.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Aplicar correções cirúrgicas
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFile, writeFile } from 'node:fs/promises';
+          import { execFileSync } from 'node:child_process';
+
+          const path = 'beta/beta-shell.js';
+          const expectedBlob = '90a499e6ba6293c638a4b932b743668161f1ca1e';
+          const currentBlob = execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim();
+          assert.equal(currentBlob, expectedBlob, `beta-shell.js mudou antes da correção: ${currentBlob}`);
+
+          let source = await readFile(path, 'utf8');
+
+          const cardMatches = source.match(/<article class="tariff-info-card">/g) || [];
+          assert.equal(cardMatches.length, 1, 'esperava exatamente um card Tarifas e encargos');
+          source = source.replace(/\n        <article class="tariff-info-card">[\s\S]*?\n        <\/article>(?=\n      <\/section>)/, '');
+
+          const oldNameLine = '  const displayName = snapshot.account.displayName?.trim();';
+          assert.equal(source.split(oldNameLine).length - 1, 1, 'linha do nome de exibição não encontrada de forma única');
+          source = source.replace(
+            oldNameLine,
+            '  const legacyDisplayName = document.querySelector("#user-name")?.textContent?.trim() || "";\n  const displayName = snapshot.account.displayName?.trim() || legacyDisplayName;'
+          );
+
+          const tariffCall = '  renderTariffInformation();\n';
+          assert.equal(source.split(tariffCall).length - 1, 1, 'chamada renderTariffInformation não encontrada de forma única');
+          source = source.replace(tariffCall, '');
+
+          const rendererMatches = source.match(/function renderTariffInformation\(\)/g) || [];
+          assert.equal(rendererMatches.length, 1, 'esperava exatamente um renderer tarifário legado');
+          source = source.replace(/\nfunction renderTariffInformation\(\) \{[\s\S]*?\n\}\n\n(?=function renderFinancialSummary)/, '\n');
+
+          assert.doesNotMatch(source, /Tarifas e encargos/, 'texto do card legado permaneceu no shell');
+          assert.doesNotMatch(source, /tariff-info-card/, 'markup do card legado permaneceu no shell');
+          assert.doesNotMatch(source, /renderTariffInformation/, 'renderer legado permaneceu no shell');
+          assert.match(source, /legacyDisplayName/, 'fallback do nome de exibição não foi aplicado');
+
+          await writeFile(path, source);
+          NODE
+      - name: Validar JavaScript
+        run: node --check beta/beta-shell.js
+      - name: Commitar correção
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add beta/beta-shell.js
+          git commit -m "fix(beta): remover card legado e restaurar nome"
+          git push origin HEAD:main

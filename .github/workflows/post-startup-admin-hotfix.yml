@@ -1,0 +1,82 @@
+name: Ajustar admin após startup
+
+on:
+  push:
+    branches: [fix/full-runtime-stabilization]
+    paths:
+      - ".github/workflows/post-startup-admin-hotfix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-admin-startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Adiar refresh administrativo até startup pronto
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFile, writeFile } from 'node:fs/promises';
+          import { execFileSync } from 'node:child_process';
+
+          const path = 'beta/app.js';
+          assert.equal(execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim(), '9e49cec10661141a70f7be4f6f5d7540f7b33988');
+          let source = await readFile(path, 'utf8');
+          const from = `  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
+  // Após a Home estar pronta, só mantemos tarefas leves necessárias à conta.
+  // Métricas, feature flags e health são carregados pela página que os utiliza.
+  void Promise.allSettled([
+    recordPrivacyAcceptance(user),
+    refreshBetaInvitation(),
+    refreshBetaAdmin()
+  ]);
+}`;
+          const to = `  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
+  // Após o primeiro render autenticado, privacidade/convite continuam leves.
+  // O snapshot administrativo espera o runtime publicar startup-ready para não
+  // competir com tarifas, ciclos e a primeira renderização da Home.
+  void Promise.allSettled([
+    recordPrivacyAcceptance(user),
+    refreshBetaInvitation()
+  ]);
+  schedulePostStartupAdminRefresh();
+}`;
+          assert.equal(source.split(from).length - 1, 1, 'bloco pós-login não encontrado de forma única');
+          source = source.replace(from, to);
+
+          const anchor = `function loadLegacySettings() {`;
+          const helper = `function schedulePostStartupAdminRefresh() {
+  if (APP_ENVIRONMENT.id !== "beta") return;
+  const run = () => { void refreshBetaAdmin(); };
+  if (window.VOLT_STARTUP_STATE?.status === "ready") {
+    queueMicrotask(run);
+    return;
+  }
+  window.addEventListener("volt:startup-ready", run, { once: true });
+}
+
+`;
+          assert.equal(source.split(anchor).length - 1, 1, 'âncora loadLegacySettings não encontrada');
+          source = source.replace(anchor, helper + anchor);
+          assert.match(source, /schedulePostStartupAdminRefresh\(\);/);
+          assert.match(source, /addEventListener\("volt:startup-ready", run, \{ once: true \}\)/);
+          await writeFile(path, source);
+          NODE
+      - name: Validar JavaScript
+        run: node --check beta/app.js
+      - name: Commitar correção
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add beta/app.js
+          git commit -m "fix(beta): carregar admin somente após startup pronto"
+          git push origin HEAD:fix/full-runtime-stabilization

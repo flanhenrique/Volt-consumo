@@ -10,11 +10,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.1">
-  <link rel="stylesheet" href="./styles/glass.css?v=20260813.1">
-  <link rel="stylesheet" href="./styles/layout.css?v=20260813.1">
-  <link rel="stylesheet" href="./styles/components.css?v=20260813.1">
-  <link rel="stylesheet" href="./styles/pages.css?v=20260813.1">
+  <link rel="stylesheet" href="./styles/tokens.css?v=20260813.2">
+  <link rel="stylesheet" href="./styles/glass.css?v=20260813.2">
+  <link rel="stylesheet" href="./styles/layout.css?v=20260813.2">
+  <link rel="stylesheet" href="./styles/components.css?v=20260813.2">
+  <link rel="stylesheet" href="./styles/pages.css?v=20260813.2">
   <title>Volt Consumo</title>
 </head>
 <body>
@@ -37,20 +37,14 @@
     <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="icon-wallet" viewBox="0 0 24 24"><path d="M3 6a3 3 0 0 1 3-3h12v18H6a3 3 0 0 1-3-3V6Z"/><path d="M3 8h15M15 12h6v5h-6a2.5 2.5 0 0 1 0-5Z"/></symbol>
+    <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M5 22V3M5 4h12l-2 4 2 4H5"/></symbol>
   </svg>
 
   <a class="skip-link" href="#page-container">Pular para o conteúdo</a>
   <noscript><p class="fatal-message">O Volt precisa de JavaScript para funcionar.</p></noscript>
 
   <main id="main-content" class="app-shell">
-    <section id="boot-screen" class="state-screen boot-layout" aria-live="polite">
-      <article class="state-panel glass-elevated glass-shine">
-        <span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span>
-        <div><p class="eyebrow">VOLT CONSUMO</p><h1>Preparando sua visão geral</h1></div>
-        <p id="boot-message" class="supporting-copy">Iniciando com segurança…</p>
-      </article>
-    </section>
-
     <section id="login-screen" class="state-screen auth-screen" hidden>
       <div class="auth-layout glass-elevated">
         <section class="auth-branding" aria-label="Apresentação do Volt">
@@ -150,26 +144,34 @@
 
           <main id="page-container" class="page-container" tabindex="-1">
             <section id="page-home" class="page" data-page="home" aria-labelledby="home-title">
-              <header class="page-header">
-                <div class="home-hero"><p class="eyebrow">SEU CONSUMO HOJE</p><h1 id="home-title"><span id="home-greeting">Olá!</span></h1><p id="home-cycle-copy" class="supporting-copy"></p></div>
+              <header class="page-header home-page-header">
+                <div class="home-hero"><h1 id="home-title"><span id="home-greeting">Olá!</span></h1><p id="home-cycle-copy" class="supporting-copy"></p></div>
                 <div class="page-header-actions"><button class="primary-button hide-mobile" type="button" data-action="open-reading"><svg class="icon"><use href="#icon-plus"></use></svg>Nova leitura</button></div>
               </header>
               <div class="home-grid">
-                <article class="utility-card energy energy-glass glass-elevated glass-shine">
-                  <div class="utility-card-top"><div class="utility-identity"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-bolt"></use></svg></span><div><p class="eyebrow">ENERGIA</p><strong id="home-energy-status" class="status-pill" data-tone="success">Dentro da meta</strong></div></div><small id="home-energy-cycle" class="muted"></small></div>
-                  <div class="utility-card-main"><span id="home-energy-consumption" class="metric-value"></span><span class="metric-caption">consumo no ciclo atual</span></div>
+                <article class="overview-card card glass-level-2 energy">
+                  <div class="overview-card-heading"><span class="utility-icon"><svg class="icon"><use href="#icon-bolt"></use></svg></span><span>Energia</span></div>
+                  <strong id="home-energy-consumption" class="metric-value"></strong>
+                  <div class="overview-card-meta"><span id="home-energy-cost"></span><span id="home-energy-status" class="status-pill" data-tone="success">Dentro da meta</span></div>
                   <div class="progress-track" aria-label="Progresso da meta de energia"><span id="home-energy-progress" class="progress-fill"></span></div>
-                  <div class="utility-card-details"><div><small>Estimativa</small><strong id="home-energy-cost"></strong></div><div><small>Meta</small><strong id="home-energy-goal"></strong></div></div>
+                  <small class="muted"><span id="home-energy-cycle"></span> · Meta <strong id="home-energy-goal"></strong></small>
                 </article>
-                <article class="utility-card water water-glass glass-elevated glass-shine">
-                  <div class="utility-card-top"><div class="utility-identity"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-water"></use></svg></span><div><p class="eyebrow">ÁGUA</p><strong id="home-water-status" class="status-pill" data-tone="success">Dentro da meta</strong></div></div><small id="home-water-cycle" class="muted"></small></div>
-                  <div class="utility-card-main"><span id="home-water-consumption" class="metric-value"></span><span class="metric-caption">consumo no ciclo atual</span></div>
+                <article class="overview-card card glass-level-2 water">
+                  <div class="overview-card-heading"><span class="utility-icon"><svg class="icon"><use href="#icon-water"></use></svg></span><span>Água</span></div>
+                  <strong id="home-water-consumption" class="metric-value"></strong>
+                  <div class="overview-card-meta"><span id="home-water-cost"></span><span id="home-water-status" class="status-pill" data-tone="success">Dentro da meta</span></div>
                   <div class="progress-track" aria-label="Progresso da meta de água"><span id="home-water-progress" class="progress-fill"></span></div>
-                  <div class="utility-card-details"><div><small>Estimativa</small><strong id="home-water-cost"></strong></div><div><small>Meta</small><strong id="home-water-goal"></strong></div></div>
+                  <small class="muted"><span id="home-water-cycle"></span> · Meta <strong id="home-water-goal"></strong></small>
                 </article>
-                <article class="financial-card card glass-level-3 glass-shine"><div><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Estimativa do ciclo</h2></div><strong id="home-total-cost" class="metric-value"></strong><div id="home-summary" class="comparison-list"></div><button class="text-button" type="button" data-nav="consumption">Ver composição da estimativa <svg class="icon"><use href="#icon-chevron"></use></svg></button></article>
-                <article class="insight-card card glass-level-3 glass-shine"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-bolt"></use></svg></span><div><p class="eyebrow">INSIGHT VOLT</p><h2 id="home-insight-title">Tudo sob controle</h2><p id="home-insight-body" class="supporting-copy"></p></div><button class="secondary-button compact" type="button" data-nav="alerts">Ver alertas</button></article>
-                <article class="latest-card card glass-level-3"><div class="card-header"><div><p class="eyebrow">ÚLTIMAS LEITURAS</p><h2>Atividade recente</h2></div><button class="text-button" type="button" data-nav="readings">Ver todas</button></div><ul id="home-latest-readings" class="mini-list"></ul></article>
+                <article class="overview-card card glass-level-2 total"><div class="overview-card-heading"><span class="utility-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span>Conta estimada</span></div><strong id="home-total-cost" class="metric-value"></strong><small class="muted">Energia + água no ciclo atual</small><button class="text-button" type="button" data-nav="consumption">Ver análise <svg class="icon"><use href="#icon-chevron"></use></svg></button></article>
+                <article class="overview-card card glass-level-2 status"><div class="overview-card-heading"><span class="utility-icon"><svg class="icon"><use href="#icon-flag"></use></svg></span><span>Status atual</span></div><strong id="home-insight-title">Tudo sob controle</strong><p id="home-insight-body" class="supporting-copy"></p><button class="text-button" type="button" data-nav="alerts">Ver alertas <svg class="icon"><use href="#icon-chevron"></use></svg></button></article>
+
+                <article class="home-chart-card card glass-level-3"><div class="card-header"><div><p class="eyebrow">CONSUMO DE ENERGIA</p><h2>Evolução do ciclo</h2></div><button class="text-button" type="button" data-nav="consumption">Ver mais detalhes</button></div><div id="home-consumption-chart" class="bar-chart home-bar-chart" aria-label="Consumo de energia no ciclo"></div></article>
+                <article class="home-distribution-card card glass-level-3"><div><p class="eyebrow">DISTRIBUIÇÃO</p><h2>Composição da estimativa</h2></div><div id="home-distribution" class="distribution-chart" aria-hidden="true"><span></span></div><ul id="home-summary" class="comparison-list compact-list"></ul></article>
+
+                <article class="latest-card card glass-level-2"><div class="card-header"><div><p class="eyebrow">ÚLTIMAS LEITURAS</p><h2>Atividade recente</h2></div><button class="text-button" type="button" data-nav="readings">Ver todas</button></div><ul id="home-latest-readings" class="mini-list"></ul></article>
+                <article class="next-actions-card card glass-level-2"><div><p class="eyebrow">PRÓXIMAS AÇÕES</p><h2>Mantenha tudo em dia</h2></div><button class="action-row" type="button" data-action="open-reading"><span class="utility-icon"><svg class="icon"><use href="#icon-reading"></use></svg></span><span><strong>Registrar leitura</strong><small>Atualize energia ou água</small></span><svg class="icon"><use href="#icon-chevron"></use></svg></button><button class="action-row" type="button" data-nav="settings"><span class="utility-icon"><svg class="icon"><use href="#icon-settings"></use></svg></span><span><strong>Revisar metas</strong><small>Ajuste os limites do ciclo</small></span><svg class="icon"><use href="#icon-chevron"></use></svg></button></article>
+                <article class="volt-tip-card card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-bolt"></use></svg></span><div><p class="eyebrow">DICA VOLT</p><h2>Consumo consciente começa com leituras frequentes.</h2><p class="supporting-copy">Registre os medidores no mesmo intervalo para acompanhar tendências com mais precisão.</p></div></article>
               </div>
             </section>
 
@@ -198,16 +200,21 @@
               <article class="card glass-level-3"><div id="alerts-empty" class="empty-state" hidden><svg class="icon"><use href="#icon-shield"></use></svg><strong>Nenhum alerta importante</strong><p class="supporting-copy">Seu consumo está dentro do esperado.</p></div><div id="alerts-list" class="alerts-list"></div></article>
             </section>
 
-            <section id="page-reports" class="page" data-page="reports" aria-labelledby="reports-title" hidden>
-              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">HISTÓRICO E EXPORTAÇÃO</p><h1 id="reports-title">Relatórios</h1><p class="supporting-copy">Uma estrutura limpa para os relatórios que serão reconstruídos.</p></div></header>
-              <article class="reports-shell card glass-level-3"><div class="empty-state"><svg class="icon"><use href="#icon-report"></use></svg><strong>Relatórios em preparação</strong><p class="supporting-copy">Ainda não existe uma lógica validada de relatório. Nenhum dado foi fabricado e a implementação antiga não foi reativada.</p></div></article>
-            </section>
+            <section id="page-reports" class="page reports-empty-page" data-page="reports" aria-label="Relatórios" hidden></section>
 
             <section id="page-users" class="page" data-page="users" aria-labelledby="users-title" hidden>
-              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">ADMINISTRAÇÃO</p><h1 id="users-title">Usuários</h1><p class="supporting-copy">Acesso condicionado às permissões reais da organização.</p></div><div class="page-header-actions"><button id="invite-user" class="primary-button" type="button"><svg class="icon"><use href="#icon-plus"></use></svg>Convidar usuário</button></div></header>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">ADMINISTRAÇÃO</p><h1 id="users-title">Usuários</h1><p class="supporting-copy">Todas as contas cadastradas no Volt, em uma única visão.</p></div><div class="page-header-actions"><button id="invite-user" class="primary-button" type="button"><svg class="icon"><use href="#icon-plus"></use></svg>Convidar usuário</button></div></header>
               <p id="users-message" class="status-message" role="status" aria-live="polite"></p>
-              <article id="organization-summary" class="admin-summary card glass-level-3"></article>
-              <div class="users-grid"><section class="card glass-level-2"><div class="card-header"><h2>Membros</h2></div><div id="members-list" class="member-list"></div></section><section class="card glass-level-2"><div class="card-header"><h2>Convites pendentes</h2></div><div id="invitations-list" class="member-list"></div></section></div>
+              <div class="user-directory-stats" aria-label="Resumo das contas">
+                <article class="card glass-level-2"><span class="metric-caption">Contas cadastradas</span><strong id="users-total" class="metric-value">—</strong></article>
+                <article class="card glass-level-2"><span class="metric-caption">Contas confirmadas</span><strong id="users-confirmed" class="metric-value">—</strong></article>
+                <article class="card glass-level-2"><span class="metric-caption">Ativas nos últimos 30 dias</span><strong id="users-active" class="metric-value">—</strong></article>
+              </div>
+              <section class="user-directory card glass-level-2" aria-labelledby="registered-users-title">
+                <div class="card-header"><div><p class="eyebrow">DIRETÓRIO</p><h2 id="registered-users-title">Contas cadastradas</h2></div><span id="users-count" class="chip">0 contas</span></div>
+                <div id="users-empty" class="empty-state" hidden><svg class="icon"><use href="#icon-users"></use></svg><strong>Nenhuma conta encontrada</strong></div>
+                <div id="users-list" class="user-directory-list" role="list"></div>
+              </section>
             </section>
 
             <section id="page-settings" class="page" data-page="settings" aria-labelledby="settings-title" hidden>
@@ -290,6 +297,6 @@
     </section>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260813.1"></script>
+  <script type="module" src="./app.js?v=20260813.2"></script>
 </body>
 </html>

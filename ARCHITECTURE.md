@@ -96,7 +96,7 @@ Somente `src/renderer.js` escreve na Home. Ciclos e cálculos retornam dados. O 
 
 ## Usuários e administração
 
-O bootstrap chama apenas `beta_user_permissions()`, que retorna papel e autorização mínima usando a mesma autoridade do banco. A função é `SECURITY INVOKER`, exige `auth.uid()`, AAL2, identidade administrativa e papel `owner/admin`; `PUBLIC` e `anon` não recebem `EXECUTE`. O diretório (`beta_admin_snapshot`) só é solicitado ao abrir Usuários. A página é estática e reusada; abrir/fechar/reabrir não substitui o nó nem perde listeners. Não existe polling administrativo.
+O bootstrap chama apenas `beta_user_permissions()`, que retorna papel e autorização mínima usando a mesma autoridade do banco. A função é `SECURITY INVOKER`, exige `auth.uid()`, AAL2, identidade administrativa e papel `owner/admin`; `PUBLIC` e `anon` não recebem `EXECUTE`. O diretório global (`beta_platform_users_snapshot`) só é solicitado ao abrir Usuários. Ele lista todas as contas de `auth.users` sem expor credenciais, tokens ou sessões e exige identidade administrativa explícita, AAL2 e membership ativa `owner/admin`. A página é estática e reusada; abrir/fechar/reabrir não substitui o nó nem perde listeners. Não existe polling administrativo nem renderer de organização na tela.
 
 ## Relatórios
 

@@ -43,7 +43,7 @@ test("A — usuário deslogado vê somente Login", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#login-screen")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeHidden();
-  await expect(page.locator("#boot-screen")).toBeHidden();
+  await expect(page.locator("#boot-screen")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Entrar no Volt" })).toBeVisible();
 });
 
@@ -65,16 +65,16 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   await expect(page.getByText("Organização ativa")).toHaveCount(0);
   await expect(page.getByText("Contas", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Ciclos anteriores", { exact: true })).toHaveCount(0);
-  const visibility = await page.evaluate(() => ["boot-screen", "login-screen", "mfa-screen", "error-screen", "dashboard"].filter((id) => {
+  const visibility = await page.evaluate(() => ["login-screen", "mfa-screen", "error-screen", "dashboard"].filter((id) => {
     const element = document.getElementById(id);
     return element && getComputedStyle(element).display !== "none";
   }));
   expect(visibility).toEqual(["dashboard"]);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.1",
-    "/src/app-state.js": "20260813.1",
-    "/src/renderer.js": "20260813.1",
-    "/src/volt-service.js": "20260813.1"
+    "/app.js": "20260813.2",
+    "/src/app-state.js": "20260813.2",
+    "/src/renderer.js": "20260813.2",
+    "/src/volt-service.js": "20260813.2"
   });
 });
 
@@ -148,7 +148,11 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
   await page.goto("/?session=admin");
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "users");
-  await expect(page.locator("#members-list .member-item")).toHaveCount(1);
+  await expect(page.locator("#users-list .user-account-item")).toHaveCount(3);
+  await expect(page.locator("#users-total")).toHaveText("3");
+  await expect(page.locator("#users-confirmed")).toHaveText("2");
+  await expect(page.locator("#page-users").getByText("Organização", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("ana@example.com")).toBeVisible();
   await page.locator("#invite-user").click();
   await page.locator("#invite-email").fill("novo@volt.test");
   await page.locator("#invite-form").getByRole("button", { name: "Criar convite" }).click();
@@ -157,17 +161,16 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
   await page.locator("#page-users").evaluate((element) => { element.dataset.ownershipProbe = "same-node"; });
   await navigateTo(page, "home");
   await navigateTo(page, "users");
-  await expect(page.locator("#members-list .member-item")).toHaveCount(1);
+  await expect(page.locator("#users-list .user-account-item")).toHaveCount(3);
   await expect(page.locator("#page-users")).toHaveAttribute("data-ownership-probe", "same-node");
 });
 
-test("Relatórios tem shell honesto sem renderer legado", async ({ page }) => {
+test("H — Relatórios existe e permanece vazio", async ({ page }) => {
   await page.goto("/?session=user");
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "reports");
   await expect(page.locator("#page-reports")).toBeVisible();
-  await expect(page.getByText("Relatórios em preparação")).toBeVisible();
-  await expect(page.getByText("Nenhum dado foi fabricado")).toBeVisible();
+  await expect(page.locator("#page-reports")).toBeEmpty();
 });
 
 test("Consumo, Alertas e Ajuda navegam com um único outlet", async ({ page }) => {

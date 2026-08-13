@@ -18,7 +18,6 @@
   padding: calc(var(--safe-top) + var(--space-6)) var(--layout-gutter) calc(var(--safe-bottom) + var(--space-6));
 }
 
-.boot-layout,
 .error-layout,
 .mfa-layout {
   display: grid;

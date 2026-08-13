@@ -1,4 +1,4 @@
-import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260813.1";
+import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260813.2";
 
 export function normalizeLocality(value) {
   return {

@@ -1,17 +1,17 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.1";
-import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.1";
-import { StartupStatus } from "./app-state.js?v=20260813.1";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.2";
+import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.2";
+import { StartupStatus } from "./app-state.js?v=20260813.2";
 
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
 const REQUIRED_IDS = [
-  "boot-screen", "boot-message", "login-screen", "login-form", "login-email", "login-password", "login-message",
+  "login-screen", "login-form", "login-email", "login-password", "login-message",
   "mfa-screen", "mfa-form", "mfa-code", "mfa-message", "error-screen", "fatal-error-message", "dashboard",
   "greeting", "page-container", ...PAGE_IDS.map((page) => `page-${page}`), "users-nav", "users-nav-mobile",
   "home-greeting", "cycle-label", "home-cycle-copy", "home-energy-consumption", "home-water-consumption",
   "home-energy-cost", "home-water-cost", "home-energy-goal", "home-water-goal", "home-energy-progress",
   "home-water-progress", "home-energy-status", "home-water-status", "home-total-cost", "home-summary",
-  "home-insight-title", "home-insight-body", "home-latest-readings", "consumption-total", "consumption-cost",
+  "home-insight-title", "home-insight-body", "home-latest-readings", "home-consumption-chart", "home-distribution", "consumption-total", "consumption-cost",
   "consumption-average", "consumption-peak", "consumption-status", "consumption-chart", "consumption-chart-caption",
   "consumption-comparison", "readings-list", "readings-empty", "readings-last-energy", "readings-last-water",
   "readings-last-energy-date", "readings-last-water-date", "readings-energy-delta", "readings-water-delta",
@@ -20,7 +20,7 @@ const REQUIRED_IDS = [
   "energy-cycle-start", "energy-cycle-end", "water-cycle-start", "water-cycle-end", "energy-rate", "energy-goal",
   "energy-flag", "lighting-fee", "water-rate", "water-goal", "sewer-percent", "water-fixed-fee",
   "locality-country", "locality-state", "locality-city", "energy-provider", "water-provider",
-  "organization-summary", "members-list", "invitations-list"
+  "users-total", "users-confirmed", "users-active", "users-count", "users-empty", "users-list"
 ];
 
 export function assertDomContract(documentRoot = document) {
@@ -67,18 +67,11 @@ function publishStartupStatus(status) {
 
 function renderLifecycle(state, byId) {
   const booting = [StartupStatus.BOOTING, StartupStatus.RESTORING_SESSION, StartupStatus.LOADING_ACCOUNT, StartupStatus.LOADING_DATA].includes(state.status);
-  byId("boot-screen").hidden = !booting;
+  document.documentElement.setAttribute("aria-busy", String(booting));
   byId("login-screen").hidden = state.status !== StartupStatus.SIGNED_OUT;
   byId("mfa-screen").hidden = state.status !== StartupStatus.MFA_REQUIRED;
   byId("error-screen").hidden = state.status !== StartupStatus.ERROR;
   byId("dashboard").hidden = state.status !== StartupStatus.READY;
-  const bootMessages = {
-    [StartupStatus.BOOTING]: "Iniciando com segurança…",
-    [StartupStatus.RESTORING_SESSION]: "Restaurando sua sessão…",
-    [StartupStatus.LOADING_ACCOUNT]: "Confirmando sua conta…",
-    [StartupStatus.LOADING_DATA]: "Carregando leituras e preferências…"
-  };
-  if (booting) byId("boot-message").textContent = bootMessages[state.status];
   if (state.status === StartupStatus.ERROR) byId("fatal-error-message").textContent = state.error || "Falha inesperada durante a inicialização.";
 }
 
@@ -160,6 +153,11 @@ function renderHome(state, snapshot, byId) {
     comparisonItem("Energia", currency(snapshot.energy.cost), `${formatNumber(snapshot.energy.consumption, 0)} kWh`),
     comparisonItem("Água", currency(snapshot.water.cost), `${formatNumber(snapshot.water.consumption, 3)} m³`)
   );
+  const chartMaximum = Math.max(1, ...snapshot.energy.intervals.map((item) => item.value));
+  byId("home-consumption-chart").replaceChildren(...snapshot.energy.intervals.slice(-18).map((item) => chartBar(item, chartMaximum, "energy")));
+  byId("home-consumption-chart").dataset.empty = String(snapshot.energy.intervals.length === 0);
+  const energyShare = snapshot.totalCost > 0 ? (snapshot.energy.cost / snapshot.totalCost) * 100 : 50;
+  byId("home-distribution").style.setProperty("--energy-share", `${Math.min(Math.max(energyShare, 0), 100)}%`);
   const critical = snapshot.energy.ratio > 1 ? "energy" : snapshot.water.ratio > 1 ? "water" : null;
   const warning = snapshot.energy.ratio >= .8 ? "energy" : snapshot.water.ratio >= .8 ? "water" : null;
   if (critical) {
@@ -274,20 +272,19 @@ function renderThemePreference(state) {
 }
 
 function renderUsers(state, byId) {
+  const accounts = state.permissions.canManageUsers && state.admin ? state.admin.accounts : [];
   if (!state.permissions.canManageUsers || !state.admin) {
-    byId("organization-summary").replaceChildren();
-    byId("members-list").replaceChildren();
-    byId("invitations-list").replaceChildren();
-    return;
+    byId("users-total").textContent = "—";
+    byId("users-confirmed").textContent = "—";
+    byId("users-active").textContent = "—";
+  } else {
+    byId("users-total").textContent = String(state.admin.totalUsers);
+    byId("users-confirmed").textContent = String(state.admin.confirmedUsers);
+    byId("users-active").textContent = String(state.admin.activeLast30Days);
   }
-  const organization = state.admin.organization || state.organization;
-  byId("organization-summary").replaceChildren(
-    adminMetric("Organização", organization?.name || "Organização"),
-    adminMetric("Seu papel", roleLabel(state.admin.membership?.role)),
-    adminMetric("Membros", String(state.admin.members.length))
-  );
-  byId("members-list").replaceChildren(...state.admin.members.map(memberItem));
-  byId("invitations-list").replaceChildren(...state.admin.invitations.map(invitationItem));
+  byId("users-count").textContent = `${accounts.length} ${accounts.length === 1 ? "conta" : "contas"}`;
+  byId("users-empty").hidden = accounts.length > 0;
+  byId("users-list").replaceChildren(...accounts.map(accountItem));
 }
 
 function combinedReadings(state) {
@@ -378,45 +375,38 @@ function alertItem(alert) {
   return item;
 }
 
-function adminMetric(label, value) {
-  const item = document.createElement("div");
+function accountItem(account) {
+  const item = document.createElement("article");
+  item.className = "user-account-item";
+  item.setAttribute("role", "listitem");
+  const copy = document.createElement("div");
+  copy.className = "user-account-identity";
+  const strong = document.createElement("strong");
+  const small = document.createElement("small");
+  strong.textContent = account.displayName || account.email;
+  small.textContent = account.email;
+  copy.append(strong, small);
+  const metadata = document.createElement("div");
+  metadata.className = "user-account-metadata";
+  metadata.append(
+    accountMetadata("Cadastro", dateOnly(account.createdAt)),
+    accountMetadata("Último acesso", account.lastSignInAt ? dateOnly(account.lastSignInAt) : "Nunca")
+  );
+  const badge = document.createElement("span");
+  badge.className = "status-pill";
+  badge.dataset.tone = account.status === "confirmed" ? "success" : "warning";
+  badge.textContent = account.status === "confirmed" ? "Confirmada" : "Pendente";
+  item.append(copy, metadata, badge);
+  return item;
+}
+
+function accountMetadata(label, value) {
+  const item = document.createElement("span");
   const small = document.createElement("small");
   const strong = document.createElement("strong");
   small.textContent = label;
   strong.textContent = value;
   item.append(small, strong);
-  return item;
-}
-
-function memberItem(member) {
-  const item = document.createElement("div");
-  item.className = "member-item";
-  const copy = document.createElement("div");
-  const strong = document.createElement("strong");
-  const small = document.createElement("small");
-  strong.textContent = member.display_name || member.email;
-  small.textContent = member.email;
-  copy.append(strong, small);
-  const badge = document.createElement("span");
-  badge.className = "chip";
-  badge.textContent = `${roleLabel(member.role)} · ${member.status}`;
-  item.append(copy, badge);
-  return item;
-}
-
-function invitationItem(invitation) {
-  const item = document.createElement("div");
-  item.className = "member-item";
-  const copy = document.createElement("div");
-  const strong = document.createElement("strong");
-  const small = document.createElement("small");
-  strong.textContent = invitation.email;
-  small.textContent = `Expira em ${dateTime(invitation.expires_at)}`;
-  copy.append(strong, small);
-  const badge = document.createElement("span");
-  badge.className = "chip";
-  badge.textContent = roleLabel(invitation.role);
-  item.append(copy, badge);
   return item;
 }
 
@@ -430,4 +420,4 @@ function percent(value) { return new Intl.NumberFormat("pt-BR", { style: "percen
 function formatNumber(value, decimals) { return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(Number(value) || 0); }
 function currency(value) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0); }
 function dateTime(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
-function roleLabel(role) { return ({ owner: "Proprietário", admin: "Administrador", member: "Membro", viewer: "Visualizador" })[role] || "Sem papel"; }
+function dateOnly(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value)); }

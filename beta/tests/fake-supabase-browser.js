@@ -1,5 +1,7 @@
 (() => {
   const listeners = new Set();
+  const rpcCalls = [];
+  window.__VOLT_FAKE_RPC_CALLS = rpcCalls;
   const user = {
     id: "00000000-0000-4000-8000-000000000001",
     email: "flanhenriquee@icloud.com",
@@ -180,6 +182,7 @@
     }
 
     async function rpc(name) {
+      rpcCalls.push(name);
       const responses = {
         beta_admin_bootstrap: {},
         beta_organization_context: {

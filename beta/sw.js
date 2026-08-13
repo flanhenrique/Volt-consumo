@@ -1,6 +1,6 @@
 // VOLT Service Worker — shell Beta com cache sob demanda para módulos secundários.
 const CACHE_PREFIX = "volt-beta-shell-";
-const CACHE = "volt-beta-shell-v99";
+const CACHE = "volt-beta-shell-v100";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -52,6 +52,15 @@ const OPTIONAL_ASSETS = [
   "./uruguay-water-detail.js",
   "./vendor/tesseract/tesseract.min.js",
   "./vendor/tesseract/worker.min.js",
+  "./vendor/tesseract-core/tesseract-core.wasm",
+  "./vendor/tesseract-core/tesseract-core.wasm.js",
+  "./vendor/tesseract-core/tesseract-core-lstm.wasm",
+  "./vendor/tesseract-core/tesseract-core-lstm.wasm.js",
+  "./vendor/tesseract-core/tesseract-core-simd.wasm",
+  "./vendor/tesseract-core/tesseract-core-simd.wasm.js",
+  "./vendor/tesseract-core/tesseract-core-simd-lstm.wasm",
+  "./vendor/tesseract-core/tesseract-core-simd-lstm.wasm.js",
+  "./vendor/tessdata/eng.traineddata.gz",
   "./icon-192.png",
   "./icon-512.png"
 ];

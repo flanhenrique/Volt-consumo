@@ -26,48 +26,19 @@ jobs:
           import assert from 'node:assert/strict';
           import { readFile, writeFile } from 'node:fs/promises';
           import { execFileSync } from 'node:child_process';
-
           const path = 'beta/app.js';
           assert.equal(execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim(), '9e49cec10661141a70f7be4f6f5d7540f7b33988');
           let source = await readFile(path, 'utf8');
-          const from = `  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
-  // Após a Home estar pronta, só mantemos tarefas leves necessárias à conta.
-  // Métricas, feature flags e health são carregados pela página que os utiliza.
-  void Promise.allSettled([
-    recordPrivacyAcceptance(user),
-    refreshBetaInvitation(),
-    refreshBetaAdmin()
-  ]);
-}`;
-          const to = `  void recordOperationalEvent("session.started", "info", "auth", { assuranceLevel: mfaSnapshot.currentLevel });
-  // Após o primeiro render autenticado, privacidade/convite continuam leves.
-  // O snapshot administrativo espera o runtime publicar startup-ready para não
-  // competir com tarifas, ciclos e a primeira renderização da Home.
-  void Promise.allSettled([
-    recordPrivacyAcceptance(user),
-    refreshBetaInvitation()
-  ]);
-  schedulePostStartupAdminRefresh();
-}`;
+          const from = "  void recordOperationalEvent(\"session.started\", \"info\", \"auth\", { assuranceLevel: mfaSnapshot.currentLevel });\n  // Após a Home estar pronta, só mantemos tarefas leves necessárias à conta.\n  // Métricas, feature flags e health são carregados pela página que os utiliza.\n  void Promise.allSettled([\n    recordPrivacyAcceptance(user),\n    refreshBetaInvitation(),\n    refreshBetaAdmin()\n  ]);\n}";
+          const to = "  void recordOperationalEvent(\"session.started\", \"info\", \"auth\", { assuranceLevel: mfaSnapshot.currentLevel });\n  // Após o primeiro render autenticado, privacidade/convite continuam leves.\n  // O snapshot administrativo espera o runtime publicar startup-ready para não\n  // competir com tarifas, ciclos e a primeira renderização da Home.\n  void Promise.allSettled([\n    recordPrivacyAcceptance(user),\n    refreshBetaInvitation()\n  ]);\n  schedulePostStartupAdminRefresh();\n}";
           assert.equal(source.split(from).length - 1, 1, 'bloco pós-login não encontrado de forma única');
           source = source.replace(from, to);
-
-          const anchor = `function loadLegacySettings() {`;
-          const helper = `function schedulePostStartupAdminRefresh() {
-  if (APP_ENVIRONMENT.id !== "beta") return;
-  const run = () => { void refreshBetaAdmin(); };
-  if (window.VOLT_STARTUP_STATE?.status === "ready") {
-    queueMicrotask(run);
-    return;
-  }
-  window.addEventListener("volt:startup-ready", run, { once: true });
-}
-
-`;
+          const anchor = 'function loadLegacySettings() {';
+          const helper = "function schedulePostStartupAdminRefresh() {\n  if (APP_ENVIRONMENT.id !== \"beta\") return;\n  const run = () => { void refreshBetaAdmin(); };\n  if (window.VOLT_STARTUP_STATE?.status === \"ready\") {\n    queueMicrotask(run);\n    return;\n  }\n  window.addEventListener(\"volt:startup-ready\", run, { once: true });\n}\n\n";
           assert.equal(source.split(anchor).length - 1, 1, 'âncora loadLegacySettings não encontrada');
           source = source.replace(anchor, helper + anchor);
           assert.match(source, /schedulePostStartupAdminRefresh\(\);/);
-          assert.match(source, /addEventListener\("volt:startup-ready", run, \{ once: true \}\)/);
+          assert.match(source, /addEventListener\(\"volt:startup-ready\", run, \{ once: true \}\)/);
           await writeFile(path, source);
           NODE
       - name: Validar JavaScript

@@ -1,0 +1,106 @@
+html[data-environment="beta"] .volt-maintenance-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(70% 55% at 50% 18%, rgba(35, 209, 154, .10), transparent 70%),
+    linear-gradient(180deg, #08131a 0%, #071118 100%);
+  color: #f4f8fa;
+  text-align: center;
+  overflow: hidden;
+}
+
+html[data-environment="beta"] .volt-maintenance-card {
+  width: min(100%, 420px);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+
+html[data-environment="beta"] .volt-maintenance-brand {
+  margin: 0 0 4px;
+  color: #55d4a8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .19em;
+}
+
+html[data-environment="beta"] .volt-maintenance-gear {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  margin: 8px 0 10px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 34px;
+  background: rgba(255,255,255,.045);
+  color: #58d7aa;
+  box-shadow: 0 18px 60px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  cursor: default;
+}
+
+html[data-environment="beta"] .volt-maintenance-gear svg {
+  width: 62px;
+  height: 62px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: volt-maintenance-spin 5.2s linear infinite;
+}
+
+html[data-environment="beta"] .volt-maintenance-card h1 {
+  margin: 0;
+  font-size: clamp(30px, 8vw, 42px);
+  line-height: 1.04;
+  letter-spacing: -.035em;
+}
+
+html[data-environment="beta"] .volt-maintenance-card p:not(.volt-maintenance-brand) {
+  max-width: 31ch;
+  margin: 0;
+  color: #a9b8c0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+html[data-environment="beta"] .volt-maintenance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.035);
+  color: #8fa2ac;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html[data-environment="beta"] .volt-maintenance-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f2b84b;
+  box-shadow: 0 0 14px rgba(242,184,75,.45);
+}
+
+@keyframes volt-maintenance-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-environment="beta"] .volt-maintenance-gear svg {
+    animation-duration: 18s;
+  }
+}

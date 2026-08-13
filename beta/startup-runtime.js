@@ -13,13 +13,6 @@ const HEAVY_METHOD_MIN_INTERVAL_MS = Object.freeze({
   refreshOperationalMetrics: 60_000,
   refreshFeatureFlags: 300_000
 });
-const DEFERRED_RPC_GROUP = Object.freeze({
-  beta_admin_bootstrap: "admin",
-  beta_organization_context: "admin",
-  beta_admin_snapshot: "admin",
-  beta_feature_flags_snapshot: "flags",
-  beta_admin_operational_snapshot: "metrics"
-});
 const CORE_ACCOUNT_TABLES = new Set([
   "meter_readings",
   "user_settings",
@@ -38,7 +31,6 @@ let startupReady = false;
 let startupErrorPublished = false;
 let startupFailureTimer = 0;
 let coreDataFetched = false;
-let idleScheduled = false;
 let dataRefreshPromise = null;
 let lastDataRefreshAt = 0;
 let betaDataFramePending = false;
@@ -46,7 +38,6 @@ let latestBetaDataDetail = null;
 let lastBetaDataSignature = "";
 const completedCoreTables = new Set();
 const deferredCalls = new Map();
-const deferredRpcGroups = new Set();
 const heavyMethodLastRun = new Map();
 const heavyMethodInFlight = new Map();
 
@@ -87,7 +78,6 @@ function installSupabaseSingleton() {
       global: { ...(options.global || {}), fetch: trackedFetch }
     });
     wrapAuthEvents(client);
-    wrapHeavyRpc(client);
     clients.set(cacheKey, client);
     return client;
   };
@@ -157,26 +147,6 @@ function wrapAuthEvents(client) {
   }
 }
 
-function wrapHeavyRpc(client) {
-  if (!client || typeof client.rpc !== "function" || client.rpc.__voltDeferred) return;
-  const originalRpc = client.rpc.bind(client);
-  const wrappedRpc = function voltRpc(fn, args, options) {
-    const group = DEFERRED_RPC_GROUP[String(fn || "")];
-    if (!startupReady && group) {
-      deferredRpcGroups.add(group);
-      scheduleDeferredWork();
-      return Promise.resolve({ data: null, error: null, status: 200, statusText: "deferred" });
-    }
-    return originalRpc(fn, args, options);
-  };
-  Object.defineProperty(wrappedRpc, "__voltDeferred", { value: true });
-  try {
-    client.rpc = wrappedRpc;
-  } catch {
-    // SDK não gravável: segue sem otimização de RPC, preservando funcionalidade.
-  }
-}
-
 function installBetaApiFacade() {
   const existing = window.VOLT_BETA_API;
   if (existing) setApi(existing);
@@ -215,7 +185,6 @@ function setApi(value) {
 function runHeavyMethod(method, member, args, api) {
   if (!startupReady) {
     deferredCalls.set(method, { member, args });
-    scheduleDeferredWork();
     return Promise.resolve(readSnapshotFor(method, api));
   }
   if (heavyMethodInFlight.has(method)) return heavyMethodInFlight.get(method);
@@ -322,7 +291,6 @@ function observeStartupReady() {
     window.dispatchEvent(new CustomEvent("volt:account-data-ready"));
     window.dispatchEvent(new CustomEvent("volt:startup-ready"));
     flushDeferredWork();
-    flushDeferredRpcGroups();
   };
 
   window.addEventListener("volt:beta-data", () => {
@@ -330,34 +298,9 @@ function observeStartupReady() {
   });
 }
 
-function scheduleDeferredWork() {
-  if (idleScheduled || startupReady) return;
-  idleScheduled = true;
-  const run = () => {
-    idleScheduled = false;
-    if (!startupReady) return;
-    flushDeferredWork();
-    flushDeferredRpcGroups();
-  };
-  if ("requestIdleCallback" in window) requestIdleCallback(run, { timeout: 1800 });
-  else setTimeout(run, 600);
-}
-
 function flushDeferredWork() {
   if (!startupReady || !deferredCalls.size) return;
   const tasks = [...deferredCalls.entries()];
   deferredCalls.clear();
   Promise.allSettled(tasks.map(([method, { member, args }]) => runHeavyMethod(method, member, args, apiTarget || {})));
-}
-
-function flushDeferredRpcGroups() {
-  if (!startupReady || !deferredRpcGroups.size) return;
-  const groups = new Set(deferredRpcGroups);
-  deferredRpcGroups.clear();
-  const api = window.VOLT_BETA_API;
-  const tasks = [];
-  if (groups.has("admin")) tasks.push(() => api?.refreshAdmin?.());
-  if (groups.has("flags")) tasks.push(() => api?.refreshFeatureFlags?.());
-  if (groups.has("metrics")) tasks.push(() => api?.refreshOperationalMetrics?.());
-  Promise.allSettled(tasks.map((task) => Promise.resolve().then(task)));
 }

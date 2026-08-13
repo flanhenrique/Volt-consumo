@@ -1,0 +1,1 @@
+Experimental OCR v2 validation notes. Keep feature/meter-ocr-v2 isolated until meter image tests pass. Expected: IMG_1649=28425; IMG_1662=28431; IMG_1862=28430; reject IMG_1684 as kVArh/register 24; reject IMG_1683 as test screen; IMG_1792 must require review due reflection.

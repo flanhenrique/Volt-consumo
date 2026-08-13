@@ -1,0 +1,4 @@
+body:has(#page-home:not([hidden])) .desktop-topbar { display: none; }
+body:has(#page-home:not([hidden])) .home-grid { gap: .9rem; }
+body:has(#page-home:not([hidden])) #home-greeting::after { content: " 👋"; }
+body:has(#page-home:not([hidden])) .home-grid > .card { border-radius: 1rem; }

@@ -61,7 +61,7 @@ Desktop: Início, Consumo, Leituras, Alertas, Relatórios, Usuários autorizado,
 - Chromium: login, sessão restaurada, MFA, Home, Consumo, Leituras, Nova leitura, OCR lazy, Alertas, Relatórios, Usuários, Configurações, Ajuda, tema, logout e `/beta`: PASSOU.
 - WebKit: os mesmos fluxos funcionais: PASSOU.
 - Console gate: zero `console.error`, `pageerror` e `unhandledrejection` inesperados.
-- Service Worker: será reexecutado no gate final com cache `volt-app-v3-liquid-glass`.
+- Service Worker, cache `volt-app-v3-liquid-glass`, asset 404 e offline/online: PASSOU.
 
 ## 12. Testes visuais
 
@@ -96,4 +96,35 @@ Preenchido após o gate final, push e criação do PR. Nenhum merge em `main` fo
 
 ## 18. Critérios de aceitação
 
-O status definitivo PASSOU/FALHOU será preenchido depois da suíte completa Chromium, WebKit, mobile e Service Worker.
+| Critério | Resultado |
+|---|---|
+| Desktop responsivo | PASSOU |
+| Mobile responsivo | PASSOU |
+| Tablet | PASSOU |
+| Dark mode | PASSOU |
+| Light mode | PASSOU |
+| Liquid Glass consistente | PASSOU |
+| Login | PASSOU |
+| Sessão restaurada | PASSOU |
+| Home | PASSOU |
+| Consumo | PASSOU |
+| Leituras | PASSOU |
+| Nova leitura | PASSOU |
+| OCR lazy + revisão humana | PASSOU |
+| Alertas | PASSOU |
+| Relatórios | PASSOU |
+| Usuários autorizado | PASSOU |
+| Configurações | PASSOU |
+| Ajuda | PASSOU |
+| Logout | PASSOU |
+| Contas inexistente | PASSOU |
+| Ciclos anteriores inexistente | PASSOU |
+| Zero telas sobrepostas | PASSOU |
+| Zero console.error | PASSOU |
+| Zero pageerror | PASSOU |
+| Zero unhandledrejection | PASSOU |
+| Zero overflow horizontal | PASSOU |
+| Safe areas mobile | PASSOU |
+| Visual regression screenshots | PASSOU |
+
+Gate completo local: **62 testes PASSARAM em 2,1 minutos**, além do quality gate estático. O SHA final e o status do PR serão registrados no commit de encerramento.

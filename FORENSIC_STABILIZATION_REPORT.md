@@ -9,7 +9,7 @@
 
 ## Resumo executivo
 
-**Gate local: PASSOU. Gate do PR: PASSOU. Gate publicado: PENDENTE.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A implementação foi integrada por merge normal ao histórico existente do PR #5, preservando seus 76 commits exclusivos; não houve merge em `main`. A migração aditiva foi aplicada e verificada no Supabase de produção. O site publicado ainda depende de merge/deploy e permanece pendente.
+**Gate local: PASSOU. Gate do PR: PASSOU. Gate publicado: PASSOU.** A aplicação foi consolidada em `/` com uma entrada, um bootstrap, uma store, um renderer por tela e um Service Worker. Os testes reais locais e publicados passaram em Chromium e WebKit, desktop e mobile, sem `console.error`, `pageerror` ou `unhandledrejection` inesperados. A implementação foi integrada por merge normal ao histórico existente do PR #5, preservando seus 76 commits exclusivos, e mesclada em `main` no SHA `e42c7a67f0fd289bdbe758af637e12f52d673580`. A migração aditiva foi aplicada e verificada no Supabase de produção.
 
 A auditoria anterior às mudanças está preservada em `FORENSIC_AUDIT_MATRIX.md`. O diff contém 114 arquivos: 2.833 inserções e 19.151 remoções.
 
@@ -140,9 +140,8 @@ Os testes falham automaticamente em `console.error`, `pageerror` e `unhandledrej
 ## 19. Riscos restantes
 
 1. Não havia credencial de usuário real disponível, portanto auth/RLS foram validados por contrato, fixture e execução sem contexto autenticado, não por mutação de conta real.
-2. O site GitHub Pages da branch não existe sem merge/deploy; teste publicado permanece pendente.
-3. Safari foi representado por WebKit Playwright no Windows e no CI; teste em hardware Safari real permanece recomendável.
-4. Os advisors Supabase continuam mostrando warnings preexistentes em funções administrativas `SECURITY DEFINER`, configuração de OTP/senhas e tabelas de backup; a nova RPC não adicionou warning.
+2. Safari foi representado por WebKit Playwright no Windows, no CI e contra o site publicado; teste em hardware Safari real permanece recomendável.
+3. Os advisors Supabase continuam mostrando warnings preexistentes em funções administrativas `SECURITY DEFINER`, configuração de OTP/senhas e tabelas de backup; a nova RPC não adicionou warning.
 
 ## 20. Dívida técnica restante
 
@@ -205,18 +204,24 @@ bf578f1 test(e2e): cover MFA and cache lifecycle
 f286acc test(e2e): isolate static server lifecycle
 ac63ea0 docs(report): satisfy diff integrity gate
 0373f35 merge(stabilization): consolidate deterministic root runtime
+99401a5 docs(report): record Supabase and CI validation
+e42c7a6 fix(runtime): consolidar bootstrap determinístico do Volt (#5)
 ```
 
 ## 24. SHA final testado
 
-Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suíte e servidor isolado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`. Integração no histórico do PR #5: `0373f35c5ab9a4675c3b81a366853a89b77d3e4b`, com pais `9d6a26c` e `ac63ea0`. A atualização documental posterior não altera runtime nem testes; o gate completo é repetido sobre o HEAD antes do push.
+Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suíte e servidor isolado: `f286acca510b089fcc3ba17dd669f28f7cc9f53b`. Integração no histórico do PR #5: `0373f35c5ab9a4675c3b81a366853a89b77d3e4b`, com pais `9d6a26c` e `ac63ea0`. Head final da branch testado no PR: `99401a5c36f37a289e4b91379d329bac497a1af1`. Merge publicado e testado: `e42c7a67f0fd289bdbe758af637e12f52d673580`.
 
 ## 25. URL/deploy testado
 
 - Local: `http://127.0.0.1:4173/` — PASSOU.
-- CI do PR #5, run `31675325286`: estático e browsers/SW — PASSOU.
+- CI final do PR #5, run `31675728576`: estático e browsers/SW — PASSOU.
+- CI pós-merge em `main`, run `31675929059`: estático e browsers/SW — PASSOU.
+- GitHub Pages, run `31675928610`: deploy — PASSOU.
+- BFF, run `31675929078`: deploy — PASSOU.
 - Supabase `Volt Consumo`: migração `20260813065357_bootstrap_permissions` — APLICADA E VALIDADA.
-- GitHub Pages esperado: `https://flanhenrique.github.io/Volt-consumo/` — **NÃO TESTADO para esta branch**, pois não houve merge/deploy automático.
+- GitHub Pages: `https://flanhenrique.github.io/Volt-consumo/` — PASSOU em Chromium/WebKit, 1440×1000 e 390×844, fresh contexts, reload, `/beta`, SW, asset 404 não-HTML e offline/online.
+- Sessão autenticada publicada: não executada por ausência de credencial real; o mesmo fluxo passou no browser local/CI com provider determinístico, sem alterar contas reais.
 
 ## Critérios de aceitação do item 33
 
@@ -245,4 +250,4 @@ Código funcional e migração: `2775d5eef73d7f2131b6dbe947c3057795dfee0b`. Suí
 | DOM não é fonte primária de estado | PASSOU | service/store/renderer unidirecional |
 | Todos os testes locais de navegador | PASSOU | Chromium + WebKit + mobile + SW |
 
-Conclusão local e PR: **PASSOU**. Conclusão publicada: **PENDENTE** até ocorrer merge/deploy e a URL implantada ser testada.
+Conclusão local, PR e publicação: **PASSOU**. A única cobertura não executada contra produção foi sessão autenticada com credencial real, preservada deliberadamente para não alterar contas, senhas ou sessões.

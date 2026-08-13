@@ -1,8 +1,6 @@
 import { BETA_ENVIRONMENT } from "./packages/app-environment/browser/index.js";
-import "./startup-runtime.js?v=98";
 
-// environment.js é executado antes de app.js no documento. O runtime precisa
-// estar instalado aqui para compartilhar o cliente Supabase e priorizar os
-// dados da conta antes que app.js registre autenticação e RPCs administrativos.
-// A URL é a mesma do módulo explícito no index; módulos ES são avaliados uma vez.
+// environment.js publica somente o contrato do ambiente. O runtime é carregado
+// explicitamente pelo index logo depois deste módulo e antes de app.js, mantendo
+// uma única origem de bootstrap e uma ordem de execução auditável.
 window.VOLT_ENVIRONMENT = BETA_ENVIRONMENT;

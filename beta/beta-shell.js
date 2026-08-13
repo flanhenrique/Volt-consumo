@@ -77,16 +77,6 @@ function betaShellMarkup() {
           <div class="summary-values" id="beta-summary-values"></div>
           <div class="financial-insights"><p id="beta-financial-comparison">Aguardando leituras para comparar os ciclos.</p><p id="beta-cycle-forecast">Aguardando leituras para prever o encerramento.</p></div>
         </article>
-        <article class="tariff-info-card">
-          <div class="summary-header"><div><p class="eyebrow">COMPOSIÇÃO DA CONTA</p><h2>Tarifas e encargos</h2></div></div>
-          <div class="tariff-info-list">
-            <button type="button" data-tariff-info="energy"><span>Tarifa de energia</span><strong id="beta-tariff-energy">—</strong><i aria-hidden="true">i</i></button>
-            <button type="button" data-tariff-info="flag"><span>Bandeira tarifária</span><strong id="beta-tariff-flag">—</strong><i aria-hidden="true">i</i></button>
-            <button type="button" data-tariff-info="lighting"><span>Iluminação pública</span><strong id="beta-tariff-lighting">—</strong><i aria-hidden="true">i</i></button>
-            <button type="button" data-tariff-info="sewer"><span>Taxa de esgoto</span><strong id="beta-tariff-sewer">Conforme cadastro</strong><i aria-hidden="true">i</i></button>
-            <button type="button" data-tariff-info="taxes"><span>Impostos</span><strong>Conforme fatura</strong><i aria-hidden="true">i</i></button>
-          </div>
-        </article>
       </section>
 
       <section class="beta-page" id="beta-readings" data-page="readings" aria-labelledby="beta-readings-title" hidden>
@@ -764,7 +754,8 @@ function renderBetaExperience() {
   const energyPrevious = cycleConsumption(snapshot.energy.readings, cycle.previous);
   const waterCurrent = cycleConsumption(snapshot.water.readings, cycle.current);
   const waterPrevious = cycleConsumption(snapshot.water.readings, cycle.previous);
-  const displayName = snapshot.account.displayName?.trim();
+  const legacyDisplayName = document.querySelector("#user-name")?.textContent?.trim() || "";
+  const displayName = snapshot.account.displayName?.trim() || legacyDisplayName;
   setText("#beta-greeting", displayName ? `Olá, ${displayName}!` : "Olá!");
   const nameInput = document.querySelector("#beta-display-name");
   if (document.activeElement !== nameInput) nameInput.value = displayName || "";
@@ -777,21 +768,11 @@ function renderBetaExperience() {
   renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
   renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
-  renderTariffInformation();
   renderReadingHistory(snapshot);
   renderBetaMfa();
   renderOperationalHealth();
   renderInvitation();
   renderAdministration();
-}
-
-function renderTariffInformation() {
-  const rate = Number(document.querySelector("#rate")?.value || 0);
-  const lighting = Number(document.querySelector("#lighting-fee")?.value || 0);
-  const flagText = document.querySelector("#tariff-flag")?.selectedOptions?.[0]?.textContent || "Não configurada";
-  setText("#beta-tariff-energy", rate > 0 ? `${currency(rate)}/kWh` : "Não configurada");
-  setText("#beta-tariff-flag", flagText.split("—")[0].trim());
-  setText("#beta-tariff-lighting", lighting > 0 ? currency(lighting) : "Não configurada");
 }
 
 function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {

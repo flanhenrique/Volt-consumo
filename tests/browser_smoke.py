@@ -70,6 +70,36 @@ def scenario_signed_out(browser, mobile=False):
     context.close()
 
 
+def scenario_login_transition(browser):
+    context = isolated_context(browser, viewport={"width": 390, "height": 844})
+    page = context.new_page()
+    errors = install_gates(page)
+    page.goto(BASE_URL + "/?dataDelay=180")
+    page.evaluate("""() => {
+      window.__voltTransitionSurfaces = [];
+      window.addEventListener('volt:startup-status', event => {
+        const visible = ['login-screen', 'mfa-screen', 'error-screen', 'dashboard'].filter(id => {
+          const element = document.getElementById(id);
+          return element && getComputedStyle(element).display !== 'none';
+        });
+        window.__voltTransitionSurfaces.push({ status: event.detail.status, visible });
+      });
+    }""")
+    page.locator("#login-email").fill("ana@volt.test")
+    page.locator("#login-password").fill("senha-segura-123")
+    page.locator("#login-submit").click()
+    expect(page.locator("#login-screen")).to_be_visible()
+    expect(page.locator("#login-progress")).to_be_visible()
+    expect(page.locator("#dashboard")).to_be_visible()
+    expect(page.locator("#login-screen")).to_be_hidden()
+    transitions = page.evaluate("""window.__voltTransitionSurfaces.filter(item =>
+      ['LOADING_ACCOUNT', 'LOADING_DATA'].includes(item.status))""")
+    assert transitions, "nenhuma transição de carregamento foi observada"
+    assert all(item["visible"] == ["login-screen"] for item in transitions), transitions
+    assert_clean(page, errors)
+    context.close()
+
+
 def scenario_authenticated(browser):
     context = isolated_context(browser, viewport={"width": 1440, "height": 1000})
     page = context.new_page()
@@ -195,7 +225,7 @@ def scenario_service_worker(browser):
     else:
         registration_state = page.evaluate("async () => ({ app: document.documentElement.dataset.serviceWorker, appError: document.documentElement.dataset.serviceWorkerError, supported: 'serviceWorker' in navigator, registrations: (await window.navigator.serviceWorker.getRegistrations()).map(registration => ({ scope: registration.scope, installing: registration.installing?.state, waiting: registration.waiting?.state, active: registration.active?.state })) })")
         raise AssertionError(f"Service Worker não ativou: {registration_state}; erros: {errors}")
-    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.5"]
+    assert page.evaluate("async () => (await caches.keys()).sort()") == ["another-product-cache", "volt-app-v4-atomic-20260813.6"]
     page.goto(BASE_URL + "/")
     assert_maintenance_removed(page)
     expect_login("visita controlada")
@@ -231,7 +261,7 @@ def scenario_beta_redirect(browser):
     context = isolated_context(browser)
     page = context.new_page()
     errors = install_gates(page)
-    page.goto(BASE_URL + "/beta/?session=user")
+    page.goto(BASE_URL + "/beta/?session=user", wait_until="commit")
     page.wait_for_url(BASE_URL + "/?session=user")
     assert_maintenance_removed(page)
     expect(page.locator("#dashboard")).to_be_visible()
@@ -257,6 +287,7 @@ def main():
                 scenarios = [
                     ("deslogado desktop", scenario_signed_out),
                     ("deslogado mobile", lambda item: scenario_signed_out(item, mobile=True)),
+                    ("transição Login/Home sem branco", scenario_login_transition),
                     ("sessão/Home/Leituras/Configurações/Relatórios/Logout", scenario_authenticated),
                     ("MFA", scenario_mfa),
                     ("Usuários", scenario_admin),

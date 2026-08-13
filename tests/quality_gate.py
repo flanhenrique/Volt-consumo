@@ -6,7 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_ID = "20260813.5"
+RELEASE_ID = "20260813.6"
 failures = []
 
 

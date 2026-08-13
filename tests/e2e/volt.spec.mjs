@@ -78,10 +78,10 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   }));
   expect(visibility).toEqual(["dashboard"]);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.5",
-    "/src/app-state.js": "20260813.5",
-    "/src/renderer.js": "20260813.5",
-    "/src/volt-service.js": "20260813.5"
+    "/app.js": "20260813.6",
+    "/src/app-state.js": "20260813.6",
+    "/src/renderer.js": "20260813.6",
+    "/src/volt-service.js": "20260813.6"
   });
 });
 
@@ -96,6 +96,34 @@ test("C/I — login e logout seguem uma única transição", async ({ page }) =>
   await expect(page.locator("#dashboard")).toBeHidden();
   await expect(page.locator("#login-screen")).toBeVisible();
   expect(await page.evaluate(() => window.__voltFake.getSession())).toBeNull();
+});
+
+test("Login permanece visível até a Home estar pronta", async ({ page }) => {
+  await page.goto("/?dataDelay=180");
+  await page.evaluate(() => {
+    window.__voltTransitionSurfaces = [];
+    window.addEventListener("volt:startup-status", (event) => {
+      const visible = ["login-screen", "mfa-screen", "error-screen", "dashboard"].filter((id) => {
+        const element = document.getElementById(id);
+        return element && getComputedStyle(element).display !== "none";
+      });
+      window.__voltTransitionSurfaces.push({ status: event.detail.status, visible });
+    });
+  });
+  await page.locator("#login-email").fill("ana@volt.test");
+  await page.locator("#login-password").fill("senha-segura-123");
+  await page.locator("#login-submit").click();
+
+  await expect(page.locator("#login-screen")).toBeVisible();
+  await expect(page.locator("#login-progress")).toBeVisible();
+  await expect(page.locator("#login-message")).toContainText(/Validando sua conta|Carregando seus dados/);
+  await expect(page.locator("#dashboard")).toBeVisible();
+  await expect(page.locator("#login-screen")).toBeHidden();
+
+  const loadingTransitions = await page.evaluate(() => window.__voltTransitionSurfaces.filter(({ status }) =>
+    ["LOADING_ACCOUNT", "LOADING_DATA"].includes(status)));
+  expect(loadingTransitions.length).toBeGreaterThan(0);
+  expect(loadingTransitions.every(({ visible }) => visible.length === 1 && visible[0] === "login-screen")).toBe(true);
 });
 
 test("C — MFA bloqueia o Dashboard até AAL2", async ({ page }) => {

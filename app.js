@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.5";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.5";
-import { VOLT_CONFIG } from "./config.js?v=20260813.5";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.5";
-import { createRenderer } from "./src/renderer.js?v=20260813.5";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.5";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.5";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260813.6";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260813.6";
+import { VOLT_CONFIG } from "./config.js?v=20260813.6";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260813.6";
+import { createRenderer } from "./src/renderer.js?v=20260813.6";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260813.6";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260813.6";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -35,7 +35,7 @@ function startApplication() {
 export async function bootstrap() {
   store.setStatus(StartupStatus.RESTORING_SESSION);
   try {
-    await registerServiceWorker();
+    void registerServiceWorker();
     if (!service) {
       await loadSupabaseRuntime();
       service = createVoltService(VOLT_CONFIG);
@@ -155,15 +155,16 @@ async function handleLogin(event) {
   event.preventDefault();
   const button = document.getElementById("login-submit");
   button.disabled = true;
+  store.update({ transitionSurface: "login" });
   renderer.setMessage("login-message", "Autenticando…");
   try {
     const email = document.getElementById("login-email").value.trim();
     const password = document.getElementById("login-password").value;
     const session = await service.signIn(email, password);
     if (!session) throw new Error("O provedor não iniciou a sessão.");
-    renderer.setMessage("login-message", "");
     await enqueueSession(session);
   } catch (error) {
+    store.update({ transitionSurface: null });
     renderer.setMessage("login-message", authMessage(error), true);
   } finally {
     button.disabled = false;
@@ -188,6 +189,8 @@ async function handleSignup(event) {
     const result = await service.signUp(email, password);
     if (result.session) {
       closeDialog("signup-dialog");
+      store.update({ transitionSurface: "login" });
+      renderer.setMessage("login-message", "Carregando seus dados…");
       await enqueueSession(result.session);
     } else {
       renderer.setMessage("signup-message", "Confirme o e-mail enviado para concluir o cadastro.");
@@ -214,13 +217,14 @@ async function handlePasswordReset() {
 async function handleMfa(event) {
   event.preventDefault();
   const code = document.getElementById("mfa-code").value.trim();
+  store.update({ transitionSurface: "mfa" });
   renderer.setMessage("mfa-message", "Verificando…");
   try {
     const session = await service.verifyMfa(mfaFactorId, code);
     document.getElementById("mfa-form").reset();
-    renderer.setMessage("mfa-message", "");
     await enqueueSession(session);
   } catch {
+    store.update({ transitionSurface: null });
     renderer.setMessage("mfa-message", "Código inválido ou expirado.", true);
   }
 }
@@ -403,7 +407,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.5");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260813.6");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {

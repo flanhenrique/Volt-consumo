@@ -31,8 +31,19 @@ async function navigateTo(page, destination) {
   await page.locator(`#more-dialog [data-nav="${destination}"]:visible`).click();
 }
 
+async function unlockMaintenance(page) {
+  await expect(page.locator("#maintenance-screen")).toBeVisible();
+  await expect(page.locator("#login-screen")).toBeHidden();
+  await expect(page.locator("#dashboard")).toBeHidden();
+  for (let index = 0; index < 4; index += 1) await page.locator("#maintenance-unlock").click();
+  await expect(page.locator("#maintenance-screen")).toBeVisible();
+  await page.locator("#maintenance-unlock").click();
+  await expect(page.locator("#maintenance-screen")).toBeHidden();
+}
+
 async function signIn(page) {
   await page.goto("/");
+  await unlockMaintenance(page);
   await page.locator("#login-email").fill("ana@volt.test");
   await page.locator("#login-password").fill("senha-segura-123");
   await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
@@ -41,6 +52,7 @@ async function signIn(page) {
 
 test("A — usuário deslogado vê somente Login", async ({ page }) => {
   await page.goto("/");
+  await unlockMaintenance(page);
   await expect(page.locator("#login-screen")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeHidden();
   await expect(page.locator("#boot-screen")).toHaveCount(0);
@@ -56,6 +68,7 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
     }
   });
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await expect(page.locator("#login-screen")).toBeHidden();
   await expect(page.locator("#greeting")).toHaveText("Olá, Ana Volt!");
@@ -71,10 +84,10 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   }));
   expect(visibility).toEqual(["dashboard"]);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.2",
-    "/src/app-state.js": "20260813.2",
-    "/src/renderer.js": "20260813.2",
-    "/src/volt-service.js": "20260813.2"
+    "/app.js": "20260813.3",
+    "/src/app-state.js": "20260813.3",
+    "/src/renderer.js": "20260813.3",
+    "/src/volt-service.js": "20260813.3"
   });
 });
 
@@ -93,6 +106,7 @@ test("C/I — login e logout seguem uma única transição", async ({ page }) =>
 
 test("C — MFA bloqueia o Dashboard até AAL2", async ({ page }) => {
   await page.goto("/?session=mfa");
+  await unlockMaintenance(page);
   await expect(page.locator("#mfa-screen")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeHidden();
   await page.locator("#mfa-code").fill("123456");
@@ -103,6 +117,7 @@ test("C — MFA bloqueia o Dashboard até AAL2", async ({ page }) => {
 
 test("E — registrar leitura preserva a Home", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "readings");
   await page.locator("#page-readings [data-action='open-reading']").first().click();
@@ -119,6 +134,7 @@ test("E — registrar leitura preserva a Home", async ({ page }) => {
 
 test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await page.locator("[data-action='open-reading']:visible").first().click();
   await page.locator("#reading-photo").setInputFiles({ name: "medidor.png", mimeType: "image/png", buffer: onePixelPng });
@@ -130,6 +146,7 @@ test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => 
 
 test("F — nome e e-mail persistem após reload", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "settings");
   await expect(page.locator("#account-email")).toHaveValue("ana@volt.test");
@@ -146,6 +163,7 @@ test("F — nome e e-mail persistem após reload", async ({ page }) => {
 
 test("G — Usuários aparece por permissão e reabre sem destruir DOM", async ({ page }) => {
   await page.goto("/?session=admin");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "users");
   await expect(page.locator("#users-list .user-account-item")).toHaveCount(3);
@@ -167,6 +185,7 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
 
 test("H — Relatórios existe e permanece vazio", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "reports");
   await expect(page.locator("#page-reports")).toBeVisible();
@@ -175,6 +194,7 @@ test("H — Relatórios existe e permanece vazio", async ({ page }) => {
 
 test("Consumo, Alertas e Ajuda navegam com um único outlet", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "consumption");
   await expect(page.locator("#page-consumption")).toBeVisible();
@@ -191,6 +211,7 @@ test("Consumo, Alertas e Ajuda navegam com um único outlet", async ({ page }) =
 
 test("Tema claro, escuro e sistema compartilham o mesmo DOM", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "settings");
   await page.locator("[data-theme-choice='dark']").click();
@@ -204,6 +225,7 @@ test("Tema claro, escuro e sistema compartilham o mesmo DOM", async ({ page }) =
 
 test("layout não cria overflow horizontal", async ({ page }) => {
   await page.goto("/?session=user");
+  await unlockMaintenance(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   const overflow = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth }));
   expect(overflow.width).toBeLessThanOrEqual(overflow.viewport + 1);
@@ -211,6 +233,8 @@ test("layout não cria overflow horizontal", async ({ page }) => {
 
 test("/beta é somente compatibilidade", async ({ page }) => {
   await page.goto("/beta/?session=user");
+  await page.waitForURL((url) => url.pathname === "/" && url.search === "?session=user");
+  await unlockMaintenance(page);
   await expect(page).toHaveURL(/\/?session=user$/);
   await expect(page.locator("#dashboard")).toBeVisible();
   expect(await page.locator("script[type=module]").count()).toBe(1);

@@ -20,12 +20,20 @@ def prepare(page):
     return errors
 
 
+def unlock_maintenance(page):
+    expect(page.locator("#maintenance-screen")).to_be_visible()
+    for _ in range(5):
+        page.locator("#maintenance-unlock").click()
+    expect(page.locator("#maintenance-screen")).to_be_hidden()
+
+
 def capture(browser, base_url, name, viewport, url, navigate=None, theme="dark"):
     context = browser.new_context(viewport=viewport, service_workers="block")
     page = context.new_page()
     errors = prepare(page)
     page.add_init_script(f"localStorage.setItem('volt-theme', {theme!r})")
     page.goto(base_url + url)
+    unlock_maintenance(page)
     expect(page.locator("#dashboard")).to_be_visible()
     if navigate:
         direct = page.locator(f'[data-nav="{navigate}"]:visible').first

@@ -6,7 +6,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_ID = "20260813.2"
+RELEASE_ID = "20260813.3"
 failures = []
 
 
@@ -82,6 +82,12 @@ for forbidden, reason in {
     check(forbidden not in active_sources, reason)
 
 check("[hidden] { display: none !important; }" in (ROOT / "styles/tokens.css").read_text(encoding="utf-8"), "proteção estática [hidden] ausente")
+check('id="maintenance-screen"' in index_source, "tela pública de manutenção ausente")
+check('id="maintenance-unlock"' in index_source, "acesso controlado da manutenção ausente")
+check('id="main-content" class="app-shell" hidden' in index_source, "aplicação não pode ocupar a tela antes da liberação")
+app_source = (ROOT / "app.js").read_text(encoding="utf-8")
+check("maintenanceClickCount < 5" in app_source, "manutenção deve exigir cinco cliques")
+check("initializeMaintenanceGate();" in app_source, "bootstrap deve permanecer bloqueado pela manutenção")
 check((ROOT / "index.html").read_text(encoding="utf-8").count('id="page-reports"') == 1, "Relatórios deve possuir uma única página")
 for removed_item in ('data-nav="accounts"', 'data-page="accounts"', "Ciclos anteriores"):
     check(removed_item not in active_sources, f"item removido voltou ao código ativo: {removed_item}")

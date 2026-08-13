@@ -1,9 +1,13 @@
-const CACHE_NAME = "volt-app-v2";
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
+const CACHE_NAME = "volt-app-v3-liquid-glass";
+const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
 const CORE_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
+  "./styles/tokens.css",
+  "./styles/glass.css",
+  "./styles/layout.css",
+  "./styles/components.css",
+  "./styles/pages.css",
   "./app.js",
   "./config.js",
   "./manifest.webmanifest",

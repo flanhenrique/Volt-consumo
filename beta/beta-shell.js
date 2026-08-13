@@ -38,8 +38,11 @@ function initializeBetaExperience() {
   bindAdministration(shell);
 
   window.setInterval(() => {
-    if (!document.hidden) Promise.all([api.refreshFeatureFlags(), api.refreshOperationalMetrics()]).catch(() => undefined);
-  }, 25_000);
+    const usersActive = document.querySelector("#beta-users")?.classList.contains("active");
+    if (!document.hidden && usersActive) {
+      Promise.all([api.refreshFeatureFlags(), api.refreshOperationalMetrics()]).catch(() => undefined);
+    }
+  }, 60_000);
 
   window.addEventListener("volt:beta-data", renderBetaExperience);
   window.addEventListener("focus", refreshBetaData);
@@ -169,6 +172,7 @@ function showPage(pageName) {
     active ? button.setAttribute("aria-current", "page") : button.removeAttribute("aria-current");
   });
   document.querySelector("#beta-reading-fab").hidden = ["reports", "settings", "users"].includes(pageName);
+  renderBetaExperience();
   requestAnimationFrame(resetPageScroll);
 }
 
@@ -749,17 +753,39 @@ function refreshBetaData() {
 
 function renderBetaExperience() {
   const snapshot = api.getSnapshot();
+  const activePage = document.querySelector(".beta-page.active")?.dataset.page || "home";
+  const legacyDisplayName = document.querySelector("#user-name")?.textContent?.trim() || "";
+  const displayName = snapshot.account.displayName?.trim() || legacyDisplayName;
+
+  setText("#beta-greeting", displayName ? `Olá, ${displayName}!` : "Olá!");
+  const nameInput = document.querySelector("#beta-display-name");
+  if (nameInput && document.activeElement !== nameInput) nameInput.value = displayName || "";
+  const emailInput = document.querySelector("#beta-account-email");
+  if (emailInput) emailInput.value = snapshot.account.email || "";
+
+  renderInvitation();
+  renderAdministrationNavigation();
+
+  if (activePage === "readings") {
+    renderReadingHistory(snapshot);
+    return;
+  }
+  if (activePage === "users") {
+    renderAdministration();
+    return;
+  }
+  if (activePage === "settings") {
+    renderBetaMfa();
+    renderOperationalHealth();
+    return;
+  }
+  if (activePage !== "home") return;
+
   const cycle = getCycleRanges();
   const energyCurrent = cycleConsumption(snapshot.energy.readings, cycle.current);
   const energyPrevious = cycleConsumption(snapshot.energy.readings, cycle.previous);
   const waterCurrent = cycleConsumption(snapshot.water.readings, cycle.current);
   const waterPrevious = cycleConsumption(snapshot.water.readings, cycle.previous);
-  const legacyDisplayName = document.querySelector("#user-name")?.textContent?.trim() || "";
-  const displayName = snapshot.account.displayName?.trim() || legacyDisplayName;
-  setText("#beta-greeting", displayName ? `Olá, ${displayName}!` : "Olá!");
-  const nameInput = document.querySelector("#beta-display-name");
-  if (document.activeElement !== nameInput) nameInput.value = displayName || "";
-  document.querySelector("#beta-account-email").value = snapshot.account.email || "";
   setText("#beta-cycle-label", `${formatShortDate(cycle.current.start)} – ${formatShortDate(cycle.current.end)}`);
   setText("#beta-energy-consumption", `${formatNumber(energyCurrent.consumption)} kWh`);
   setText("#beta-water-consumption", `${formatNumber(waterCurrent.consumption, 3)} m³`);
@@ -768,11 +794,12 @@ function renderBetaExperience() {
   renderComparison("#beta-energy-comparison", energyCurrent, energyPrevious);
   renderComparison("#beta-water-comparison", waterCurrent, waterPrevious);
   renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious);
-  renderReadingHistory(snapshot);
-  renderBetaMfa();
-  renderOperationalHealth();
-  renderInvitation();
-  renderAdministration();
+}
+
+function renderAdministrationNavigation() {
+  const nav = document.querySelector("#beta-users-nav");
+  if (!nav) return;
+  nav.hidden = !api.getAdminSnapshot().authorized;
 }
 
 function renderFinancialSummary(snapshot, cycle, energyCurrent, energyPrevious, waterCurrent, waterPrevious) {

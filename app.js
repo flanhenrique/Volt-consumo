@@ -16,6 +16,8 @@ let activeSessionKey = null;
 let pendingSessionKey = null;
 let sessionQueue = Promise.resolve();
 let mfaFactorId = null;
+let readingPreviewUrl = null;
+let readingPhotoSequence = 0;
 
 store.subscribe((state) => renderer.render(state));
 bindStaticUi();
@@ -101,13 +103,15 @@ async function restoreAuthenticatedApplication(session) {
 
 function bindStaticUi() {
   document.getElementById("login-form").addEventListener("submit", handleLogin);
-  document.getElementById("signup-button").addEventListener("click", handleSignup);
+  document.getElementById("signup-button").addEventListener("click", openSignupDialog);
+  document.getElementById("signup-form").addEventListener("submit", handleSignup);
   document.getElementById("forgot-password").addEventListener("click", handlePasswordReset);
   document.getElementById("mfa-form").addEventListener("submit", handleMfa);
   document.getElementById("mfa-cancel").addEventListener("click", () => void logout());
   document.getElementById("retry-bootstrap").addEventListener("click", () => void bootstrap());
   document.getElementById("error-logout").addEventListener("click", () => void logout());
   document.getElementById("logout").addEventListener("click", () => void logout());
+  document.getElementById("mobile-logout").addEventListener("click", () => void logout());
   document.getElementById("account-form").addEventListener("submit", handleAccountUpdate);
   document.getElementById("cycles-form").addEventListener("submit", handleCyclesUpdate);
   document.getElementById("energy-settings-form").addEventListener("submit", handleEnergySettings);
@@ -116,10 +120,20 @@ function bindStaticUi() {
   document.getElementById("reading-form").addEventListener("submit", handleReading);
   document.getElementById("invite-user").addEventListener("click", () => openDialog("invite-dialog"));
   document.getElementById("invite-form").addEventListener("submit", handleInvitation);
-  document.querySelectorAll("[data-nav]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.nav)));
+  document.querySelectorAll("[data-nav]").forEach((button) => button.addEventListener("click", (event) => {
+    event.preventDefault();
+    void navigate(button.dataset.nav);
+  }));
   document.querySelectorAll("[data-action='open-reading']").forEach((button) => button.addEventListener("click", openReadingDialog));
+  document.querySelectorAll("[data-action='open-more']").forEach((button) => button.addEventListener("click", () => openDialog("more-dialog")));
   document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => closeDialog(button.dataset.closeDialog)));
   document.querySelectorAll("[data-action='toggle-theme']").forEach((button) => button.addEventListener("click", toggleTheme));
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => button.addEventListener("click", () => setThemePreference(button.dataset.themeChoice)));
+  document.querySelectorAll("[data-consumption-type]").forEach((button) => button.addEventListener("click", () => updateView({ consumptionType: button.dataset.consumptionType })));
+  document.querySelectorAll("[data-consumption-period]").forEach((button) => button.addEventListener("click", () => updateView({ consumptionPeriod: button.dataset.consumptionPeriod })));
+  document.querySelectorAll("[data-reading-type]").forEach((button) => button.addEventListener("click", () => selectReadingType(button.dataset.readingType)));
+  document.getElementById("reading-type").addEventListener("change", (event) => selectReadingType(event.target.value));
+  document.getElementById("reading-photo").addEventListener("change", handleReadingPhoto);
   applySavedTheme();
 }
 
@@ -142,20 +156,30 @@ async function handleLogin(event) {
   }
 }
 
-async function handleSignup() {
-  const email = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value;
-  if (!email || password.length < 12) {
-    renderer.setMessage("login-message", "Informe um e-mail válido e uma senha com pelo menos 12 caracteres.", true);
+async function handleSignup(event) {
+  event.preventDefault();
+  const email = document.getElementById("signup-email").value.trim();
+  const password = document.getElementById("signup-password").value;
+  const confirmation = document.getElementById("signup-password-confirm").value;
+  if (password !== confirmation) {
+    renderer.setMessage("signup-message", "As senhas precisam ser iguais.", true);
     return;
   }
-  renderer.setMessage("login-message", "Criando conta…");
+  if (!email || password.length < 12) {
+    renderer.setMessage("signup-message", "Informe um e-mail válido e uma senha com pelo menos 12 caracteres.", true);
+    return;
+  }
+  renderer.setMessage("signup-message", "Criando conta…");
   try {
     const result = await service.signUp(email, password);
-    renderer.setMessage("login-message", result.session ? "Conta criada. Carregando…" : "Confirme o e-mail enviado para concluir o cadastro.");
-    if (result.session) await enqueueSession(result.session);
+    if (result.session) {
+      closeDialog("signup-dialog");
+      await enqueueSession(result.session);
+    } else {
+      renderer.setMessage("signup-message", "Confirme o e-mail enviado para concluir o cadastro.");
+    }
   } catch (error) {
-    renderer.setMessage("login-message", authMessage(error), true);
+    renderer.setMessage("signup-message", authMessage(error), true);
   }
 }
 
@@ -288,6 +312,7 @@ async function handleReading(event) {
     const readings = await service.addReading(type, state.user.id, reading);
     store.update({ readings: { ...state.readings, [type]: readings } });
     event.target.reset();
+    clearReadingPreview();
     closeDialog("reading-dialog");
     renderer.setMessage("readings-message", "Leitura registrada.");
   } catch (error) {
@@ -315,6 +340,7 @@ async function navigate(page) {
   if (state.status !== StartupStatus.READY) return;
   if (page === "users" && !state.permissions.canManageUsers) return;
   store.update({ activePage: page });
+  closeDialog("more-dialog");
   document.getElementById("page-container").scrollTo({ top: 0, behavior: "auto" });
   if (page === "users" && !state.admin) {
     renderer.setMessage("users-message", "Carregando usuários…");
@@ -329,10 +355,61 @@ async function navigate(page) {
 }
 
 function openReadingDialog() {
+  clearReadingPreview();
+  document.getElementById("reading-form").reset();
+  selectReadingType("energy");
   const dateInput = document.getElementById("reading-date");
   dateInput.value = toLocalDateTime(new Date());
   renderer.setMessage("reading-message", "");
+  renderer.setMessage("ocr-message", "A foto é analisada somente quando escolhida. Revise sempre o valor.");
   openDialog("reading-dialog");
+}
+
+function openSignupDialog() {
+  document.getElementById("signup-form").reset();
+  document.getElementById("signup-email").value = document.getElementById("login-email").value.trim();
+  renderer.setMessage("signup-message", "");
+  openDialog("signup-dialog");
+}
+
+function selectReadingType(type) {
+  const normalized = type === "water" ? "water" : "energy";
+  document.getElementById("reading-type").value = normalized;
+  document.querySelectorAll("[data-reading-type]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.readingType === normalized)));
+}
+
+async function handleReadingPhoto(event) {
+  const file = event.target.files?.[0];
+  const sequence = ++readingPhotoSequence;
+  clearReadingPreview(false);
+  if (!file) return;
+  const preview = document.getElementById("meter-preview");
+  readingPreviewUrl = URL.createObjectURL(file);
+  preview.src = readingPreviewUrl;
+  preview.hidden = false;
+  renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
+  try {
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js");
+    const result = await analyzeMeterImage(file);
+    if (sequence !== readingPhotoSequence) return;
+    if (result.value !== null) {
+      document.getElementById("reading-value").value = String(result.value);
+      renderer.setMessage("ocr-message", "Valor sugerido pela imagem. Confira o visor antes de confirmar.");
+    } else {
+      renderer.setMessage("ocr-message", result.message);
+    }
+  } catch {
+    if (sequence === readingPhotoSequence) renderer.setMessage("ocr-message", "Não foi possível analisar a foto. Informe o valor manualmente e revise antes de confirmar.", true);
+  }
+}
+
+function clearReadingPreview(invalidate = true) {
+  if (invalidate) readingPhotoSequence += 1;
+  if (readingPreviewUrl) URL.revokeObjectURL(readingPreviewUrl);
+  readingPreviewUrl = null;
+  const preview = document.getElementById("meter-preview");
+  preview.removeAttribute("src");
+  preview.hidden = true;
 }
 
 function openDialog(id) {
@@ -343,6 +420,7 @@ function openDialog(id) {
 function closeDialog(id) {
   const dialog = document.getElementById(id);
   if (dialog.open) dialog.close();
+  if (id === "reading-dialog") clearReadingPreview();
 }
 
 async function logout() {
@@ -385,16 +463,27 @@ function operationMessage(error) {
   return message && !message.toLowerCase().includes("jwt") ? message : "Não foi possível concluir a operação agora.";
 }
 
+function updateView(patch) {
+  const state = store.getState();
+  store.update({ view: { ...state.view, ...patch } });
+}
+
 function toggleTheme() {
-  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("volt-theme", next);
+  const currentDark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+  setThemePreference(currentDark ? "light" : "dark");
+}
+
+function setThemePreference(preference) {
+  const normalized = ["system", "light", "dark"].includes(preference) ? preference : "system";
+  if (normalized === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = normalized;
+  localStorage.setItem("volt-theme", normalized);
+  updateView({ theme: normalized });
 }
 
 function applySavedTheme() {
   const saved = localStorage.getItem("volt-theme");
-  if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
-  else if (matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.theme = "dark";
+  setThemePreference(["system", "light", "dark"].includes(saved) ? saved : "system");
 }
 
 async function registerServiceWorker() {

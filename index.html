@@ -3,184 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1720">
+  <meta name="theme-color" content="#06130f">
   <meta name="description" content="Acompanhe leituras e consumo de energia e água com o Volt.">
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
-  <title>Volt</title>
+  <link rel="stylesheet" href="./styles/tokens.css">
+  <link rel="stylesheet" href="./styles/glass.css">
+  <link rel="stylesheet" href="./styles/layout.css">
+  <link rel="stylesheet" href="./styles/components.css">
+  <link rel="stylesheet" href="./styles/pages.css">
+  <title>Volt Consumo</title>
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Pular para o conteúdo</a>
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="icon-bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13h6L10 22l9.5-12h-6L13 2Z"/></symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="icon-reading" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h5M8 16h8"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="icon-report" viewBox="0 0 24 24"><path d="M4 20V4h16v16H4Z"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM17 11a4 4 0 0 0 0-8M22 21v-2a4 4 0 0 0-3-3.87"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21h-4v-.08a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3v-4h.08a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3h4v.08a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21v4h-.08a1.7 1.7 0 0 0-1.52 1Z"/></symbol>
+    <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.2 2c-1.2 1-2.3 1.4-2.3 3M12 18h.01"/></symbol>
+    <symbol id="icon-water" viewBox="0 0 24 24"><path d="M12 2S5 10 5 15a7 7 0 0 0 14 0c0-5-7-13-7-13Z"/></symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.41M17.66 6.34l1.41-1.41"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v13H4V7Z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 3v18h-6"/></symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#page-container">Pular para o conteúdo</a>
   <noscript><p class="fatal-message">O Volt precisa de JavaScript para funcionar.</p></noscript>
 
   <main id="main-content" class="app-shell">
-    <section id="boot-screen" class="state-screen" aria-live="polite">
-      <span class="brand-mark" aria-hidden="true">V</span>
-      <h1>Volt</h1>
-      <p id="boot-message">Iniciando com segurança…</p>
+    <section id="boot-screen" class="state-screen boot-layout" aria-live="polite">
+      <article class="state-panel glass-elevated glass-shine">
+        <span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span>
+        <div><p class="eyebrow">VOLT CONSUMO</p><h1>Preparando sua visão geral</h1></div>
+        <p id="boot-message" class="supporting-copy">Iniciando com segurança…</p>
+      </article>
     </section>
 
     <section id="login-screen" class="state-screen auth-screen" hidden>
-      <header class="brand-header">
-        <span class="brand-mark" aria-hidden="true">V</span>
-        <button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema">◐</button>
-      </header>
-      <p class="eyebrow">VOLT CONSUMO</p>
-      <h1>Sua energia,<br>mais clara.</h1>
-      <p class="lead">Registre o medidor, acompanhe o consumo e antecipe a próxima conta.</p>
-      <form id="login-form" class="card form">
-        <label><span>E-mail</span><input id="login-email" name="email" type="email" autocomplete="username" required></label>
-        <label><span>Senha</span><input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
-        <label class="checkbox-row"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
-        <button id="login-submit" class="primary-button" type="submit">Entrar</button>
-        <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
-        <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
-        <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
-      </form>
+      <div class="auth-layout glass-elevated">
+        <section class="auth-branding" aria-label="Apresentação do Volt">
+          <a class="brand-lockup" href="./" aria-label="Volt Consumo">
+            <span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span>
+            <span class="brand-name">VOLT<small>CONSUMO</small></span>
+          </a>
+          <div class="auth-copy">
+            <p class="eyebrow">CONTROLE COM CLAREZA</p>
+            <h1>Seu consumo mais claro.</h1>
+            <p>Registre o medidor, acompanhe energia e água e antecipe seus gastos em um só lugar.</p>
+          </div>
+          <p class="supporting-copy"><svg class="icon" aria-hidden="true"><use href="#icon-shield"></use></svg> Seus dados são protegidos e usados somente para calcular seu consumo.</p>
+        </section>
+        <section class="auth-form-side">
+          <div class="auth-form-wrap">
+            <div class="auth-mobile-brand">
+              <a class="brand-lockup" href="./" aria-label="Volt Consumo"><span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span><span class="brand-name">VOLT<small>CONSUMO</small></span></a>
+              <div><p class="eyebrow">BEM-VINDO</p><h1>Seu consumo<br>mais claro.</h1></div>
+            </div>
+            <div class="section-heading">
+              <div class="section-heading-copy"><p class="eyebrow">ACESSE SUA CONTA</p><h2>Entrar no Volt</h2><p class="supporting-copy">Continue de onde parou.</p></div>
+              <button class="icon-button glass-control" type="button" data-action="toggle-theme" aria-label="Alternar tema"><svg class="icon"><use href="#icon-sun"></use></svg></button>
+            </div>
+            <form id="login-form" class="card form glass-level-2 glass-shine">
+              <label><span>E-mail</span><span class="input-with-icon"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg><input id="login-email" name="email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required></span></label>
+              <label><span>Senha</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
+              <label class="checkbox-row"><input id="remember-user" type="checkbox" checked><span>Manter conectado neste dispositivo</span></label>
+              <button id="login-submit" class="primary-button" type="submit">Entrar</button>
+              <button id="signup-button" class="secondary-button" type="button">Criar minha conta</button>
+              <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
+              <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
+            </form>
+            <a class="text-button" href="./privacy.html">Privacidade e proteção de dados</a>
+          </div>
+        </section>
+      </div>
     </section>
 
-    <section id="mfa-screen" class="state-screen auth-screen" hidden>
-      <p class="eyebrow">VERIFICAÇÃO</p>
-      <h1>Confirme seu acesso</h1>
-      <form id="mfa-form" class="card form">
-        <label><span>Código do autenticador</span><input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
-        <button class="primary-button" type="submit">Verificar</button>
-        <button id="mfa-cancel" class="secondary-button" type="button">Cancelar e sair</button>
-        <p id="mfa-message" class="status-message" role="status" aria-live="polite"></p>
-      </form>
+    <section id="mfa-screen" class="state-screen mfa-layout" hidden>
+      <article class="state-panel glass-modal glass-shine">
+        <span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-shield"></use></svg></span>
+        <div><p class="eyebrow">VERIFICAÇÃO EM DUAS ETAPAS</p><h1>Confirme seu acesso</h1><p class="supporting-copy">Digite o código do seu aplicativo autenticador.</p></div>
+        <form id="mfa-form" class="form">
+          <label><span>Código do autenticador</span><input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+          <button class="primary-button" type="submit">Verificar</button>
+          <button id="mfa-cancel" class="secondary-button" type="button">Cancelar e sair</button>
+          <p id="mfa-message" class="status-message" role="status" aria-live="polite"></p>
+        </form>
+      </article>
     </section>
 
-    <section id="error-screen" class="state-screen auth-screen" hidden>
-      <p class="eyebrow">INICIALIZAÇÃO INTERROMPIDA</p>
-      <h1>O Volt não pôde carregar</h1>
-      <p id="fatal-error-message" class="fatal-message"></p>
-      <button id="retry-bootstrap" class="primary-button" type="button">Tentar novamente</button>
-      <button id="error-logout" class="secondary-button" type="button">Sair da conta</button>
+    <section id="error-screen" class="state-screen error-layout" hidden>
+      <article class="state-panel glass-modal">
+        <p class="eyebrow">INICIALIZAÇÃO INTERROMPIDA</p>
+        <h1>O Volt não pôde carregar</h1>
+        <p id="fatal-error-message" class="fatal-message"></p>
+        <button id="retry-bootstrap" class="primary-button" type="button">Tentar novamente</button>
+        <button id="error-logout" class="secondary-button" type="button">Sair da conta</button>
+      </article>
     </section>
 
     <section id="dashboard" class="dashboard" hidden>
-      <header class="app-header">
-        <div><p class="eyebrow">VOLT CONSUMO</p><h1 id="greeting">Olá!</h1></div>
-        <button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema">◐</button>
-      </header>
+      <div class="app-frame">
+        <aside class="desktop-sidebar glass-navigation glass-shine" aria-label="Navegação do Volt">
+          <a class="brand-lockup" href="#" data-nav="home" aria-label="Ir para o início"><span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span><span class="brand-name">VOLT<small>CONSUMO</small></span></a>
+          <nav class="desktop-nav" aria-label="Navegação principal">
+            <button class="nav-button" type="button" data-nav="home" aria-current="page"><svg class="icon"><use href="#icon-home"></use></svg>Início</button>
+            <button class="nav-button" type="button" data-nav="consumption"><svg class="icon"><use href="#icon-chart"></use></svg>Consumo</button>
+            <button class="nav-button" type="button" data-nav="readings"><svg class="icon"><use href="#icon-reading"></use></svg>Leituras</button>
+            <button class="nav-button" type="button" data-nav="alerts"><svg class="icon"><use href="#icon-alert"></use></svg>Alertas</button>
+            <button class="nav-button" type="button" data-nav="reports"><svg class="icon"><use href="#icon-report"></use></svg>Relatórios</button>
+            <button id="users-nav" class="nav-button" type="button" data-nav="users" data-requires-users hidden><svg class="icon"><use href="#icon-users"></use></svg>Usuários</button>
+            <button class="nav-button" type="button" data-nav="settings"><svg class="icon"><use href="#icon-settings"></use></svg>Configurações</button>
+            <button class="nav-button" type="button" data-nav="help"><svg class="icon"><use href="#icon-help"></use></svg>Ajuda</button>
+          </nav>
+          <footer class="sidebar-footer">
+            <div class="profile-row">
+              <span id="profile-initials" class="profile-avatar" aria-hidden="true">V</span>
+              <span class="profile-copy"><strong id="sidebar-display-name">Usuário Volt</strong><small id="sidebar-email"></small></span>
+            </div>
+            <button class="nav-button" type="button" data-action="toggle-theme"><svg class="icon"><use href="#icon-sun"></use></svg>Alternar tema</button>
+            <button id="logout" class="nav-button" type="button"><svg class="icon"><use href="#icon-logout"></use></svg>Sair</button>
+          </footer>
+        </aside>
 
-      <main id="page-container" class="page-container">
-        <section id="page-home" class="page" data-page="home" aria-labelledby="home-title">
-          <div class="page-heading"><div><p class="eyebrow">CICLOS ATUAIS</p><h2 id="home-title">Consumo consolidado</h2></div><span id="cycle-label" class="chip"></span></div>
-          <div class="utility-grid">
-            <article class="utility-card energy"><p>Energia</p><strong id="home-energy-consumption"></strong><small id="home-energy-cycle"></small><strong id="home-energy-cost"></strong></article>
-            <article class="utility-card water"><p>Água</p><strong id="home-water-consumption"></strong><small id="home-water-cycle"></small><strong id="home-water-cost"></strong></article>
-          </div>
-          <article class="card summary-card"><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Total estimado</h2><strong id="home-total-cost" class="total-value"></strong><div id="home-summary" class="summary-grid"></div></article>
-        </section>
+        <div class="app-main">
+          <header class="mobile-topbar glass-navigation">
+            <a class="brand-lockup" href="#" data-nav="home" aria-label="Ir para o início"><span class="brand-symbol" aria-hidden="true"><svg><use href="#icon-bolt"></use></svg></span><span class="brand-name">VOLT<small>CONSUMO</small></span></a>
+            <div class="topbar-actions"><button class="icon-button" type="button" data-nav="alerts" aria-label="Abrir alertas"><svg class="icon"><use href="#icon-alert"></use></svg></button><button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema"><svg class="icon"><use href="#icon-sun"></use></svg></button></div>
+          </header>
 
-        <section id="page-readings" class="page" data-page="readings" aria-labelledby="readings-title" hidden>
-          <div class="page-heading"><div><p class="eyebrow">HISTÓRICO</p><h2 id="readings-title">Leituras</h2></div><button class="primary-button compact" type="button" data-action="open-reading">Nova leitura</button></div>
-          <p id="readings-message" class="status-message" role="status" aria-live="polite"></p>
-          <div id="readings-empty" class="empty" hidden>Nenhuma leitura registrada ainda.</div>
-          <ul id="readings-list" class="reading-list"></ul>
-        </section>
+          <header class="desktop-topbar glass-navigation glass-shine">
+            <div class="topbar-context"><div><p class="eyebrow">VISÃO GERAL</p><h1 id="greeting">Olá!</h1></div><span id="cycle-label" class="chip"></span></div>
+            <div class="topbar-actions"><button class="icon-button" type="button" data-nav="alerts" aria-label="Abrir alertas"><svg class="icon"><use href="#icon-alert"></use></svg></button><button class="icon-button" type="button" data-action="toggle-theme" aria-label="Alternar tema"><svg class="icon"><use href="#icon-sun"></use></svg></button><button class="secondary-button compact" type="button" data-nav="settings"><span id="topbar-profile-name">Perfil</span></button></div>
+          </header>
 
-        <section id="page-reports" class="page empty-page" data-page="reports" aria-label="Relatórios" hidden></section>
+          <main id="page-container" class="page-container" tabindex="-1">
+            <section id="page-home" class="page" data-page="home" aria-labelledby="home-title">
+              <header class="page-header">
+                <div class="home-hero"><p class="eyebrow">SEU CONSUMO HOJE</p><h1 id="home-title"><span id="home-greeting">Olá!</span></h1><p id="home-cycle-copy" class="supporting-copy"></p></div>
+                <div class="page-header-actions"><button class="primary-button hide-mobile" type="button" data-action="open-reading"><svg class="icon"><use href="#icon-plus"></use></svg>Nova leitura</button></div>
+              </header>
+              <div class="home-grid">
+                <article class="utility-card energy energy-glass glass-elevated glass-shine">
+                  <div class="utility-card-top"><div class="utility-identity"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-bolt"></use></svg></span><div><p class="eyebrow">ENERGIA</p><strong id="home-energy-status" class="status-pill" data-tone="success">Dentro da meta</strong></div></div><small id="home-energy-cycle" class="muted"></small></div>
+                  <div class="utility-card-main"><span id="home-energy-consumption" class="metric-value"></span><span class="metric-caption">consumo no ciclo atual</span></div>
+                  <div class="progress-track" aria-label="Progresso da meta de energia"><span id="home-energy-progress" class="progress-fill"></span></div>
+                  <div class="utility-card-details"><div><small>Estimativa</small><strong id="home-energy-cost"></strong></div><div><small>Meta</small><strong id="home-energy-goal"></strong></div></div>
+                </article>
+                <article class="utility-card water water-glass glass-elevated glass-shine">
+                  <div class="utility-card-top"><div class="utility-identity"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-water"></use></svg></span><div><p class="eyebrow">ÁGUA</p><strong id="home-water-status" class="status-pill" data-tone="success">Dentro da meta</strong></div></div><small id="home-water-cycle" class="muted"></small></div>
+                  <div class="utility-card-main"><span id="home-water-consumption" class="metric-value"></span><span class="metric-caption">consumo no ciclo atual</span></div>
+                  <div class="progress-track" aria-label="Progresso da meta de água"><span id="home-water-progress" class="progress-fill"></span></div>
+                  <div class="utility-card-details"><div><small>Estimativa</small><strong id="home-water-cost"></strong></div><div><small>Meta</small><strong id="home-water-goal"></strong></div></div>
+                </article>
+                <article class="financial-card card glass-level-3 glass-shine"><div><p class="eyebrow">RESUMO FINANCEIRO</p><h2>Estimativa do ciclo</h2></div><strong id="home-total-cost" class="metric-value"></strong><div id="home-summary" class="comparison-list"></div><button class="text-button" type="button" data-nav="consumption">Ver composição da estimativa <svg class="icon"><use href="#icon-chevron"></use></svg></button></article>
+                <article class="insight-card card glass-level-3 glass-shine"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-bolt"></use></svg></span><div><p class="eyebrow">INSIGHT VOLT</p><h2 id="home-insight-title">Tudo sob controle</h2><p id="home-insight-body" class="supporting-copy"></p></div><button class="secondary-button compact" type="button" data-nav="alerts">Ver alertas</button></article>
+                <article class="latest-card card glass-level-3"><div class="card-header"><div><p class="eyebrow">ÚLTIMAS LEITURAS</p><h2>Atividade recente</h2></div><button class="text-button" type="button" data-nav="readings">Ver todas</button></div><ul id="home-latest-readings" class="mini-list"></ul></article>
+              </div>
+            </section>
 
-        <section id="page-users" class="page" data-page="users" aria-labelledby="users-title" hidden>
-          <div class="page-heading"><div><p class="eyebrow">ADMINISTRAÇÃO</p><h2 id="users-title">Usuários</h2></div><button id="invite-user" class="primary-button compact" type="button">Convidar usuário</button></div>
-          <p id="users-message" class="status-message" role="status" aria-live="polite"></p>
-          <article id="organization-summary" class="card admin-summary"></article>
-          <section class="card"><h3>Membros</h3><div id="members-list" class="member-list"></div></section>
-          <section class="card"><h3>Convites pendentes</h3><div id="invitations-list" class="member-list"></div></section>
-        </section>
+            <section id="page-consumption" class="page" data-page="consumption" aria-labelledby="consumption-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">ANÁLISE</p><h1 id="consumption-title">Consumo</h1><p class="supporting-copy">Entenda evolução, estimativa e metas usando suas leituras reais.</p></div><div class="page-header-actions"><div class="segmented-control glass-control" aria-label="Tipo de consumo"><button class="segment-button" type="button" data-consumption-type="energy" aria-pressed="true">Energia</button><button class="segment-button" type="button" data-consumption-type="water" aria-pressed="false">Água</button></div></div></header>
+              <div class="segmented-control glass-control" aria-label="Período da análise"><button class="segment-button" type="button" data-consumption-period="cycle" aria-pressed="true">Ciclo</button><button class="segment-button" type="button" data-consumption-period="monthly" aria-pressed="false">Mensal</button><button class="segment-button" type="button" data-consumption-period="annual" aria-pressed="false">Anual</button></div>
+              <div class="analytics-grid">
+                <article class="analytics-metric card glass-level-2"><span class="metric-caption">Consumo</span><strong id="consumption-total" class="metric-value"></strong><span id="consumption-unit" class="metric-delta"></span></article>
+                <article class="analytics-metric card glass-level-2"><span class="metric-caption">Gasto estimado</span><strong id="consumption-cost" class="metric-value"></strong><span class="metric-caption">no período selecionado</span></article>
+                <article class="analytics-metric card glass-level-2"><span class="metric-caption">Média por intervalo</span><strong id="consumption-average" class="metric-value"></strong><span class="metric-caption">entre leituras</span></article>
+                <article class="analytics-metric card glass-level-2"><span class="metric-caption">Maior intervalo</span><strong id="consumption-peak" class="metric-value"></strong><span id="consumption-status" class="status-pill"></span></article>
+                <article class="chart-card card glass-level-3"><div class="card-header"><div><p class="eyebrow">EVOLUÇÃO</p><h2 id="consumption-chart-title">Consumo por leitura</h2></div><span id="consumption-chart-caption" class="chip"></span></div><div id="consumption-chart" class="bar-chart" aria-label="Gráfico de consumo"></div></article>
+                <article class="comparison-card card glass-level-3"><div><p class="eyebrow">COMPARAÇÃO</p><h2>Como você está</h2></div><ul id="consumption-comparison" class="comparison-list"></ul><p class="supporting-copy">Os valores são estimativas calculadas a partir das configurações atuais.</p></article>
+              </div>
+            </section>
 
-        <section id="page-settings" class="page" data-page="settings" aria-labelledby="settings-title" hidden>
-          <div class="page-heading"><div><p class="eyebrow">PREFERÊNCIAS</p><h2 id="settings-title">Configurações</h2></div></div>
-          <section class="card settings-group">
-            <div class="settings-heading"><h3>Conta</h3><button id="logout" class="text-button" type="button">Sair</button></div>
-            <form id="account-form" class="form two-columns">
-              <label><span>Nome de exibição</span><input id="display-name" type="text" maxlength="40" autocomplete="name" required></label>
-              <label><span>E-mail</span><input id="account-email" type="email" readonly aria-readonly="true"></label>
-              <button class="secondary-button" type="submit">Salvar nome</button>
-              <p id="account-message" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </section>
-          <section class="card settings-group">
-            <h3>Ciclos de contagem</h3>
-            <form id="cycles-form" class="form cycle-grid">
-              <fieldset><legend>Energia</legend><label><span>Início</span><input id="energy-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="energy-cycle-end" type="number" min="1" max="31" required></label></fieldset>
-              <fieldset><legend>Água</legend><label><span>Início</span><input id="water-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="water-cycle-end" type="number" min="1" max="31" required></label></fieldset>
-              <button class="secondary-button" type="submit">Salvar ciclos</button>
-              <p id="cycles-message" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </section>
-          <section class="card settings-group">
-            <h3>Energia</h3>
-            <form id="energy-settings-form" class="form two-columns">
-              <label><span>Tarifa por kWh (R$)</span><input id="energy-rate" type="number" min="0" step="0.000001" required></label>
-              <label><span>Meta mensal (kWh)</span><input id="energy-goal" type="number" min="1" step="1" required></label>
-              <label><span>Bandeira</span><select id="energy-flag"><option value="green">Verde</option><option value="yellow">Amarela</option><option value="red1">Vermelha 1</option><option value="red2">Vermelha 2</option></select></label>
-              <label><span>Iluminação pública (R$)</span><input id="lighting-fee" type="number" min="0" step="0.01" required></label>
-              <button class="secondary-button" type="submit">Salvar energia</button><p id="energy-settings-message" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </section>
-          <section class="card settings-group">
-            <h3>Água</h3>
-            <form id="water-settings-form" class="form two-columns">
-              <label><span>Tarifa por m³ (R$)</span><input id="water-rate" type="number" min="0" step="0.01" required></label>
-              <label><span>Meta mensal (m³)</span><input id="water-goal" type="number" min="0.1" step="0.1" required></label>
-              <label><span>Esgoto (%)</span><input id="sewer-percent" type="number" min="0" step="1" required></label>
-              <label><span>Taxa fixa (R$)</span><input id="water-fixed-fee" type="number" min="0" step="0.01" required></label>
-              <button class="secondary-button" type="submit">Salvar água</button><p id="water-settings-message" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </section>
-          <section class="card settings-group">
-            <h3>Região e concessionárias</h3>
-            <form id="locality-form" class="form two-columns">
-              <label><span>País</span><select id="locality-country"><option value="BR">Brasil</option></select></label>
-              <label><span>UF</span><input id="locality-state" type="text" minlength="2" maxlength="2" autocomplete="address-level1" placeholder="AM" required></label>
-              <label><span>Município</span><input id="locality-city" type="text" maxlength="80" autocomplete="address-level2" required></label>
-              <label><span>Concessionária de energia</span><input id="energy-provider" type="text" maxlength="120"></label>
-              <label><span>Concessionária de água</span><input id="water-provider" type="text" maxlength="120"></label>
-              <button class="secondary-button" type="submit">Salvar região</button>
-              <p id="locality-message" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </section>
-        </section>
-      </main>
+            <section id="page-readings" class="page" data-page="readings" aria-labelledby="readings-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">MEDIDORES</p><h1 id="readings-title">Leituras</h1><p class="supporting-copy">Histórico consolidado de energia e água.</p></div><div class="page-header-actions"><button class="primary-button" type="button" data-action="open-reading"><svg class="icon"><use href="#icon-plus"></use></svg>Nova leitura</button></div></header>
+              <p id="readings-message" class="status-message" role="status" aria-live="polite"></p>
+              <div class="reading-summary"><article class="card glass-level-2"><span class="metric-caption">Última energia</span><strong id="readings-last-energy" class="metric-value"></strong><small id="readings-last-energy-date" class="muted"></small></article><article class="card glass-level-2"><span class="metric-caption">Última água</span><strong id="readings-last-water" class="metric-value"></strong><small id="readings-last-water-date" class="muted"></small></article><article class="card glass-level-2"><span class="metric-caption">Consumo energia</span><strong id="readings-energy-delta" class="metric-value"></strong><small class="muted">ciclo atual</small></article><article class="card glass-level-2"><span class="metric-caption">Consumo água</span><strong id="readings-water-delta" class="metric-value"></strong><small class="muted">ciclo atual</small></article></div>
+              <div class="reading-layout"><article class="card glass-level-3"><div class="card-header"><div><p class="eyebrow">HISTÓRICO</p><h2>Todas as leituras</h2></div></div><div id="readings-empty" class="empty-state" hidden><svg class="icon"><use href="#icon-reading"></use></svg><strong>Nenhuma leitura registrada</strong><p class="supporting-copy">Registre seu medidor para começar.</p></div><ul id="readings-list" class="reading-list"></ul></article><aside class="reading-guide card glass-level-2"><div><p class="eyebrow">LEITURA CONFIÁVEL</p><h2>Antes de registrar</h2></div><ol><li>Confirme se escolheu energia ou água.</li><li>Fotografe o visor de frente e com boa luz.</li><li>Revise o valor antes de confirmar.</li></ol><button class="secondary-button" type="button" data-action="open-reading"><svg class="icon"><use href="#icon-camera"></use></svg>Registrar agora</button></aside></div>
+            </section>
 
-      <button id="reading-fab" class="reading-fab" type="button" data-action="open-reading">Registrar nova leitura</button>
-      <nav class="bottom-navigation" aria-label="Navegação principal">
-        <button type="button" data-nav="home" aria-current="page">Início</button>
-        <button type="button" data-nav="readings">Leituras</button>
-        <button type="button" data-nav="reports">Relatórios</button>
-        <button id="users-nav" type="button" data-nav="users" hidden>Usuários</button>
-        <button type="button" data-nav="settings">Configurações</button>
+            <section id="page-alerts" class="page" data-page="alerts" aria-labelledby="alerts-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">ACOMPANHAMENTO</p><h1 id="alerts-title">Alertas</h1><p class="supporting-copy">Sinais calculados a partir das suas metas e leituras.</p></div><span id="alerts-count" class="chip">0 alertas</span></header>
+              <article class="card glass-level-3"><div id="alerts-empty" class="empty-state" hidden><svg class="icon"><use href="#icon-shield"></use></svg><strong>Nenhum alerta importante</strong><p class="supporting-copy">Seu consumo está dentro do esperado.</p></div><div id="alerts-list" class="alerts-list"></div></article>
+            </section>
+
+            <section id="page-reports" class="page" data-page="reports" aria-labelledby="reports-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">HISTÓRICO E EXPORTAÇÃO</p><h1 id="reports-title">Relatórios</h1><p class="supporting-copy">Uma estrutura limpa para os relatórios que serão reconstruídos.</p></div></header>
+              <article class="reports-shell card glass-level-3"><div class="empty-state"><svg class="icon"><use href="#icon-report"></use></svg><strong>Relatórios em preparação</strong><p class="supporting-copy">Ainda não existe uma lógica validada de relatório. Nenhum dado foi fabricado e a implementação antiga não foi reativada.</p></div></article>
+            </section>
+
+            <section id="page-users" class="page" data-page="users" aria-labelledby="users-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">ADMINISTRAÇÃO</p><h1 id="users-title">Usuários</h1><p class="supporting-copy">Acesso condicionado às permissões reais da organização.</p></div><div class="page-header-actions"><button id="invite-user" class="primary-button" type="button"><svg class="icon"><use href="#icon-plus"></use></svg>Convidar usuário</button></div></header>
+              <p id="users-message" class="status-message" role="status" aria-live="polite"></p>
+              <article id="organization-summary" class="admin-summary card glass-level-3"></article>
+              <div class="users-grid"><section class="card glass-level-2"><div class="card-header"><h2>Membros</h2></div><div id="members-list" class="member-list"></div></section><section class="card glass-level-2"><div class="card-header"><h2>Convites pendentes</h2></div><div id="invitations-list" class="member-list"></div></section></div>
+            </section>
+
+            <section id="page-settings" class="page" data-page="settings" aria-labelledby="settings-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">PREFERÊNCIAS</p><h1 id="settings-title">Configurações</h1><p class="supporting-copy">Perfil, unidades, cálculos, aparência e privacidade.</p></div></header>
+              <div class="settings-layout">
+                <section class="settings-group card glass-level-3"><div class="settings-heading"><div><p class="eyebrow">PERFIL</p><h2>Seus dados</h2></div></div><form id="account-form" class="form"><label><span>Nome de exibição</span><input id="display-name" type="text" maxlength="40" autocomplete="name" required></label><label><span>E-mail</span><input id="account-email" type="email" readonly aria-readonly="true"></label><div class="form-actions"><button class="secondary-button" type="submit">Salvar nome</button><p id="account-message" class="status-message" role="status" aria-live="polite"></p></div></form></section>
+                <section class="settings-group card glass-level-3"><div><p class="eyebrow">APARÊNCIA</p><h2>Tema do Volt</h2></div><div class="theme-choices" role="group" aria-label="Escolher tema"><button class="theme-choice" type="button" data-theme-choice="system" aria-pressed="true"><span class="theme-swatch system"></span>Sistema</button><button class="theme-choice" type="button" data-theme-choice="light" aria-pressed="false"><span class="theme-swatch light"></span>Claro</button><button class="theme-choice" type="button" data-theme-choice="dark" aria-pressed="false"><span class="theme-swatch dark"></span>Escuro</button></div></section>
+                <section class="settings-group wide card glass-level-3"><div><p class="eyebrow">UNIDADES E MEDIÇÃO</p><h2>Ciclos de contagem</h2></div><form id="cycles-form" class="form cycle-grid"><fieldset><legend>Energia</legend><label><span>Início</span><input id="energy-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="energy-cycle-end" type="number" min="1" max="31" required></label></fieldset><fieldset><legend>Água</legend><label><span>Início</span><input id="water-cycle-start" type="number" min="1" max="31" required></label><label><span>Encerramento</span><input id="water-cycle-end" type="number" min="1" max="31" required></label></fieldset><div class="form-actions"><button class="secondary-button" type="submit">Salvar ciclos</button><p id="cycles-message" class="status-message" role="status" aria-live="polite"></p></div></form></section>
+                <section class="settings-group card glass-level-2"><div><p class="eyebrow">TARIFAS E CÁLCULOS</p><h2>Energia</h2></div><form id="energy-settings-form" class="form two-columns"><label><span>Tarifa por kWh (R$)</span><input id="energy-rate" type="number" min="0" step="0.000001" required></label><label><span>Meta mensal (kWh)</span><input id="energy-goal" type="number" min="1" step="1" required></label><label><span>Bandeira</span><select id="energy-flag"><option value="green">Verde</option><option value="yellow">Amarela</option><option value="red1">Vermelha 1</option><option value="red2">Vermelha 2</option></select></label><label><span>Iluminação pública (R$)</span><input id="lighting-fee" type="number" min="0" step="0.01" required></label><div class="form-actions"><button class="secondary-button" type="submit">Salvar energia</button><p id="energy-settings-message" class="status-message" role="status" aria-live="polite"></p></div></form></section>
+                <section class="settings-group card glass-level-2"><div><p class="eyebrow">TARIFAS E CÁLCULOS</p><h2>Água</h2></div><form id="water-settings-form" class="form two-columns"><label><span>Tarifa por m³ (R$)</span><input id="water-rate" type="number" min="0" step="0.01" required></label><label><span>Meta mensal (m³)</span><input id="water-goal" type="number" min="0.1" step="0.1" required></label><label><span>Esgoto (%)</span><input id="sewer-percent" type="number" min="0" step="1" required></label><label><span>Taxa fixa (R$)</span><input id="water-fixed-fee" type="number" min="0" step="0.01" required></label><div class="form-actions"><button class="secondary-button" type="submit">Salvar água</button><p id="water-settings-message" class="status-message" role="status" aria-live="polite"></p></div></form></section>
+                <section class="settings-group wide card glass-level-3"><div><p class="eyebrow">REGIÃO</p><h2>Concessionárias e localidade</h2><p class="supporting-copy">Usado para resolver tarifas e contexto regional.</p></div><form id="locality-form" class="form two-columns"><label><span>País</span><select id="locality-country"><option value="BR">Brasil</option></select></label><label><span>UF</span><input id="locality-state" type="text" minlength="2" maxlength="2" autocomplete="address-level1" placeholder="AM" required></label><label><span>Município</span><input id="locality-city" type="text" maxlength="80" autocomplete="address-level2" required></label><label><span>Concessionária de energia</span><input id="energy-provider" type="text" maxlength="120"></label><label><span>Concessionária de água</span><input id="water-provider" type="text" maxlength="120"></label><div class="form-actions"><button class="secondary-button" type="submit">Salvar região</button><p id="locality-message" class="status-message" role="status" aria-live="polite"></p></div></form></section>
+                <section class="settings-group card glass-level-2"><div><p class="eyebrow">PRIVACIDADE E SEGURANÇA</p><h2>Proteção da conta</h2></div><p class="supporting-copy">Autenticação, sessão e MFA são controlados pelo provedor seguro do Volt.</p><a class="secondary-button" href="./privacy.html">Ler política de privacidade</a></section>
+                <section class="settings-group card glass-level-2"><div><p class="eyebrow">SOBRE</p><h2>VOLT Consumo</h2></div><p class="supporting-copy">Acompanhe consumo de energia e água com estimativas transparentes.</p><button class="secondary-button" type="button" data-nav="help">Abrir Ajuda</button></section>
+              </div>
+            </section>
+
+            <section id="page-help" class="page" data-page="help" aria-labelledby="help-title" hidden>
+              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">CENTRAL DE AJUDA</p><h1 id="help-title">Como podemos ajudar?</h1><p class="supporting-copy">Orientações objetivas sobre leituras, cálculos e privacidade.</p></div></header>
+              <div class="help-grid"><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-reading"></use></svg></span><div><h2>Primeira leitura</h2><p class="supporting-copy">Veja como escolher o medidor e revisar o valor.</p></div><button class="text-button" type="button" data-action="open-reading">Registrar leitura</button></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-chart"></use></svg></span><div><h2>Como calculamos</h2><p class="supporting-copy">Entenda metas, consumo e estimativas.</p></div><button class="text-button" type="button" data-nav="consumption">Abrir consumo</button></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-shield"></use></svg></span><div><h2>Privacidade</h2><p class="supporting-copy">Saiba como seus dados são tratados.</p></div><a class="text-button" href="./privacy.html">Ler política</a></article></div>
+              <section class="card glass-level-3"><div class="card-header"><div><p class="eyebrow">DÚVIDAS FREQUENTES</p><h2>FAQ</h2></div></div><div class="faq-list"><details><summary>Como registrar uma nova leitura?</summary><p>Escolha Energia ou Água, tire uma foto ou informe o valor manualmente, revise e confirme.</p></details><details><summary>Como a estimativa é calculada?</summary><p>O Volt usa o consumo do ciclo e as tarifas configuradas. O resultado é uma estimativa, não uma fatura.</p></details><details><summary>Por que preciso revisar o valor da foto?</summary><p>Reflexos e visores podem reduzir a precisão. O Volt nunca salva um valor extraído sem sua confirmação.</p></details><details><summary>Onde altero minha meta?</summary><p>Abra Configurações e ajuste a meta na seção Energia ou Água.</p></details></div></section>
+            </section>
+          </main>
+        </div>
+      </div>
+
+      <nav class="mobile-bottom-navigation glass-navigation glass-shine" aria-label="Navegação mobile">
+        <button class="mobile-nav-button" type="button" data-nav="home" aria-current="page"><svg class="icon"><use href="#icon-home"></use></svg><span>Início</span></button>
+        <button class="mobile-nav-button" type="button" data-nav="consumption"><svg class="icon"><use href="#icon-chart"></use></svg><span>Consumo</span></button>
+        <button class="mobile-nav-button reading-action" type="button" data-action="open-reading" aria-label="Nova leitura"><span class="reading-action-icon"><svg class="icon icon-lg"><use href="#icon-plus"></use></svg></span><span>Nova leitura</span></button>
+        <button class="mobile-nav-button" type="button" data-nav="alerts"><svg class="icon"><use href="#icon-alert"></use></svg><span>Alertas</span></button>
+        <button class="mobile-nav-button" type="button" data-action="open-more"><svg class="icon"><use href="#icon-more"></use></svg><span>Mais</span></button>
       </nav>
     </section>
   </main>
 
   <dialog id="reading-dialog">
-    <form id="reading-form" class="dialog-card form">
-      <div class="dialog-heading"><h2>Nova leitura</h2><button class="icon-button" type="button" data-close-dialog="reading-dialog" aria-label="Fechar">×</button></div>
-      <label><span>Tipo</span><select id="reading-type"><option value="energy">Energia (kWh)</option><option value="water">Água (m³)</option></select></label>
-      <label><span>Leitura atual</span><input id="reading-value" type="number" min="0" step="0.001" required></label>
-      <label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label>
-      <button class="primary-button" type="submit">Salvar leitura</button>
-      <p id="reading-message" class="status-message" role="status" aria-live="polite"></p>
+    <form id="reading-form" class="dialog-card form glass-modal glass-shine">
+      <div class="dialog-heading"><div><p class="eyebrow">REGISTRO SEGURO</p><h2>Nova leitura</h2></div><button class="icon-button" type="button" data-close-dialog="reading-dialog" aria-label="Fechar"><svg class="icon"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+      <div class="reading-flow">
+        <div class="reading-stepper" aria-label="Etapas da leitura"><span class="reading-step" data-reading-step="type" data-active="true">Medidor</span><span class="reading-step" data-reading-step="capture">Captura</span><span class="reading-step" data-reading-step="review">Revisão</span><span class="reading-step" data-reading-step="done">Concluído</span></div>
+        <div class="reading-type-grid" role="group" aria-label="Tipo de medidor"><button class="reading-type-option energy-glass" type="button" data-reading-type="energy" aria-pressed="true"><svg class="icon icon-xl"><use href="#icon-bolt"></use></svg>Registrar energia</button><button class="reading-type-option water-glass" type="button" data-reading-type="water" aria-pressed="false"><svg class="icon icon-xl"><use href="#icon-water"></use></svg>Registrar água</button></div>
+        <label><span>Tipo</span><select id="reading-type"><option value="energy">Energia (kWh)</option><option value="water">Água (m³)</option></select></label>
+        <div class="capture-zone"><img id="meter-preview" class="meter-preview" alt="Pré-visualização do medidor" hidden><svg class="icon icon-xl" aria-hidden="true"><use href="#icon-camera"></use></svg><strong>Fotografe o visor do medidor</strong><p class="supporting-copy">Mantenha o visor centralizado e com boa iluminação.</p><label class="primary-button" for="reading-photo"><svg class="icon"><use href="#icon-camera"></use></svg>Tirar ou escolher foto</label><input id="reading-photo" class="file-input" type="file" accept="image/*" capture="environment"><p id="ocr-message" class="status-message" role="status" aria-live="polite">A foto é analisada somente quando escolhida. Revise sempre o valor.</p></div>
+        <div class="two-columns form"><label><span>Leitura detectada ou manual</span><input id="reading-value" type="number" min="0" step="0.001" inputmode="decimal" required></label><label><span>Data e hora</span><input id="reading-date" type="datetime-local" required></label></div>
+        <label class="checkbox-row"><input id="reading-reviewed" type="checkbox" required><span>Revisei o tipo, o valor e a data desta leitura.</span></label>
+        <button class="primary-button" type="submit">Confirmar leitura</button>
+        <p id="reading-message" class="status-message" role="status" aria-live="polite"></p>
+      </div>
     </form>
   </dialog>
 
   <dialog id="invite-dialog">
-    <form id="invite-form" class="dialog-card form">
-      <div class="dialog-heading"><h2>Convidar usuário</h2><button class="icon-button" type="button" data-close-dialog="invite-dialog" aria-label="Fechar">×</button></div>
+    <form id="invite-form" class="dialog-card form glass-modal glass-shine">
+      <div class="dialog-heading"><div><p class="eyebrow">ADMINISTRAÇÃO</p><h2>Convidar usuário</h2></div><button class="icon-button" type="button" data-close-dialog="invite-dialog" aria-label="Fechar"><svg class="icon"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
       <label><span>E-mail</span><input id="invite-email" type="email" required></label>
       <label><span>Papel</span><select id="invite-role"><option value="member">Membro</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label>
       <button class="primary-button" type="submit">Criar convite</button>
       <label id="invite-result-row" hidden><span>Link de uso único</span><input id="invite-result" readonly aria-readonly="true"></label>
       <p id="invite-message" class="status-message" role="status" aria-live="polite"></p>
     </form>
+  </dialog>
+
+  <dialog id="signup-dialog">
+    <form id="signup-form" class="dialog-card form glass-modal glass-shine">
+      <div class="dialog-heading"><div><p class="eyebrow">CRIAR CONTA</p><h2>Comece pelo acesso</h2></div><button class="icon-button" type="button" data-close-dialog="signup-dialog" aria-label="Fechar"><svg class="icon"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+      <p class="supporting-copy">Concessionárias, ciclos e preferências são configurados com segurança após o primeiro acesso.</p>
+      <label><span>E-mail</span><input id="signup-email" type="email" autocomplete="email" required></label>
+      <label><span>Senha</span><input id="signup-password" type="password" autocomplete="new-password" minlength="12" required></label>
+      <label><span>Confirmar senha</span><input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="12" required></label>
+      <button class="primary-button" type="submit">Criar conta</button>
+      <p id="signup-message" class="status-message" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
+
+  <dialog id="more-dialog">
+    <section class="dialog-card glass-modal glass-shine">
+      <div class="dialog-heading"><div><p class="eyebrow">NAVEGAÇÃO</p><h2>Mais</h2></div><button class="icon-button" type="button" data-close-dialog="more-dialog" aria-label="Fechar"><svg class="icon"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+      <div class="sheet-profile profile-row"><span id="mobile-profile-initials" class="profile-avatar">V</span><span class="profile-copy"><strong id="mobile-profile-name">Usuário Volt</strong><small id="mobile-profile-email"></small></span></div>
+      <nav class="sheet-menu" aria-label="Mais opções"><button class="nav-button" type="button" data-nav="readings"><svg class="icon"><use href="#icon-reading"></use></svg>Leituras</button><button class="nav-button" type="button" data-nav="reports"><svg class="icon"><use href="#icon-report"></use></svg>Relatórios</button><button id="users-nav-mobile" class="nav-button" type="button" data-nav="users" data-requires-users hidden><svg class="icon"><use href="#icon-users"></use></svg>Usuários</button><button class="nav-button" type="button" data-nav="settings"><svg class="icon"><use href="#icon-settings"></use></svg>Configurações e perfil</button><button class="nav-button" type="button" data-nav="help"><svg class="icon"><use href="#icon-help"></use></svg>Ajuda</button><button class="nav-button" type="button" data-action="toggle-theme"><svg class="icon"><use href="#icon-sun"></use></svg>Alternar tema</button><button id="mobile-logout" class="nav-button" type="button"><svg class="icon"><use href="#icon-logout"></use></svg>Sair</button></nav>
+    </section>
   </dialog>
 
   <script type="module" src="./app.js"></script>

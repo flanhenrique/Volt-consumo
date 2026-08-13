@@ -1,4 +1,5 @@
 import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.7";
+import { renderLegalBillDetail } from "./bill-detail.js?v=20260813.7";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });
@@ -75,8 +76,10 @@ export function createVoltService(config) {
         queryPermissions(client)
       ]);
       const locality = normalizeLocality(user.user_metadata?.locality);
+      const energyBill = normalizeEnergyBillingReference(user.user_metadata?.energy_billing_reference);
       const storedEnergy = energySettings ? mapEnergySettings(energySettings) : { ...DEFAULT_ENERGY_SETTINGS };
       const tariff = resolveEnergyTariff(locality, storedEnergy);
+      renderLegalBillDetail(globalThis.__VOLT_BILLING_CONTEXT__?.profile || null, energyBill);
       if (tariff.resolution.automatic && Math.abs(tariff.settings.rate - storedEnergy.rate) > 0.0000005) {
         await persistEnergySettings(client, user.id, tariff.settings);
       }
@@ -90,6 +93,7 @@ export function createVoltService(config) {
           energy: tariff.settings,
           water: waterSettings ? mapWaterSettings(waterSettings) : { ...DEFAULT_WATER_SETTINGS }
         },
+        billing: { energy: energyBill },
         tariff: tariff.resolution,
         locality,
         admin: null
@@ -125,6 +129,7 @@ export function createVoltService(config) {
       const { data, error } = await client.auth.updateUser({ data: { ...metadata, locality, locality_updated_at: new Date().toISOString() } });
       if (error) throw error;
       const tariff = resolveEnergyTariff(locality, currentSettings);
+      renderLegalBillDetail(globalThis.__VOLT_BILLING_CONTEXT__?.profile || null, normalizeEnergyBillingReference(data.user?.user_metadata?.energy_billing_reference));
       if (tariff.resolution.automatic && Math.abs(tariff.settings.rate - currentSettings.rate) > 0.0000005) {
         await persistEnergySettings(client, user.id, tariff.settings);
       }
@@ -159,6 +164,29 @@ export function normalizeIdentity(user) {
   const email = String(user?.email || "").trim();
   const displayName = String(metadata.display_name || metadata.name || email.split("@")[0] || "Usuário").trim();
   return { displayName, email };
+}
+
+export function normalizeEnergyBillingReference(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    cycleStart: value.cycleStart || null,
+    cycleEnd: value.cycleEnd || null,
+    measuredConsumptionKwh: finiteOrNull(value.measuredConsumptionKwh),
+    billedConsumptionKwh: finiteOrNull(value.billedConsumptionKwh),
+    billingBasis: String(value.billingBasis || "metered"),
+    invoiceTotal: finiteOrNull(value.invoiceTotal),
+    items: Array.isArray(value.items) ? value.items.map((item, index) => ({
+      category: String(item?.category || "other"),
+      code: String(item?.code || `item_${index + 1}`),
+      label: String(item?.label || item?.code || `Item ${index + 1}`),
+      quantityKwh: finiteOrNull(item?.quantityKwh),
+      unitRate: finiteOrNull(item?.unitRate),
+      amount: finiteOrNull(item?.amount),
+      amountStatus: String(item?.amountStatus || ""),
+      forecastable: item?.forecastable !== false,
+      extraordinary: Boolean(item?.extraordinary)
+    })) : []
+  };
 }
 
 async function loadOrganization(client) {
@@ -206,6 +234,12 @@ function mapEnergySettings(data) {
 
 function mapWaterSettings(data) {
   return { rate: Number(data.rate), goal: Number(data.goal), sewerPercent: Number(data.sewer_percent), fixedFee: Number(data.fixed_fee) };
+}
+
+function finiteOrNull(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 async function persistEnergySettings(client, userId, settings) {

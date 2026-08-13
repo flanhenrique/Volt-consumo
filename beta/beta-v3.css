@@ -1143,8 +1143,8 @@ html[data-environment="beta"] .engine-details {
    indicador é uma cápsula única que desliza entre as abas — a troca é um
    movimento, não um salto.
 
-   A altura real desta barra é medida em tempo de execução e devolvida a
-   `--lm-nav-height`; é dela que sai a reserva de rolagem do conteúdo.
+   A reserva inferior usa o token estático `--lm-nav-height`, evitando escrita
+   de style inline e mantendo o layout compatível com a CSP do aplicativo.
    ========================================================================== */
 
 html[data-environment="beta"] .bottom-navigation {
@@ -1171,7 +1171,7 @@ html[data-environment="beta"] .bottom-navigation:has(#beta-users-nav:not([hidden
   --lm-nav-columns: 5;
 }
 
-/* Cápsula deslizante. Posição e largura vêm de beta-v3.js. */
+/* Compatibilidade histórica: o indicador antigo não é mais criado pelo runtime. */
 html[data-environment="beta"] .nav-indicator {
   position: absolute;
   z-index: 0;
@@ -1243,7 +1243,10 @@ html[data-environment="beta"] .bottom-navigation button:hover:not(.active) span 
 }
 
 html[data-environment="beta"] .bottom-navigation button.active {
+  border-radius: var(--lm-radius-md);
   color: var(--lm-accent-contrast);
+  background: linear-gradient(150deg, var(--lm-accent-solid), var(--lm-accent-strong));
+  box-shadow: var(--lm-shadow-accent), inset 0 1px 0 #ffffff40;
 }
 
 html[data-environment="beta"] .bottom-navigation button.active span {

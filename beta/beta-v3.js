@@ -20,7 +20,6 @@ function start() {
   syncStatusBarColor();
   const shell = document.querySelector(".beta-v2-shell");
   if (shell) {
-    measureNavigationHeight(shell);
     enhanceHeader(shell);
     enhanceNavigation(shell);
   }
@@ -305,17 +304,6 @@ function syncStatusBarColor() {
   DARK_SCHEME.addEventListener("change", apply);
 }
 
-function measureNavigationHeight(shell) {
-  const navigation = shell.querySelector(".bottom-navigation");
-  if (!navigation || typeof ResizeObserver === "undefined") return;
-  const publish = () => {
-    const height = Math.round(navigation.getBoundingClientRect().height);
-    if (height > 0) document.documentElement.style.setProperty("--lm-nav-height", `${height}px`);
-  };
-  new ResizeObserver(publish).observe(navigation);
-  publish();
-}
-
 function enhanceHeader(shell) {
   const header = shell.querySelector(".beta-header");
   const content = shell.querySelector("#beta-content");
@@ -327,37 +315,11 @@ function enhanceHeader(shell) {
 }
 
 function enhanceNavigation(shell) {
+  // O estado ativo é desenhado integralmente pelo CSS externo. Além de respeitar
+  // a CSP, isso elimina medidas/estilos por frame durante navegação e resize.
   const navigation = shell.querySelector(".bottom-navigation");
-  if (!navigation || navigation.querySelector(".nav-indicator")) return;
-  const indicator = document.createElement("span");
-  indicator.className = "nav-indicator";
-  indicator.dataset.ready = "false";
-  indicator.setAttribute("aria-hidden", "true");
-  navigation.prepend(indicator);
-  const move = () => {
-    const active = navigation.querySelector("button.active");
-    if (!active) return;
-    const bounds = active.getBoundingClientRect();
-    const reference = navigation.getBoundingClientRect();
-    if (!bounds.width) return;
-    indicator.style.setProperty("--nav-indicator-width", `${bounds.width}px`);
-    indicator.style.setProperty("--nav-indicator-x", `${bounds.left - reference.left}px`);
-  };
-  const release = () => {
-    move();
-    requestAnimationFrame(() => { indicator.dataset.ready = "true"; });
-  };
-  navigation.addEventListener("click", () => requestAnimationFrame(move));
-  window.addEventListener("resize", move, { passive: true });
-  const dashboard = document.querySelector("#dashboard");
-  if (!dashboard) return release();
-  if (!dashboard.hidden) return release();
-  const visibilityObserver = new MutationObserver(() => {
-    if (dashboard.hidden) return;
-    visibilityObserver.disconnect();
-    release();
-  });
-  visibilityObserver.observe(dashboard, { attributes: true, attributeFilter: ["hidden"] });
+  if (!navigation) return;
+  navigation.dataset.cspSafe = "true";
 }
 
 function enhanceSubmitFeedback() {

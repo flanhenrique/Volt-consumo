@@ -35,7 +35,24 @@ try {
   await page.waitForSelector("#dashboard", { state: "visible", timeout: 12_000 });
   await page.waitForFunction(() => document.documentElement.dataset.voltHomeReady === "true", null, { timeout: 12_000 });
   await page.waitForFunction(() => document.documentElement.dataset.voltFinancialReady === "true", null, { timeout: 12_000 });
-  await page.waitForFunction(() => document.querySelector("#beta-users-nav")?.hidden === false, null, { timeout: 12_000 });
+  const usersReady = await page.waitForFunction(
+    () => document.querySelector("#beta-users-nav")?.hidden === false,
+    null,
+    { timeout: 5_000 }
+  ).then(() => true).catch(() => false);
+  if (!usersReady) {
+    const diagnostic = await page.evaluate(() => ({
+      startup: window.VOLT_STARTUP_STATE || null,
+      admin: window.VOLT_BETA_API?.getAdminSnapshot?.() || null,
+      organization: window.VOLT_BETA_API?.getOrganizationSnapshot?.() || null,
+      mfa: window.VOLT_BETA_API?.getMfaSnapshot?.() || null,
+      account: window.VOLT_BETA_API?.getSnapshot?.()?.account || null,
+      usersHidden: document.querySelector("#beta-users-nav")?.hidden ?? null,
+      rpcCalls: window.__VOLT_FAKE_RPC_CALLS || [],
+      runtimeErrors: [...runtimeErrors]
+    }));
+    assert.fail(`Admin não ficou disponível: ${JSON.stringify(diagnostic)}`);
+  }
   await page.waitForTimeout(300);
 
   const authenticatedState = await page.evaluate(() => {

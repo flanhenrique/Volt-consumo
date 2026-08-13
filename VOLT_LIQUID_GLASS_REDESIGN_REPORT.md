@@ -67,7 +67,7 @@ Desktop: Início, Consumo, Leituras, Alertas, Relatórios, Usuários autorizado,
 
 Capturas automatizadas em claro e escuro para 320×568, 375×812, 390×844, 430×932, 768×1024, 1024×768, 1280×800, 1440×900 e 1920×1080. Login também é capturado em 390×844 e 1440×900.
 
-O CI envia `volt-liquid-glass-screenshots` como artifact por 14 dias. As capturas representativas versionadas ficam em `docs/screenshots/` após o gate final.
+O CI envia `volt-liquid-glass-screenshots` como artifact por 14 dias. As capturas locais permanecem em `test-results/`, ignoradas pelo Git, para não aumentar o repositório com binários gerados.
 
 ## 13. Performance e acessibilidade
 

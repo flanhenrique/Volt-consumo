@@ -24,6 +24,7 @@ const initialState = Object.freeze({
   organization: null,
   admin: null,
   activePage: "home",
+  transitionSurface: null,
   view: { consumptionType: "energy", consumptionPeriod: "cycle", theme: "system", accent: "emerald" },
   error: null
 });

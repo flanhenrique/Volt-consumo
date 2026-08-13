@@ -1,4 +1,4 @@
-import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.5";
+import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.6";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });
@@ -66,8 +66,8 @@ export function createVoltService(config) {
       const user = session?.user;
       if (!user) throw new Error("Sessão sem usuário.");
       const identity = normalizeIdentity(user);
-      const organization = await loadOrganization(client);
-      const [energyReadings, energySettings, waterReadings, waterSettings, permissions] = await Promise.all([
+      const [organization, energyReadings, energySettings, waterReadings, waterSettings, permissions] = await Promise.all([
+        loadOrganization(client),
         queryReadings(client, "beta_meter_readings"),
         querySettings(client, "beta_user_settings", user.id),
         queryReadings(client, "beta_water_readings"),

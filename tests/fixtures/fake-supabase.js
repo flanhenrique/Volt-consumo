@@ -1,6 +1,10 @@
 (() => {
   const params = new URLSearchParams(location.search);
   const seededRole = params.get("session");
+  const dataDelay = Math.max(0, Number(params.get("dataDelay")) || 0);
+  const resolveData = (value) => dataDelay
+    ? new Promise((resolve) => setTimeout(() => resolve(value), dataDelay))
+    : Promise.resolve(value);
   const stored = localStorage.getItem("volt-e2e-session");
   const baseUser = {
     id: "user-volt-e2e",
@@ -35,8 +39,8 @@
     const builder = {
       select() { return builder; },
       eq() { return builder; },
-      order() { return Promise.resolve({ data: structuredClone(tables[table] || []), error: null }); },
-      maybeSingle() { return Promise.resolve({ data: structuredClone((tables[table] || [])[0] || null), error: null }); },
+      order() { return resolveData({ data: structuredClone(tables[table] || []), error: null }); },
+      maybeSingle() { return resolveData({ data: structuredClone((tables[table] || [])[0] || null), error: null }); },
       insert(payload) {
         const rows = Array.isArray(payload) ? payload : [payload];
         for (const row of rows) {
@@ -56,11 +60,11 @@
   }
 
   function rpc(name, payload) {
-    if (name === "beta_organization_context") return Promise.resolve({ data: {
+    if (name === "beta_organization_context") return resolveData({ data: {
       active_organization_id: "org-e2e",
       organizations: [{ id: "org-e2e", name: "Casa Volt", role: admin ? "owner" : "member", status: "active" }]
     }, error: null });
-    if (name === "beta_platform_users_snapshot") return Promise.resolve({ data: admin ? {
+    if (name === "beta_platform_users_snapshot") return resolveData({ data: admin ? {
       authorized: true,
       total_users: 3,
       confirmed_users: 2,
@@ -71,13 +75,13 @@
         { id: "user-3", email: "conta.pendente@example.com", name: "Conta pendente", created_at: "2026-08-10T12:00:00.000Z", confirmed_at: null, last_sign_in_at: null, status: "pending_confirmation" }
       ]
     } : { authorized: false }, error: null });
-    if (name === "beta_user_permissions") return Promise.resolve({ data: {
+    if (name === "beta_user_permissions") return resolveData({ data: {
       can_manage_users: admin,
       role: admin ? "owner" : "member"
     }, error: null });
-    if (name === "beta_admin_invite_member") return Promise.resolve({ data: { token: "a".repeat(64), expires_at: "2026-08-15T12:00:00.000Z" }, error: null });
-    if (name === "beta_admin_bootstrap") return Promise.resolve({ data: { membership_id: "membership-e2e", organization_id: "org-e2e" }, error: null });
-    return Promise.resolve({ data: null, error: null });
+    if (name === "beta_admin_invite_member") return resolveData({ data: { token: "a".repeat(64), expires_at: "2026-08-15T12:00:00.000Z" }, error: null });
+    if (name === "beta_admin_bootstrap") return resolveData({ data: { membership_id: "membership-e2e", organization_id: "org-e2e" }, error: null });
+    return resolveData({ data: null, error: null });
   }
 
   const client = {

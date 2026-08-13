@@ -1,0 +1,14 @@
+{
+  "model": "cronos-7023",
+  "validRegister": "03",
+  "validUnit": "kWh",
+  "samples": {
+    "IMG_1649.jpeg": { "status": "suggested", "value": 28425 },
+    "IMG_1662.jpeg": { "status": "suggested", "value": 28431 },
+    "IMG_1862.jpeg": { "status": "suggested", "value": 28490 },
+    "IMG_1684.jpeg": { "status": "review", "reason": "wrong-register", "register": "24", "unit": "kVArh" },
+    "IMG_1683.jpeg": { "status": "review", "reason": "test-screen" },
+    "IMG_1792.jpeg": { "status": "review", "reason": "reflection" }
+  },
+  "privacy": "As fotos originais não são publicadas no repositório porque exibem dados físicos do medidor."
+}

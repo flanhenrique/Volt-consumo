@@ -1,4 +1,4 @@
-import { GRID_FACTOR_KG_CO2E_PER_KWH, publishWidgetSnapshot } from "./widget-snapshot.js?v=20260814.4";
+import { GRID_FACTOR_KG_CO2E_PER_KWH, publishWidgetSnapshot } from "./widget-snapshot.js?v=20260813.7";
 
 const $ = (id) => document.getElementById(id);
 let queued = false;

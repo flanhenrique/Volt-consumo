@@ -1,5 +1,5 @@
-const RELEASE_ID = "20260814.9";
-const CACHE_REVISION = "20260814.9";
+const RELEASE_ID = "20260814.10";
+const CACHE_REVISION = "20260814.10";
 const CACHE_NAME = `volt-app-recovery-${CACHE_REVISION}`;
 
 self.addEventListener("install", (event) => {

@@ -1,6 +1,10 @@
 const MONEY = /(?:R\$\s*)?(-?\d{1,6}(?:\.\d{3})*,\d{2})/i;
 const NUMBER = /(-?\d+(?:[.,]\d+)?)/;
 const DATE = /(\d{2}\/\d{2}\/\d{4})/;
+const OCR_RUNTIME_URL = new URL("../ocr-runtime.html?v=20260813.7", import.meta.url).href;
+const OCR_TIMEOUT_MS = 120000;
+
+let runtimeFramePromise = null;
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -80,6 +84,20 @@ function classifyLine(line) {
 
 function confidenceFor(value, high = 0.9) {
   return value == null || value === "" ? 0 : high;
+}
+
+function hasUsefulInvoiceData(fields) {
+  return Boolean(
+    fields?.provider ||
+    fields?.cycleStart ||
+    fields?.cycleEnd ||
+    fields?.previousReading != null ||
+    fields?.currentReading != null ||
+    fields?.billedConsumption != null ||
+    fields?.invoiceTotal != null ||
+    fields?.dueDate ||
+    fields?.items?.length
+  );
 }
 
 export function extractInvoiceFieldsFromLines(linesInput) {
@@ -170,30 +188,128 @@ export function extractInvoiceFieldsFromLines(linesInput) {
   return { fields, fieldConfidence, lineCount: lines.length };
 }
 
-export async function analyzeInvoiceImage(file) {
+async function analyzeWithNativeDetector(file) {
+  if (!("TextDetector" in globalThis) || !("createImageBitmap" in globalThis)) return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const detector = new globalThis.TextDetector();
+      const blocks = await detector.detect(bitmap);
+      const lines = blocks.map((block) => normalizeText(block.rawValue)).filter(Boolean);
+      if (!lines.length) return null;
+      const result = extractInvoiceFieldsFromLines(lines);
+      if (!hasUsefulInvoiceData(result.fields)) return null;
+      return { ...result, engine: "native_text_detector" };
+    } finally {
+      bitmap.close?.();
+    }
+  } catch {
+    return null;
+  }
+}
+
+function ensureRuntimeFrame() {
+  if (runtimeFramePromise) return runtimeFramePromise;
+  runtimeFramePromise = new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("document_unavailable"));
+      return;
+    }
+    const frame = document.createElement("iframe");
+    frame.hidden = true;
+    frame.title = "Processador OCR local do VOLT";
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.referrerPolicy = "no-referrer";
+    frame.src = OCR_RUNTIME_URL;
+    const timer = setTimeout(() => {
+      frame.remove();
+      runtimeFramePromise = null;
+      reject(new Error("ocr_runtime_timeout"));
+    }, 20000);
+    frame.addEventListener("load", () => {
+      clearTimeout(timer);
+      resolve(frame);
+    }, { once: true });
+    frame.addEventListener("error", () => {
+      clearTimeout(timer);
+      frame.remove();
+      runtimeFramePromise = null;
+      reject(new Error("ocr_runtime_load_failed"));
+    }, { once: true });
+    document.body.append(frame);
+  });
+  return runtimeFramePromise;
+}
+
+async function analyzeWithFallbackRuntime(file, onProgress) {
+  const frame = await ensureRuntimeFrame();
+  if (!frame.contentWindow || typeof MessageChannel === "undefined") throw new Error("ocr_runtime_unavailable");
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timeout = setTimeout(() => {
+      channel.port1.close();
+      reject(new Error("ocr_timeout"));
+    }, OCR_TIMEOUT_MS);
+    channel.port1.onmessage = (event) => {
+      const payload = event.data || {};
+      if (payload.type === "progress") {
+        if (typeof onProgress === "function") onProgress({ status: payload.status, progress: payload.fraction });
+        return;
+      }
+      if (payload.type !== "result") return;
+      clearTimeout(timeout);
+      channel.port1.close();
+      if (!payload.ok) {
+        reject(new Error(payload.error || "ocr_failed"));
+        return;
+      }
+      const result = extractInvoiceFieldsFromLines(String(payload.text || "").split(/\r?\n/));
+      if (!hasUsefulInvoiceData(result.fields)) {
+        resolve(null);
+        return;
+      }
+      resolve({ ...result, engine: payload.engine || "tesseract_wasm" });
+    };
+    channel.port1.start?.();
+    frame.contentWindow.postMessage({ type: "volt-ocr-analyze", file }, "*", [channel.port2]);
+  });
+}
+
+export async function analyzeInvoiceImage(file, options = {}) {
   if (!(file instanceof Blob) || !String(file.type || "").startsWith("image/")) {
     return { supported: false, fields: null, fieldConfidence: {}, message: "Escolha uma imagem válida da fatura." };
   }
-  if (!("TextDetector" in globalThis) || !("createImageBitmap" in globalThis)) {
-    return {
-      supported: false,
-      fields: null,
-      fieldConfidence: {},
-      message: "A leitura automática de fatura não está disponível neste navegador. Informe o total manualmente."
-    };
-  }
+
+  const onProgress = typeof options?.onProgress === "function" ? options.onProgress : null;
   try {
-    const bitmap = await createImageBitmap(file);
-    const detector = new globalThis.TextDetector();
-    const blocks = await detector.detect(bitmap);
-    bitmap.close?.();
-    const lines = blocks.map((block) => normalizeText(block.rawValue)).filter(Boolean);
-    const result = extractInvoiceFieldsFromLines(lines);
+    onProgress?.({ status: "Tentando leitura rápida no aparelho…", progress: 0.01 });
+    const native = await analyzeWithNativeDetector(file);
+    if (native) {
+      return {
+        supported: true,
+        ...native,
+        message: native.fields?.invoiceTotal == null
+          ? "A fatura foi lida parcialmente. Revise os campos antes de confirmar."
+          : "Dados sugeridos pela imagem. Revise antes de confirmar."
+      };
+    }
+
+    onProgress?.({ status: "Ativando OCR compatível com iPhone…", progress: 0.03 });
+    const fallback = await analyzeWithFallbackRuntime(file, onProgress);
+    if (!fallback) {
+      return {
+        supported: true,
+        fields: null,
+        fieldConfidence: {},
+        engine: "tesseract_wasm",
+        message: "A foto foi processada, mas não encontrei dados confiáveis. Tente uma imagem mais nítida e enquadre a fatura inteira."
+      };
+    }
     return {
       supported: true,
-      ...result,
-      message: result.fields?.invoiceTotal == null
-        ? "A fatura foi lida parcialmente. Revise os campos antes de confirmar."
+      ...fallback,
+      message: fallback.fields?.invoiceTotal == null
+        ? "A fatura foi lida parcialmente no aparelho. Revise os campos antes de confirmar."
         : "Dados sugeridos pela imagem. Revise antes de confirmar."
     };
   } catch {
@@ -201,7 +317,7 @@ export async function analyzeInvoiceImage(file) {
       supported: true,
       fields: null,
       fieldConfidence: {},
-      message: "A imagem não pôde ser interpretada. Informe o total manualmente."
+      message: "Não consegui concluir a leitura automática desta foto. A imagem não foi salva; tente novamente com a fatura inteira, bem iluminada e sem inclinação."
     };
   }
 }

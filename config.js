@@ -9,7 +9,8 @@ const AUXILIARY_MODULES = Object.freeze([
   "./src/home-dashboard-sustainability.js?v=20260814.15",
   "./src/pwa-update.js?v=20260814.15",
   "./src/admin-user-view.js?v=20260814.15",
-  "./src/admin-billing-context.js?v=20260814.15"
+  "./src/admin-billing-context.js?v=20260814.15",
+  "./src/canonical-billing-context.js?v=20260814.15"
 ]);
 
 function loadAuxiliaryModules() {

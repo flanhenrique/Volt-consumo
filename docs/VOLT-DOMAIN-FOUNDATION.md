@@ -6,13 +6,15 @@ Evoluir o VOLT de monitor de consumo para uma plataforma que acompanha, prevê, 
 
 A unidade central do domínio é a **unidade consumidora**, e a unidade temporal principal é o **ciclo de faturamento**. Mês civil é apenas uma visão secundária.
 
-## Estado preservado
+## Estado de transição
 
-O runtime atual continua usando as tabelas `beta_*`, a store existente e o mesmo fluxo de autenticação. A Fase 1 é aditiva e não faz cutover de dados.
+O frontend continua usando as tabelas `beta_*` como autoridade operacional durante a janela de rollback. Desde a Fase 2, leituras novas e alterações de metadados relevantes são espelhadas automaticamente no modelo canônico por triggers privados no banco.
 
-Ativos que devem ser preservados e evoluídos:
+Isso mantém a aplicação atual estável sem deixar `consumer_units` e `unit_meter_readings` ficarem obsoletos durante a transição.
 
-- `src/volt-service.js`: fronteira única com Supabase;
+Ativos preservados:
+
+- `src/volt-service.js`: fronteira atual com Supabase;
 - `src/cycles.js`: cálculo puro de ciclos;
 - `packages/consumption-domain/browser/billing-engine.js`: cálculo e análise financeira;
 - `src/consumption-report-*`: relatórios de consumo por ciclo;
@@ -45,13 +47,19 @@ Uma linha representa uma unidade de um único serviço. Energia usa `kWh`; água
 
 Localidade, distribuidora, classe, subclasse e tipo de sistema pertencem à unidade, não ao CPF e não ao cadastro inicial.
 
+A preferência de ciclo é armazenada separadamente das ocorrências reais, por `cycle_start_day` e `cycle_end_day`. Ela indica um padrão informado pelo usuário, não prova que um ciclo histórico específico existiu.
+
 ### `billing_cycles`
 
 Armazena datas exatas do ciclo. Energia e água podem ter ciclos diferentes. O ciclo possui estado próprio: aberto, fechado, aguardando fatura, faturado ou conciliado.
 
+Uma ocorrência só é criada por backfill quando existem datas exatas identificadas. O sistema não fabrica histórico a partir de um padrão mensal.
+
 ### `unit_meter_readings`
 
-É o destino canônico futuro das leituras. Mantém proveniência e confiança. A Fase 1 não move leituras existentes para evitar uma troca prematura de autoridade.
+É o destino canônico das leituras por unidade consumidora. Mantém proveniência e confiança.
+
+Durante a transição, `beta_meter_readings` e `beta_water_readings` continuam recebendo as escritas do frontend. Triggers privados fazem dual-write para `unit_meter_readings`. Inserção, alteração e exclusão são espelhadas; se uma primeira leitura surgir para um serviço ainda sem unidade, a unidade é criada automaticamente com o mínimo de dados já disponível.
 
 ### `bills`
 
@@ -67,7 +75,9 @@ O sinal financeiro é explícito por `direction = charge | credit | neutral`. Va
 
 ### `regulatory_rules`
 
-Catálogo global versionado e append-only. Uma mudança legal ou tarifária cria uma nova versão; a versão anterior não é editada.
+Catálogo global versionado. O conteúdo de uma regra publicada é imutável. Mudança legal ou tarifária exige nova versão.
+
+São permitidas apenas transições administrativas controladas de status, como `draft → published → superseded/retired`.
 
 Resolução de regra deve considerar, no mínimo:
 
@@ -114,7 +124,7 @@ Os estados finais são `reconciled`, `partially_reconciled` e `not_reconciled`. 
 
 ## Proveniência e confiança
 
-Os registros novos usam duas dimensões distintas:
+Os registros novos usam duas dimensões distintas.
 
 `source_type`:
 
@@ -134,26 +144,44 @@ Fonte e confiança não são sinônimos. OCR pode produzir `bill_identified + pr
 
 ## RLS e isolamento
 
-Todas as novas tabelas de domínio têm RLS habilitado e forçado.
+Todas as novas tabelas de domínio expostas têm RLS habilitado e forçado.
 
-O isolamento é por `organization_id`, validado contra membership ativa. As funções auxiliares de autorização ficam no schema privado `volt_private`, com `search_path` vazio e sem exposição ao papel `anon`.
+O isolamento é por `organization_id`, validado contra membership ativa. As funções auxiliares de autorização e os triggers de dual-write ficam no schema privado `volt_private`, usam `search_path = ''` e não concedem `EXECUTE` a `public`, `anon` ou `authenticated` quando não precisam ser chamadas diretamente.
 
 O catálogo regulatório é leitura global autenticada, mas não pode ser alterado pelo frontend. Escrita de regras deve ocorrer por processo administrativo controlado.
 
-## Migração dos dados atuais
+## Fase 2 — migração concluída
 
-A migração será expand/contract:
+Estratégia usada: **expand/contract**.
 
-1. manter `beta_*` como autoridade durante a transição;
-2. criar unidades de energia/água somente quando houver evidência suficiente para aquele serviço;
-3. migrar localidade, distribuidora e ciclos hoje presentes em `user_metadata` para a unidade correspondente;
-4. não inventar ciclo para contas sem informação; usar fatura futura ou pergunta mínima ao usuário;
-5. copiar leituras para `unit_meter_readings` preservando timestamp e valor;
-6. comparar quantidade, datas e valores entre origem e destino antes do cutover;
-7. verificar as tabelas legadas sem prefixo para não duplicar registros já presentes em `beta_*`;
-8. ativar o novo caminho por feature flag/dual-read controlado;
-9. trocar a autoridade do `volt-service.js` apenas após paridade;
-10. manter as tabelas antigas durante uma janela de rollback e removê-las somente em uma migração de contrato futura.
+1. `beta_*` foi mantido como autoridade do frontend;
+2. unidades foram criadas somente quando existia leitura ou referência real de fatura;
+3. localidade/distribuidora disponíveis foram copiadas sem normalizar nomes duvidosos;
+4. preferência de ciclo foi migrada apenas quando existia como objeto válido em `user_metadata`;
+5. ocorrência de `billing_cycles` foi criada somente quando já existiam datas exatas de ciclo;
+6. todas as leituras foram copiadas preservando usuário de origem, valor e timestamp;
+7. comparações `EXCEPT` nos dois sentidos confirmaram paridade;
+8. triggers de dual-write passaram a manter origem e destino sincronizados;
+9. alterações posteriores de localidade/ciclo em `user_metadata` são refletidas nas unidades existentes;
+10. o cutover de leitura do frontend permanece adiado para permitir rollback simples.
+
+### Checkpoint de produção em 14/08/2026 UTC
+
+- 6 unidades criadas: 5 energia + 1 água;
+- 39 leituras canônicas: 36 energia + 3 água;
+- 0 leituras faltantes;
+- 0 leituras extras;
+- 2 preferências de ciclo migradas;
+- 1 ciclo exato identificado e persistido;
+- 3 leituras ligadas a esse ciclo exato;
+- dual-write de leitura validado com transação de rollback;
+- sincronização de preferência de ciclo validada com transação de rollback;
+- nenhum dado fictício permaneceu após os testes.
+
+Migrations da Fase 2:
+
+- `20260814012539_volt_consumer_units_backfill_v2.sql`
+- `20260814012734_volt_consumer_units_dual_write_v2_1.sql`
 
 ## Fluxo de fechamento e conciliação
 
@@ -188,8 +216,8 @@ Nenhum conteúdo de fatura, identificador sensível ou resposta sobre benefício
 ## Fases
 
 - **Fase 1 — concluída:** fundação SQL, RLS, proveniência e catálogo versionado.
-- **Fase 2 — próxima:** unidades consumidoras, backfill seguro e ciclos persistidos no banco.
-- Fase 3: fluxo “Sua fatura chegou?”.
+- **Fase 2 — concluída:** unidades consumidoras, backfill, preferência/ciclos persistidos e dual-write.
+- **Fase 3 — próxima:** fluxo “Sua fatura chegou?”.
 - Fase 4: valor real e comparação automática.
 - Fase 5: reconciliação progressiva.
 - Fase 6: carga inicial do catálogo regulatório.

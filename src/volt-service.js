@@ -77,6 +77,7 @@ export function createVoltService(config) {
         queryPermissions(client),
         loadSqlBillingContext(client, user.id)
       ]);
+      const monthlyEnergyHistory = await loadMonthlyConsumptionHistory(client, sqlBilling?.unit?.id);
       const locality = normalizeLocality(user.user_metadata?.locality);
       const energyBill = normalizeEnergyBillingReference(user.user_metadata?.energy_billing_reference);
       const storedEnergy = energySettings ? mapEnergySettings(energySettings) : { ...DEFAULT_ENERGY_SETTINGS };
@@ -92,6 +93,7 @@ export function createVoltService(config) {
         organization,
         permissions: { canManageUsers: Boolean(permissions?.can_manage_users), role: permissions?.role || organization?.role || null },
         readings: { energy: energyReadings, water: waterReadings },
+        historicalConsumption: { energy: monthlyEnergyHistory, water: [] },
         settings: {
           energy: tariff.settings,
           water: waterSettings ? mapWaterSettings(waterSettings) : { ...DEFAULT_WATER_SETTINGS }
@@ -215,6 +217,28 @@ async function loadSqlBillingContext(client, userId) {
     return { unit: owned[0], rules: rules || [], profiles: profiles || [] };
   } catch {
     return null;
+  }
+}
+
+async function loadMonthlyConsumptionHistory(client, consumerUnitId) {
+  if (!consumerUnitId) return [];
+  try {
+    const { data, error } = await client
+      .from("monthly_consumption_history")
+      .select("reference_month, consumption_kwh, consumption_basis, source_type, confidence")
+      .eq("consumer_unit_id", consumerUnitId)
+      .order("reference_month");
+    if (error) throw error;
+    return (data || []).map((item) => ({
+      referenceMonth: item.reference_month,
+      value: Number(item.consumption_kwh),
+      basis: String(item.consumption_basis || "not_identified"),
+      sourceType: String(item.source_type || "bill_identified"),
+      confidence: String(item.confidence || "not_identified")
+    })).filter((item) => Number.isFinite(item.value));
+  } catch (error) {
+    console.warn("VOLT monthly consumption history unavailable", error instanceof Error ? error.message : "unknown_error");
+    return [];
   }
 }
 

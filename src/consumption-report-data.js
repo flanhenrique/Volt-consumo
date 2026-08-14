@@ -22,11 +22,12 @@ export function buildConsumptionReportData(type, state, period) {
   const previous = previousConsumption(period, readings, intervals, cycle, range);
   const change = relativeChange(consumption, previous);
   const peak = selectedIntervals.reduce((best, item) => !best || item.value > best.value ? item : best, null);
-  const cycleHistory = buildCycleHistory(readings, cycle);
+  const billing = type === "energy" ? normalizeClosedCycleBilling(state.billing?.energy, cycle.previous) : null;
+  const cycleHistory = buildCycleHistory(readings, cycle, billing);
   const contextRange = { start: new Date(cycle.previous.start), end: new Date(cycle.current.end) };
   const contextLabel = `${dateOnly(contextRange.start)} a ${dateOnly(contextRange.end)}`;
   const financial = estimateFinancial(type, consumption, state.settings?.[type] || {});
-  return { type, readings, cycle, range, intervals: selectedIntervals, consumption, days, daily, monthly, goal, currentConsumption, projection, buckets, previous, change, peak, cycleHistory, contextRange, contextLabel, financial };
+  return { type, readings, cycle, range, intervals: selectedIntervals, consumption, days, daily, monthly, goal, currentConsumption, projection, buckets, previous, change, peak, billing, cycleHistory, contextRange, contextLabel, financial };
 }
 
 export function periodLabel(period) {
@@ -99,15 +100,71 @@ function estimateFinancial(type, consumption, settings) {
   };
 }
 
-function buildCycleHistory(readings, cycle) {
-  const previousValue = consumptionWithinCycle(readings, cycle.previous);
+function normalizeClosedCycleBilling(input, range) {
+  if (!input || typeof input !== "object" || !billingMatchesRange(input, range)) return null;
+  return {
+    cycleStart: input.cycleStart || null,
+    cycleEnd: input.cycleEnd || null,
+    range: { start: input.cycleStart || range.start, end: input.cycleEnd || range.end },
+    measuredConsumptionKwh: finiteOrNull(input.measuredConsumptionKwh),
+    billedConsumptionKwh: finiteOrNull(input.billedConsumptionKwh),
+    billingBasis: String(input.billingBasis || "metered"),
+    invoiceTotal: finiteOrNull(input.invoiceTotal),
+    items: Array.isArray(input.items) ? input.items.map((item, index) => ({
+      category: String(item?.category || "other"),
+      code: String(item?.code || `item_${index + 1}`),
+      label: String(item?.label || item?.code || `Item ${index + 1}`),
+      quantityKwh: finiteOrNull(item?.quantityKwh),
+      unitRate: finiteOrNull(item?.unitRate),
+      amount: finiteOrNull(item?.amount),
+      amountStatus: String(item?.amountStatus || ""),
+      forecastable: item?.forecastable !== false,
+      extraordinary: Boolean(item?.extraordinary)
+    })) : []
+  };
+}
+
+function buildCycleHistory(readings, cycle, billing) {
+  const measuredPreviousValue = consumptionWithinCycle(readings, cycle.previous);
+  const previousValue = billing?.measuredConsumptionKwh ?? measuredPreviousValue;
   const currentValue = consumptionWithinCycle(readings, cycle.current);
   const previousDays = fullCycleDays(cycle.previous);
   const currentDays = elapsedCycleDays(cycle.current);
   return [
-    { range: cycle.previous, value: previousValue, daily: previousValue / Math.max(1, previousDays), status: "Fechado", isCurrent: false },
-    { range: cycle.current, value: currentValue, daily: currentValue / Math.max(1, currentDays), status: "Em andamento", isCurrent: true }
+    {
+      range: billing?.range || cycle.previous,
+      value: previousValue,
+      daily: previousValue / Math.max(1, previousDays),
+      status: billing ? "Fechado · fatura" : "Fechado",
+      isCurrent: false,
+      hasInvoice: Boolean(billing)
+    },
+    { range: cycle.current, value: currentValue, daily: currentValue / Math.max(1, currentDays), status: "Em andamento", isCurrent: true, hasInvoice: false }
   ];
+}
+
+function billingMatchesRange(input, range) {
+  const invoiceStart = calendarKey(input.cycleStart);
+  const invoiceEnd = calendarKey(input.cycleEnd);
+  const expectedStart = calendarKey(range.start);
+  const expectedEnd = calendarKey(range.end);
+  if (invoiceStart && expectedStart && invoiceStart !== expectedStart) return false;
+  if (invoiceEnd && expectedEnd && invoiceEnd !== expectedEnd) return false;
+  return true;
+}
+
+function calendarKey(value) {
+  if (!value) return null;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function finiteOrNull(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function resolveRange(period, readings, cycle) {

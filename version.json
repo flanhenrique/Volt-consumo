@@ -1,6 +1,6 @@
 {
   "release": "20260813.7",
-  "build": "20260814.14",
-  "releasedAt": "2026-08-14T15:18:00Z",
-  "message": "Correção da tela de login no desktop, restaurando a composição aprovada em duas colunas sem aplicar compactação de altura do layout móvel."
+  "build": "20260814.15",
+  "releasedAt": "2026-08-14T16:38:00Z",
+  "message": "Correção do aviso repetitivo de atualização: o VOLT agora compara a versão instalada real com a versão publicada e não reexibe o mesmo update após atualizar."
 }

@@ -63,6 +63,7 @@ export function buildEnergyBillingRules(context) {
   const resolved = resolveRegulatoryRules(context);
   const benefits = [];
   const charges = [];
+  const flagRates = {};
   const applied = [];
 
   for (const { rule, profile } of resolved) {
@@ -79,12 +80,21 @@ export function buildEnergyBillingRules(context) {
       applied.push({ ruleId: rule.id, code: rule.code, profileState: profile?.state || "not_analyzed", forecastable: true });
       continue;
     }
+    if (effect.type === "tariff_flag_rate") {
+      const flag = String(effect.flag || "").trim();
+      const rate = Number(effect.rate_per_kwh);
+      if (flag && Number.isFinite(rate) && rate >= 0) {
+        flagRates[flag] = rate;
+        applied.push({ ruleId: rule.id, code: rule.code, profileState: profile?.state || "not_analyzed", forecastable: effect.forecastable !== false });
+      }
+      continue;
+    }
     if (effect.type === "invoice_credit_only") {
       applied.push({ ruleId: rule.id, code: rule.code, profileState: profile?.state || "not_analyzed", forecastable: false });
     }
   }
 
-  return { tariffBands: [], benefits, charges, applied };
+  return { tariffBands: [], benefits, charges, flagRates, applied };
 }
 
 export function matchRegulatoryRuleForComponent(rules, component) {

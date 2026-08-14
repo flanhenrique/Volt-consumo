@@ -5,6 +5,7 @@ import { forecastEnergyBill } from '../packages/consumption-domain/browser/billi
 import { extractInvoiceFieldsFromLines } from '../src/invoice-ocr.js';
 import { buildEnergyBillingRules } from '../src/regulatory-engine.js';
 import { createExecutivePdf } from '../src/executive-pdf.js';
+import { createWidgetSnapshot } from '../src/widget-snapshot.js';
 
 test('Tarifa Social zera exatamente o custo dos primeiros 80 kWh sem criar segundo crédito', () => {
   const rules = {
@@ -109,4 +110,56 @@ test('PDF executivo gerado é um PDF real e mantém medido/faturado separados', 
   assert.equal(blob.type, 'application/pdf');
   const prefix = new TextDecoder('latin1').decode((await blob.arrayBuffer()).slice(0, 8));
   assert.match(prefix, /^%PDF-1\.4/);
+});
+
+function widgetState({ energyReadings, waterReadings }) {
+  return {
+    status: 'READY',
+    settings: {
+      energy: { rate: 1, goal: 200, flag: 'green', lightingFee: 0 },
+      water: { rate: 2, goal: 10, sewerPercent: 0, fixedFee: 0 }
+    },
+    cycles: {
+      energy: { start: 1, end: 31 },
+      water: { start: 1, end: 31 }
+    },
+    readings: { energy: energyReadings, water: waterReadings }
+  };
+}
+
+test('snapshot v2 projeta fechamento somente a partir de consumo mensurável', () => {
+  const state = widgetState({
+    energyReadings: [
+      { value: 1000, date: '2026-08-01T00:00:00.000Z' },
+      { value: 1100, date: '2026-08-11T00:00:00.000Z' }
+    ],
+    waterReadings: [
+      { value: 20, date: '2026-08-01T00:00:00.000Z' },
+      { value: 24, date: '2026-08-11T00:00:00.000Z' }
+    ]
+  });
+
+  const snapshot = createWidgetSnapshot(state, new Date('2026-08-11T12:00:00.000Z'));
+  assert.equal(snapshot.version, 2);
+  assert.equal(snapshot.energyConsumption, 100);
+  assert.equal(snapshot.energyProjectedConsumption, 300);
+  assert.equal(snapshot.energyProjectedCost, 300);
+  assert.equal(snapshot.waterConsumption, 4);
+  assert.equal(snapshot.waterProjectedConsumption, 12);
+  assert.equal(snapshot.totalProjectedCost, 324);
+  assert.equal(snapshot.energyStatusTone, 'danger');
+  assert.equal(snapshot.confidence, 'measured');
+});
+
+test('snapshot v2 não declara confiança nem fabrica projeção com leitura isolada', () => {
+  const state = widgetState({
+    energyReadings: [{ value: 1100, date: '2026-08-11T00:00:00.000Z' }],
+    waterReadings: [{ value: 24, date: '2026-08-11T00:00:00.000Z' }]
+  });
+
+  const snapshot = createWidgetSnapshot(state, new Date('2026-08-11T12:00:00.000Z'));
+  assert.equal(snapshot.energyConsumption, 0);
+  assert.equal(snapshot.energyProjectedConsumption, 0);
+  assert.equal(snapshot.energyProjectedCost, 0);
+  assert.equal(snapshot.confidence, 'insufficient_data');
 });

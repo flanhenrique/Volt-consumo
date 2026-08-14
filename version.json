@@ -1,6 +1,6 @@
 {
-  "release": "20260814.10",
-  "build": "20260814.10",
-  "releasedAt": "2026-08-14T13:58:00Z",
-  "message": "Bootstrap de autenticação desacoplado dos módulos auxiliares e recuperação de cache no navegador/PWA."
+  "release": "20260813.7",
+  "build": "20260814.11",
+  "releasedAt": "2026-08-14T14:08:00Z",
+  "message": "Correção do bootstrap de autenticação com revalidação de módulos críticos e Service Worker atômico."
 }

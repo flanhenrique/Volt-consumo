@@ -4,6 +4,7 @@ import WebKit
 import WidgetKit
 
 struct VoltWebView: UIViewRepresentable {
+    @ObservedObject var deepLinkRouter: VoltDeepLinkRouter
     private let appURL = URL(string: "https://www.voltconsumo.com.br")!
 
     func makeCoordinator() -> Coordinator {
@@ -35,7 +36,11 @@ struct VoltWebView: UIViewRepresentable {
         return webView
     }
 
-    func updateUIView(_ webView: WKWebView, context: Context) {}
+    func updateUIView(_ webView: WKWebView, context: Context) {
+        guard context.coordinator.lastHandledDeepLinkRevision != deepLinkRouter.revision else { return }
+        context.coordinator.lastHandledDeepLinkRevision = deepLinkRouter.revision
+        webView.evaluateJavaScript("document.querySelector('[data-nav=\"home\"]')?.click()")
+    }
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "voltWidget")
@@ -43,6 +48,8 @@ struct VoltWebView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+        var lastHandledDeepLinkRevision = 0
+
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "voltWidget", let body = message.body as? [String: Any] else { return }
             guard let snapshot = Self.makeSnapshot(from: body) else { return }

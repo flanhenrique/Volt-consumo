@@ -1,4 +1,4 @@
-const BOOTSTRAP_BUILD = "20260814.12";
+const BOOTSTRAP_BUILD = "20260814.14";
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
 const RECOVERY_DELAY_MS = 9000;
 
@@ -6,6 +6,17 @@ const loginForm = document.getElementById("login-form");
 const loginMessage = document.getElementById("login-message");
 let recoveryInterval = null;
 let recoveryActive = false;
+
+loadDesktopAuthLayout();
+
+function loadDesktopAuthLayout() {
+  if (document.querySelector("link[data-volt-auth-desktop]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/auth-desktop.css?v=${BOOTSTRAP_BUILD}`;
+  link.dataset.voltAuthDesktop = "";
+  document.head.append(link);
+}
 
 function currentStartupStatus() {
   return document.documentElement.dataset.startupStatus || "BOOTING";

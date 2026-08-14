@@ -56,8 +56,13 @@ function structure() {
   if (!home) return;
   home.classList.add("home-sustainability");
 
+  // O renderer principal ainda mantém o contrato DOM deste gráfico.
+  // Ocultamos o card sem removê-lo para preservar o nó durante renders posteriores.
   const dailyConsumptionCard = home.querySelector(".home-chart-card, .home-daily-card");
-  if (dailyConsumptionCard) dailyConsumptionCard.remove();
+  if (dailyConsumptionCard) {
+    dailyConsumptionCard.hidden = true;
+    dailyConsumptionCard.setAttribute("aria-hidden", "true");
+  }
 
   prepareMeter("energy");
   prepareMeter("water");

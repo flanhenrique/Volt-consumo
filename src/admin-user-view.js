@@ -19,7 +19,7 @@ let waitAttempts = 0;
 boot();
 
 function boot() {
-  store = globalThis.__VOLT_APP_STORE__ || null;
+  store = globalThis.__VOLT_ADMIN_VIEW_BRIDGE__ || null;
   if (!store) {
     waitAttempts += 1;
     if (waitAttempts < STORE_WAIT_LIMIT) window.setTimeout(boot, 50);
@@ -126,7 +126,7 @@ function decorateUserDirectory(state) {
     }
 
     button.dataset.userId = account.id;
-    const ownAccount = account.id === state.user?.id;
+    const ownAccount = account.id === state.authenticatedUserId;
     button.disabled = ownAccount || Boolean(state.adminView) || enteringTargetId === account.id;
     button.textContent = ownAccount ? "Sua conta" : enteringTargetId === account.id ? "Abrindo…" : "Visualizar perfil";
     button.setAttribute("aria-label", ownAccount ? "Esta é sua conta administrativa" : `Visualizar ${account.displayName || account.email} em modo somente leitura`);
@@ -178,7 +178,7 @@ async function startUserView(userId) {
   const state = store?.getState();
   if (!state || state.status !== "READY" || !state.permissions?.canManageUsers || !userId) return;
   if (state.adminView || enteringTargetId) return;
-  if (userId === state.user?.id) return;
+  if (userId === state.authenticatedUserId) return;
 
   enteringTargetId = userId;
   decorateUserDirectory(state);
@@ -211,14 +211,9 @@ function exitUserView() {
   const current = store?.getState();
   if (!current?.adminView || !restoreState) return;
 
-  const refreshedSession = current.session || restoreState.session;
-  const refreshedUser = current.user || restoreState.user;
   globalThis.__VOLT_BILLING_CONTEXT__ = restoreBillingContext;
-
   const restored = {
     ...restoreState,
-    session: refreshedSession,
-    user: refreshedUser,
     adminView: null,
     activePage: "users",
     error: null
@@ -235,26 +230,22 @@ function exitUserView() {
 }
 
 async function fetchAdminSnapshot(userId) {
-  const state = store.getState();
-  const accessToken = state.session?.access_token;
-  if (!accessToken) throw new Error("Sessão administrativa indisponível. Entre novamente.");
-
-  const response = await fetch(`${VOLT_CONFIG.url}/rest/v1/rpc/beta_admin_user_view_snapshot`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      apikey: VOLT_CONFIG.publishableKey,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ p_user_id: userId })
+  if (!window.supabase?.createClient) throw new Error("Runtime seguro indisponível. Recarregue o VOLT.");
+  const rpcClient = window.supabase.createClient(VOLT_CONFIG.url, VOLT_CONFIG.publishableKey, {
+    auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: false }
   });
+  const { data: sessionData, error: sessionError } = await rpcClient.auth.getSession();
+  if (sessionError || !sessionData?.session) throw new Error("Sessão administrativa indisponível. Entre novamente.");
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error("Sua sessão administrativa precisa ser validada novamente.");
+  const { data, error } = await rpcClient.rpc("beta_admin_user_view_snapshot", { p_user_id: userId });
+  if (error) {
+    const message = String(error.message || "").toLowerCase();
+    if (message.includes("jwt") || message.includes("permission") || message.includes("authorized")) {
+      throw new Error("Sua sessão administrativa precisa ser validada novamente.");
+    }
     throw new Error("Não foi possível carregar o perfil selecionado.");
   }
-  return response.json();
+  return data;
 }
 
 function normalizeAdminSnapshot(snapshot, adminState) {
@@ -286,10 +277,6 @@ function normalizeAdminSnapshot(snapshot, adminState) {
     billing: { energy: billing },
     tariff: tariff.resolution,
     locality,
-    permissions: adminState.permissions,
-    admin: adminState.admin,
-    session: adminState.session,
-    user: adminState.user,
     adminView: {
       targetId: target.id,
       displayName: identity.displayName,

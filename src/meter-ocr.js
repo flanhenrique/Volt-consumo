@@ -8,7 +8,8 @@ const TEMPLATE_HEIGHT = 32;
 
 export async function analyzeMeterImage(file, options = {}) {
   if (!(file instanceof Blob)) return review("Selecione uma foto válida do medidor.", "invalid-image");
-  if (options.meterType && options.meterType !== "energy") {
+  const meterType = options.meterType || (typeof document !== "undefined" ? document.getElementById("reading-type")?.value : null);
+  if (meterType && meterType !== "energy") {
     return review("A leitura automática local está calibrada para o medidor de energia. Informe a leitura manualmente.", "unsupported-meter");
   }
   if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
@@ -26,7 +27,7 @@ export async function analyzeMeterImage(file, options = {}) {
     const screenGray = canvasGray(screen);
     const darkMap = localDarkMap(screenGray, SCREEN_WIDTH, SCREEN_HEIGHT, 10);
     const test = testScreenMetrics(darkMap);
-    if (test.mean > 0.17 && test.denseColumns > 0.48) {
+    if (test.mean > 0.16 && test.denseColumns > 0.43) {
       return review("O visor está na tela de teste. Aguarde aparecer o registro 03 em kWh e tire outra foto.", "test-screen");
     }
 

@@ -2,14 +2,44 @@ const CURRENT_BUILD = new URL(import.meta.url).searchParams.get("v") || "dev";
 const VERSION_URL = "./version.json";
 const SERVICE_WORKER_URL = "./sw.js";
 const CHECK_COOLDOWN_MS = 30000;
+const SAFE_STARTUP_STATUSES = new Set(["SIGNED_OUT", "MFA_REQUIRED", "READY", "ERROR"]);
 
 let registration = null;
 let banner = null;
 let updateButton = null;
 let lastCheckAt = 0;
 let applyingUpdate = false;
+let initializationScheduled = false;
 
-void initializePwaUpdateManager();
+schedulePwaUpdateManager();
+
+function schedulePwaUpdateManager() {
+  if (initializationScheduled) return;
+  initializationScheduled = true;
+
+  const startWhenIdle = () => {
+    const start = () => void initializePwaUpdateManager();
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(start, { timeout: 2000 });
+    } else {
+      window.setTimeout(start, 600);
+    }
+  };
+
+  const startupStatus = document.documentElement.dataset.startupStatus;
+  if (SAFE_STARTUP_STATUSES.has(startupStatus)) {
+    startWhenIdle();
+    return;
+  }
+
+  const handleStartupStatus = (event) => {
+    if (!SAFE_STARTUP_STATUSES.has(event.detail?.status)) return;
+    window.removeEventListener("volt:startup-status", handleStartupStatus);
+    startWhenIdle();
+  };
+
+  window.addEventListener("volt:startup-status", handleStartupStatus);
+}
 
 async function initializePwaUpdateManager() {
   injectUpdateStylesheet();

@@ -25,6 +25,26 @@ test('Tarifa Social zera exatamente o custo dos primeiros 80 kWh sem criar segun
   assert.equal(result.items.filter((item) => item.code === 'br_energy_tsee_80kwh').length, 1);
 });
 
+test('bandeira não entra na estimativa sem taxa versionada idêntica no catálogo', () => {
+  const unverified = forecastEnergyBill(400, { tariffBands: [], benefits: [], charges: [], flagRates: {} }, {
+    fallbackRate: 0.75,
+    flagRate: 0.01885,
+    flagLabel: 'Bandeira amarela',
+    lightingFee: 0
+  });
+  assert.equal(unverified.items.some((item) => item.category === 'flag'), false);
+  assert.equal(unverified.totalCost, 300);
+
+  const verified = forecastEnergyBill(400, { tariffBands: [], benefits: [], charges: [], flagRates: { yellow: 0.01885 } }, {
+    fallbackRate: 0.75,
+    flagRate: 0.01885,
+    flagLabel: 'Bandeira amarela',
+    lightingFee: 0
+  });
+  assert.equal(verified.items.find((item) => item.category === 'flag').amount, 7.54);
+  assert.equal(verified.totalCost, 307.54);
+});
+
 test('catálogo SQL só prevê regra elegível e mantém Itaipu fora da previsão', () => {
   const unit = { id: 'u1', service: 'energy', country: 'BR', state: 'AM', city: 'Manaus', distributor: 'Amazonas Energia' };
   const cycle = { cycle_start: '2026-07-13', cycle_end: '2026-08-12' };

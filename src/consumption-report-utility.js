@@ -244,7 +244,11 @@ function renderCycleChart(type, rows, unit, decimals) {
     return;
   }
   const max = Math.max(1, ...rows.map((row) => Number(row.value) || 0));
-  host.innerHTML = rows.map((row) => `<div class="consumption-cycle-bar${row.isCurrent ? " current" : ""}${row.hasInvoice ? " invoiced" : ""}"><div class="consumption-cycle-bar-copy"><span>${cycleLabel(row.range)}</span><small>${row.status}</small></div><div class="consumption-cycle-bar-track"><i style="--cycle-width:${Math.max(4, (row.value / max) * 100)}%"></i></div><strong>${formatNumber(row.value, decimals)} ${unit}</strong></div>`).join("");
+  host.innerHTML = rows.map((row) => {
+    const progress = Math.max(4, Math.min(100, (Number(row.value) || 0) / max * 100));
+    const label = `${cycleLabel(row.range)} · ${formatNumber(row.value, decimals)} ${unit}`;
+    return `<div class="consumption-cycle-bar${row.isCurrent ? " current" : ""}${row.hasInvoice ? " invoiced" : ""}"><div class="consumption-cycle-bar-copy"><span>${cycleLabel(row.range)}</span><small>${row.status}</small></div><div class="consumption-cycle-bar-track"><progress class="consumption-cycle-bar-progress" max="100" value="${progress}" aria-label="${label}"></progress></div><strong>${formatNumber(row.value, decimals)} ${unit}</strong></div>`;
+  }).join("");
 }
 
 function renderHistory(type, rows, unit, decimals) {

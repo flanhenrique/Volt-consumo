@@ -28,6 +28,25 @@ function amountFromLine(line) {
   return matches.length ? parsePtNumber(matches.at(-1)?.[1]) : null;
 }
 
+function quantityFromLine(line) {
+  const match = String(line || "").match(/(-?\d+(?:[.,]\d+)?)\s*(kwh|m3|m³)\b/i);
+  if (!match) return { quantity: null, quantityUnit: null };
+  return { quantity: parsePtNumber(match[1]), quantityUnit: /kwh/i.test(match[2]) ? "kWh" : "m3" };
+}
+
+function unitRateFromLine(line) {
+  const source = String(line || "");
+  const explicit = source.match(/(?:r\$\s*)?(\d+[.,]\d{4,8})\s*(?:r\$\s*\/\s*)?(?:kwh|m3|m³)/i);
+  if (explicit) return parsePtNumber(explicit[1]);
+  const decimals = [...source.matchAll(/(?<!\d)(\d+[.,]\d{4,8})(?!\d)/g)];
+  return decimals.length ? parsePtNumber(decimals.at(-1)?.[1]) : null;
+}
+
+function percentageFromLine(line) {
+  const match = String(line || "").match(/(-?\d+(?:[.,]\d+)?)\s*%/);
+  return match ? parsePtNumber(match[1]) : null;
+}
+
 function numberAfter(line, pattern) {
   const normalized = keyText(line);
   const index = normalized.search(pattern);
@@ -49,6 +68,8 @@ function classifyLine(line) {
     ["social_tariff", /tarifa social/, "benefit", "credit"],
     ["itaipu_bonus", /itaipu|10\.438|art\.?\s*21/, "credit", "credit"],
     ["compensation", /compensacao|credito de energia|saldo de energia/, "credit", "credit"],
+    ["energy_charge", /energia eletrica|energia ativa|consumo.*kwh|\btusd\b|\bte\b/, "energy", "charge"],
+    ["water_charge", /consumo.*(?:m3|m³)|agua faturada|tarifa de agua/, "water", "charge"],
     ["other_fee", /multa|juros|taxa|encargo/, "fee", "charge"]
   ];
   for (const [code, matcher, category, direction] of definitions) {
@@ -112,9 +133,16 @@ export function extractInvoiceFieldsFromLines(linesInput) {
     const classification = classifyLine(line);
     if (classification) {
       const amount = amountFromLine(line);
+      const { quantity, quantityUnit } = quantityFromLine(line);
+      const unitRate = unitRateFromLine(line);
+      const percentage = percentageFromLine(line);
       fields.items.push({
         ...classification,
-        label: line.slice(0, 120),
+        label: line.slice(0, 160),
+        quantity,
+        quantityUnit,
+        unitRate,
+        percentage,
         amount: amount == null ? null : Math.abs(amount),
         confidence: amount == null ? "probable" : "confirmed"
       });

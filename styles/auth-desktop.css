@@ -1,0 +1,107 @@
+/* Desktop authentication layout.
+   Keeps the approved two-column login composition independent from mobile
+   viewport-height compaction rules in layout.css. */
+
+@media (min-width: 768px) {
+  .auth-screen {
+    display: grid;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: calc(var(--safe-top) + var(--space-6)) var(--layout-gutter) calc(var(--safe-bottom) + var(--space-6));
+    align-items: stretch;
+    overflow: visible;
+    box-sizing: border-box;
+  }
+
+  .auth-layout {
+    display: grid;
+    width: min(100%, 92rem);
+    height: auto;
+    min-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 3rem);
+    min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 3rem);
+    max-height: none;
+    margin: auto;
+    grid-template-columns: minmax(0, 1.15fr) minmax(24rem, .85fr);
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    border-radius: clamp(1.6rem, 3vw, 2.7rem);
+  }
+
+  .auth-branding {
+    display: grid;
+    min-width: 0;
+    min-height: 40rem;
+    padding: clamp(2rem, 5vw, 5rem);
+    align-content: space-between;
+  }
+
+  .auth-copy h1 {
+    margin: var(--space-4) 0;
+    font-size: var(--font-size-display);
+  }
+
+  .auth-form-side {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: clamp(1.5rem, 4vw, 4rem);
+    align-content: center;
+    overflow: visible;
+    background: var(--glass-2);
+  }
+
+  .auth-form-wrap {
+    display: grid;
+    width: min(100%, 28rem);
+    min-width: 0;
+    max-height: none;
+    margin: auto;
+    gap: var(--space-6);
+  }
+
+  .auth-mobile-brand { display: none; }
+  .auth-form-wrap .section-heading { align-items: flex-end; }
+  .auth-form-wrap .section-heading-copy { gap: var(--space-1); }
+  .auth-form-wrap .section-heading .supporting-copy { display: block; }
+  .auth-form-wrap .card { padding: clamp(1rem, 2vw, 1.45rem); }
+  .auth-form-wrap .form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .auth-form-wrap .form label {
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+  }
+
+  #login-form > label,
+  #login-submit,
+  #signup-button,
+  #forgot-password,
+  #login-message,
+  #login-progress {
+    grid-column: auto;
+  }
+
+  .auth-form-wrap input {
+    min-height: var(--touch-target);
+    padding: .72rem .85rem;
+  }
+  .auth-form-wrap .input-with-icon input { padding-left: 2.8rem; }
+  .auth-form-wrap .primary-button,
+  .auth-form-wrap .secondary-button {
+    min-height: var(--touch-target);
+    padding: .7rem 1rem;
+  }
+  #forgot-password,
+  .auth-form-wrap > .text-button {
+    min-height: 2rem;
+    padding: .25rem;
+    font-size: inherit;
+  }
+  #login-message {
+    min-height: 1.3rem;
+    font-size: var(--font-size-sm);
+  }
+}

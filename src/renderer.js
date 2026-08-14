@@ -230,7 +230,7 @@ function renderConsumption(state, snapshot, byId) {
   byId("consumption-status").textContent = utility.status.label;
   byId("consumption-status").dataset.tone = utility.status.tone;
   byId("consumption-chart-caption").textContent = periodLabel(state.view.consumptionPeriod);
-  byId("consumption-chart-title").textContent = `${utilityLabel(type)} por intervalo`;
+  byId("consumption-chart-title").textContent = `${utilityLabel(type)} por dia`;
   const max = Math.max(1, ...utility.intervals.map((item) => item.value));
   byId("consumption-chart").replaceChildren(...utility.intervals.slice(-12).map((item) => chartBar(item, max, type)));
   byId("consumption-chart").dataset.empty = String(utility.intervals.length === 0);
@@ -366,9 +366,9 @@ function chartBar(item, max, type) {
   bar.className = "chart-bar";
   bar.dataset.type = type;
   bar.style.setProperty("--bar-height", `${Math.max(3, (item.value / max) * 100)}%`);
-  bar.title = `${formatNumber(item.value, type === "water" ? 3 : 0)} ${type === "water" ? "m³" : "kWh"}`;
+  bar.title = `${chartDate(item.date)} · ${formatNumber(item.value, type === "water" ? 3 : 0)} ${type === "water" ? "m³" : "kWh"}`;
   const label = document.createElement("span");
-  label.textContent = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(item.date)).replace(".", "");
+  label.textContent = chartDate(item.date);
   bar.append(label);
   return bar;
 }
@@ -450,5 +450,11 @@ function periodLabel(period) { return ({ cycle: "Ciclo atual", monthly: "Visão 
 function percent(value) { return new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 }).format(Number(value) || 0); }
 function formatNumber(value, decimals) { return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: decimals, minimumFractionDigits: decimals }).format(Number(value) || 0); }
 function currency(value) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0); }
+function chartDate(value) {
+  const date = new Date(value);
+  const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(date);
+  const month = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date).replace(".", "");
+  return `${day}/${month}`;
+}
 function dateTime(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
 function dateOnly(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value)); }

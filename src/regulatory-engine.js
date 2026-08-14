@@ -75,7 +75,7 @@ function legalBenefitMetadata(rule, profile, effect, options = {}) {
     annualAct: null,
     formulaLabel: options.formulaLabel || "Conforme regra regulatória aplicável",
     referencePeriodLabel: confirmedOnBill ? "Benefício confirmado na fatura" : "Benefício regulatório identificado",
-    officialRate: null,
+    officialRate: "not_identified",
     officialRateUnit: null,
     explanation: options.explanation || (confirmedOnBill
       ? "O benefício foi identificado na fatura da concessionária. O valor só é incorporado ao subtotal quando o lançamento monetário estiver confirmado."

@@ -5,7 +5,7 @@ export function renderLegalBillDetail(profile, bill = null) {
   const host = document.querySelector("#page-consumption .analytics-grid");
   if (!host) return;
 
-  const benefits = Array.isArray(profile?.legalBenefits) ? profile.legalBenefits.filter((item) => item?.active !== false) : [];
+  const benefits = collectLegalBenefits(profile);
   const normalizedBill = normalizeBill(bill);
   const existing = document.getElementById(DETAIL_ID);
   if (!benefits.length && !normalizedBill) {
@@ -26,6 +26,18 @@ export function renderLegalBillDetail(profile, bill = null) {
 
   if (!existing) host.append(card);
   bindUtilityVisibility(card);
+}
+
+function collectLegalBenefits(profile) {
+  const direct = Array.isArray(profile?.legalBenefits) ? profile.legalBenefits : [];
+  const regulatory = Array.isArray(profile?.rules?.benefits)
+    ? profile.rules.benefits.filter((item) => item?.legalBenefit === true)
+    : [];
+  const map = new Map();
+  [...direct, ...regulatory]
+    .filter((item) => item?.active !== false)
+    .forEach((item, index) => map.set(String(item?.code || item?.name || index), item));
+  return [...map.values()];
 }
 
 function normalizeBill(input) {
@@ -80,7 +92,7 @@ function buildInvoiceBreakdown(bill, benefits) {
   title.textContent = "Itens da fatura";
   const caption = document.createElement("p");
   caption.className = "supporting-copy";
-  caption.textContent = "O total oficial da concessionária é separado do subtotal explicado pelo Volt. Créditos legais só reduzem o subtotal quando o valor estiver identificado na fatura.";
+  caption.textContent = "O total oficial da concessionária é separado do subtotal explicado pelo Volt. Créditos legais identificados aparecem mesmo quando o valor monetário ainda precisa ser confirmado.";
   heading.append(title, caption);
 
   const meta = document.createElement("ul");
@@ -114,17 +126,19 @@ function invoiceItemRow(item, benefits) {
   const legalBenefit = findBenefitForInvoiceItem(item, benefits);
   const itemNode = document.createElement("li");
   const small = document.createElement("small");
-  small.textContent = legalBenefit ? "Desconto por Lei" : categoryLabel(item.category);
+  small.textContent = legalBenefit ? "Desconto por Lei · identificado" : categoryLabel(item.category);
   const strong = document.createElement("strong");
   strong.textContent = item.label;
   const value = document.createElement("span");
-  value.textContent = item.amount == null ? "Valor a confirmar" : signedCurrency(item.amount);
+  value.textContent = item.amount == null
+    ? (legalBenefit ? "Identificado · valor a confirmar" : "Valor a confirmar")
+    : signedCurrency(item.amount);
 
   const details = [];
   if (item.quantityKwh != null && item.unitRate != null) details.push(`${formatNumber(item.quantityKwh, 0)} kWh × R$ ${formatRate(item.unitRate, 6)}`);
   if (legalBenefit?.law?.label) details.push(`${legalBenefit.law.label}${legalBenefit.law.article ? ` · ${legalBenefit.law.article}` : ""}`);
-  if (item.extraordinary) details.push("Crédito extraordinário");
-  if (item.amount == null) details.push("Não altera o subtotal até o valor ser confirmado");
+  if (item.extraordinary || legalBenefit?.recurring === false) details.push("Crédito extraordinário");
+  if (item.amount == null) details.push("Valor monetário ainda não confirmado; não altera o subtotal");
 
   itemNode.append(small, strong, value);
   if (details.length) {
@@ -151,13 +165,15 @@ function buildBenefit(benefit, bill) {
 
   const summary = document.createElement("ul");
   summary.className = "comparison-list compact-list";
-  summary.append(
-    detailRow("Valor na fatura", invoiceItem?.amount == null ? "A confirmar" : signedCurrency(invoiceItem.amount), invoiceItem?.amount == null ? "A regra foi reconhecida, mas o valor ainda não foi confirmado" : "Valor identificado no detalhamento da concessionária"),
+  const rows = [
+    detailRow("Status do benefício", invoiceItem ? "Identificado na fatura" : "Regra aplicável", invoiceItem ? "A concessionária registrou este benefício no documento" : "Regra regulatória disponível para a unidade"),
+    detailRow("Valor na fatura", invoiceItem?.amount == null ? "A confirmar" : signedCurrency(invoiceItem.amount), invoiceItem?.amount == null ? "O benefício foi identificado, mas o valor monetário ainda não foi confirmado" : "Valor identificado no detalhamento da concessionária"),
     detailRow("Natureza", benefit.recurring === false ? "Crédito extraordinário" : "Benefício tarifário", benefit.forecastable === false ? "Não entra na previsão recorrente" : "Pode entrar na previsão"),
-    detailRow("Cálculo", benefit.formulaLabel || "Conforme ato regulatório", benefit.referencePeriodLabel || "Período de referência definido pela ANEEL"),
-    detailRow("Tarifa-bônus oficial", formatRate(benefit.officialRate, 8), benefit.officialRateUnit || "R$/kWh"),
-    detailRow("Ato anual", benefit.annualAct?.label || "Ato ANEEL", benefit.creditPeriodLabel || "Aplicação conforme vigência do ato")
-  );
+    detailRow("Cálculo", benefit.formulaLabel || "Conforme ato regulatório", benefit.referencePeriodLabel || "Período de referência definido pela ANEEL")
+  ];
+  if (Number.isFinite(Number(benefit.officialRate))) rows.push(detailRow("Tarifa-bônus oficial", formatRate(benefit.officialRate, 8), benefit.officialRateUnit || "R$/kWh"));
+  if (benefit.annualAct?.label) rows.push(detailRow("Ato anual", benefit.annualAct.label, benefit.creditPeriodLabel || "Aplicação conforme vigência do ato"));
+  summary.append(...rows);
 
   const explanation = document.createElement("p");
   explanation.className = "supporting-copy";

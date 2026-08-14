@@ -1,4 +1,4 @@
-const CURRENT_BUILD = new URL(import.meta.url).searchParams.get("v") || "dev";
+const MODULE_BUILD = new URL(import.meta.url).searchParams.get("v") || "dev";
 const VERSION_URL = "./version.json";
 const SERVICE_WORKER_URL = "./sw.js";
 const CHECK_COOLDOWN_MS = 30000;
@@ -12,6 +12,11 @@ let applyingUpdate = false;
 let initializationScheduled = false;
 
 schedulePwaUpdateManager();
+
+function installedBuild() {
+  const runtimeBuild = String(globalThis.__VOLT_BUILD__ || "").trim();
+  return runtimeBuild || MODULE_BUILD;
+}
 
 function schedulePwaUpdateManager() {
   if (initializationScheduled) return;
@@ -62,7 +67,7 @@ function injectUpdateStylesheet() {
   if (document.querySelector('link[data-volt-pwa-update-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = `./styles/pwa-update.css?v=${encodeURIComponent(CURRENT_BUILD)}`;
+  link.href = `./styles/pwa-update.css?v=${encodeURIComponent(installedBuild())}`;
   link.dataset.voltPwaUpdateStyle = "true";
   document.head.append(link);
 }
@@ -82,7 +87,7 @@ async function ensureRegistration() {
 
 function observeRegistration(activeRegistration) {
   if (!activeRegistration) return;
-  if (activeRegistration.waiting && navigator.serviceWorker.controller) showUpdateBanner();
+  if (activeRegistration.waiting && navigator.serviceWorker.controller) void checkForUpdate(true);
 
   activeRegistration.addEventListener("updatefound", () => {
     const worker = activeRegistration.installing;
@@ -110,10 +115,10 @@ async function checkForUpdate(force = false) {
 
     const remoteVersion = await response.json();
     const remoteBuild = String(remoteVersion?.build || "").trim();
-    const hasNewBuild = Boolean(remoteBuild && remoteBuild !== CURRENT_BUILD);
-    const hasWaitingWorker = Boolean(registration.waiting && navigator.serviceWorker.controller);
+    const currentBuild = installedBuild();
+    const hasNewBuild = Boolean(remoteBuild && currentBuild && remoteBuild !== currentBuild);
 
-    if (hasNewBuild || hasWaitingWorker) {
+    if (hasNewBuild) {
       showUpdateBanner(remoteVersion);
       await setUpdateBadge();
     } else {
@@ -186,7 +191,8 @@ async function applyUpdate() {
       }
     }
 
-    navigator.serviceWorker.controller?.postMessage({ type: "CLEAR_VOLT_CACHE" });
+    // O Service Worker usa network-first para navegação e assets. Recarregar é
+    // suficiente para receber o novo bootstrap sem destruir o cache já instalado.
     window.setTimeout(() => location.reload(), 120);
   } catch {
     location.reload();

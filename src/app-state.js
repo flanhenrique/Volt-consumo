@@ -24,6 +24,7 @@ const initialState = Object.freeze({
   permissions: { canManageUsers: false, role: null },
   organization: null,
   admin: null,
+  adminView: null,
   activePage: "home",
   transitionSurface: null,
   view: { consumptionType: "energy", consumptionPeriod: "cycle", theme: "system", accent: "emerald" },
@@ -50,7 +51,7 @@ export function createApplicationStore() {
     }
   };
 
-  return Object.freeze({
+  const store = Object.freeze({
     getState: () => state,
     subscribe(subscriber) {
       subscribers.add(subscriber);
@@ -72,4 +73,9 @@ export function createApplicationStore() {
       publish();
     }
   });
+
+  // Extensão administrativa do próprio VOLT usa somente a API pública do store.
+  // Nenhum token, senha ou cliente Supabase é exposto por esta referência.
+  if (typeof globalThis !== "undefined") globalThis.__VOLT_APP_STORE__ = store;
+  return store;
 }

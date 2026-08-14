@@ -83,7 +83,7 @@ struct VoltWebView: UIViewRepresentable {
         }
 
         private static func makeSnapshot(from body: [String: Any]) -> WidgetSnapshot? {
-            guard int(body["version"]) == 1 else { return nil }
+            guard int(body["version"]) == 2 else { return nil }
 
             let capturedAt: Date
             if let raw = body["capturedAt"] as? String,
@@ -94,18 +94,28 @@ struct VoltWebView: UIViewRepresentable {
             }
 
             return WidgetSnapshot(
-                version: 1,
+                version: 2,
                 capturedAt: capturedAt,
+                cycleLabel: string(body["cycleLabel"]),
                 energyConsumption: double(body["energyConsumption"]),
                 energyGoal: double(body["energyGoal"]),
                 energyProgress: double(body["energyProgress"]),
+                energyProjectedConsumption: double(body["energyProjectedConsumption"]),
                 energyCurrentCost: double(body["energyCurrentCost"]),
+                energyProjectedCost: double(body["energyProjectedCost"]),
                 totalCurrentCost: double(body["totalCurrentCost"]),
+                totalProjectedCost: double(body["totalProjectedCost"]),
                 waterConsumption: double(body["waterConsumption"]),
                 waterGoal: double(body["waterGoal"]),
+                waterProgress: double(body["waterProgress"]),
+                waterProjectedConsumption: double(body["waterProjectedConsumption"]),
                 waterCurrentCost: double(body["waterCurrentCost"]),
+                waterProjectedCost: double(body["waterProjectedCost"]),
                 co2Kg: double(body["co2Kg"]),
-                energyStatus: (body["energyStatus"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                projectedCo2Kg: double(body["projectedCo2Kg"]),
+                energyStatus: string(body["energyStatus"]),
+                energyStatusTone: string(body["energyStatusTone"]),
+                confidence: string(body["confidence"])
             )
         }
 
@@ -122,6 +132,10 @@ struct VoltWebView: UIViewRepresentable {
             if let value = value as? String { return Int(value) ?? 0 }
             return 0
         }
+
+        private static func string(_ value: Any?) -> String {
+            (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
     }
 
     private static let widgetBridgeScript = #"""
@@ -132,73 +146,17 @@ struct VoltWebView: UIViewRepresentable {
       const handler = window.webkit?.messageHandlers?.voltWidget;
       if (!handler) return;
 
-      const text = (id) => document.getElementById(id)?.textContent?.trim() || "";
-      const number = (value) => {
-        const raw = String(value ?? "").trim().replace(/\s/g, "");
-        if (!raw) return 0;
-        const normalized = raw.includes(",")
-          ? raw.replace(/\./g, "").replace(",", ".")
-          : raw;
-        const result = Number.parseFloat(normalized.replace(/[^\d.-]/g, ""));
-        return Number.isFinite(result) ? result : 0;
-      };
-
-      let timer = null;
       let lastPayload = "";
-
-      const publish = () => {
-        if (document.documentElement.dataset.startupStatus !== "READY") return;
-
-        const energyConsumption = number(text("home-energy-consumption"));
-        const energyGoal = number(text("home-energy-goal"));
-        const payload = {
-          version: 1,
-          energyConsumption,
-          energyGoal,
-          energyProgress: energyGoal > 0 ? energyConsumption / energyGoal : 0,
-          energyCurrentCost: number(text("home-energy-cost")),
-          totalCurrentCost: number(text("home-total-cost")),
-          waterConsumption: number(text("home-water-consumption")),
-          waterGoal: number(text("home-water-goal")),
-          waterCurrentCost: number(text("home-water-cost")),
-          co2Kg: number(text("home-insight-title")),
-          energyStatus: text("home-energy-status")
-        };
-
+      const publish = (payload) => {
+        if (!payload || Number(payload.version) !== 2) return;
         const fingerprint = JSON.stringify(payload);
         if (fingerprint === lastPayload) return;
         lastPayload = fingerprint;
-
-        handler.postMessage({
-          ...payload,
-          capturedAt: new Date().toISOString()
-        });
+        handler.postMessage(payload);
       };
 
-      const schedule = () => {
-        clearTimeout(timer);
-        timer = setTimeout(publish, 80);
-      };
-
-      window.addEventListener("volt:startup-status", schedule);
-      window.addEventListener("volt:regulatory-context", schedule);
-      document.addEventListener("change", schedule, true);
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") schedule();
-      });
-
-      const target = document.getElementById("page-home") || document.body;
-      if (target) {
-        new MutationObserver(schedule).observe(target, {
-          subtree: true,
-          childList: true,
-          characterData: true,
-          attributes: true,
-          attributeFilter: ["style", "data-tone", "aria-valuenow"]
-        });
-      }
-
-      setTimeout(schedule, 400);
+      window.addEventListener("volt:widget-snapshot", (event) => publish(event.detail));
+      if (window.__VOLT_WIDGET_SNAPSHOT__) publish(window.__VOLT_WIDGET_SNAPSHOT__);
     })();
     """#
 }

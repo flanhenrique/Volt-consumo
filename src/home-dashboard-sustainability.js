@@ -1,5 +1,6 @@
+import { GRID_FACTOR_KG_CO2E_PER_KWH, publishWidgetSnapshot } from "./widget-snapshot.js?v=20260814.3";
+
 const $ = (id) => document.getElementById(id);
-const GRID_FACTOR_KG_CO2E_PER_KWH = 0.0385;
 let queued = false;
 let observer = null;
 
@@ -48,6 +49,7 @@ function queue() {
     structure();
     renderMeters();
     renderEnvironment();
+    publishWidgetSnapshot();
   });
 }
 

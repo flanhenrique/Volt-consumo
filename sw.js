@@ -38,7 +38,8 @@ const CORE_ASSETS = [
   releaseAsset("./src/invoice-ocr.js"),
   releaseAsset("./src/executive-pdf.js"),
   "./src/home-dashboard-v2.js?v=20260814.1",
-  "./src/home-dashboard-sustainability.js?v=20260814.2"
+  "./src/home-dashboard-sustainability.js?v=20260814.2",
+  "./src/widget-snapshot.js?v=20260814.3"
 ];
 
 self.addEventListener("install", (event) => {

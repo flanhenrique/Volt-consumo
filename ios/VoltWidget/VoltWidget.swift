@@ -27,7 +27,7 @@ struct VoltConsumptionWidget: Widget {
             VoltWidgetView(entry: entry)
         }
         .configurationDisplayName("Consumo VOLT")
-        .description("Consumo de energia, meta, custo atual e impacto ambiental.")
+        .description("Consumo, meta e previsão da fatura do ciclo atual.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }
@@ -102,14 +102,16 @@ struct VoltWidgetView: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 10) {
-                metric("Estimativa atual", value: snapshot.totalCurrentCost.formatted(.currency(code: "BRL")))
-                metric("Impacto", value: "\(snapshot.co2Kg.formatted(.number.precision(.fractionLength(1)))) kg CO₂e")
-                metric("Água", value: "\(snapshot.waterConsumption.formatted(.number.precision(.fractionLength(1)))) m³")
+            VStack(alignment: .leading, spacing: 9) {
+                metric("Previsão da fatura", value: projectedBillValue)
+                metric("Energia projetada", value: projectedEnergyValue)
+                metric("Impacto projetado", value: projectedImpactValue)
+                metric("Água atual", value: "\(snapshot.waterConsumption.formatted(.number.precision(.fractionLength(1)))) m³")
                 Spacer(minLength: 0)
-                Label("Atualizado pelo VOLT", systemImage: "arrow.triangle.2.circlepath")
+                Text(snapshot.confidence == "measured" ? "Baseado nas leituras do ciclo" : "Aguardando base de leitura")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -157,19 +159,34 @@ struct VoltWidgetView: View {
             Text(value)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.75)
         }
     }
 
+    private var projectedBillValue: String {
+        guard snapshot.confidence == "measured" else { return "—" }
+        return snapshot.totalProjectedCost.formatted(.currency(code: "BRL"))
+    }
+
+    private var projectedEnergyValue: String {
+        guard snapshot.confidence == "measured" else { return "—" }
+        return "\(snapshot.energyProjectedConsumption.formatted(.number.precision(.fractionLength(0)))) kWh"
+    }
+
+    private var projectedImpactValue: String {
+        guard snapshot.confidence == "measured" else { return "—" }
+        return "\(snapshot.projectedCo2Kg.formatted(.number.precision(.fractionLength(1)))) kg CO₂e"
+    }
+
     private var progressTint: Color {
-        if snapshot.energyProgress > 1 { return .red }
-        if snapshot.energyProgress >= 0.9 { return .orange }
+        if snapshot.energyStatusTone == "danger" { return .red }
+        if snapshot.energyStatusTone == "warning" { return .orange }
         return .green
     }
 
     private var statusSymbol: String {
-        if snapshot.energyProgress > 1 { return "exclamationmark.triangle.fill" }
-        if snapshot.energyProgress >= 0.9 { return "exclamationmark.circle.fill" }
+        if snapshot.energyStatusTone == "danger" { return "exclamationmark.triangle.fill" }
+        if snapshot.energyStatusTone == "warning" { return "exclamationmark.circle.fill" }
         return "checkmark.circle.fill"
     }
 }

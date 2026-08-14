@@ -20,7 +20,7 @@
 .home-bar-chart { min-height: 13rem; }
 .home-bar-chart .chart-bar { max-width: 2rem; flex-basis: 2rem; border-radius: .45rem .45rem .12rem .12rem; }
 .distribution-chart { display: grid; width: 8.5rem; aspect-ratio: 1; margin: 0 auto; place-items: center; border-radius: 50%; background: conic-gradient(var(--volt-accent) 0 var(--energy-share, 50%), var(--volt-water) var(--energy-share, 50%) 100%); }
-.distribution-chart::after { width: 62%; aspect-ratio: 1; border-radius: 50%; background: var(--glass-3); box-shadow: inset 0 0 0 1px var(--glass-border); content: ""; }
+.distribution-chart::after { width: 62%; aspect-ratio: 1; border-radius: 50%; background: var(--glass-3); box-shadow: inset 0 1px 0 var(--glass-border); content: ""; }
 .compact-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .compact-list li { padding: var(--space-2); }
 .latest-card, .next-actions-card, .volt-tip-card { display: grid; min-height: 14rem; gap: var(--space-4); grid-column: span 4; align-content: start; }
@@ -35,7 +35,7 @@
 .mini-list-item small { display: block; color: var(--text-secondary); }
 
 .analytics-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(12, minmax(0, 1fr)); }
-.analytics-metric { display: grid; min-height: 9rem; gap: var(--space-2); grid-column: span 3; align-content: space-between; }
+.analytics-metric { display: grid; min-height: 7.25rem; padding: var(--space-3); gap: var(--space-1); grid-column: span 3; align-content: space-between; }
 .chart-card { display: grid; min-height: 24rem; gap: var(--space-5); grid-column: span 8; }
 .comparison-card { display: grid; gap: var(--space-4); grid-column: span 4; align-content: start; }
 .bar-chart { display: flex; min-height: 14rem; padding-top: var(--space-4); align-items: end; justify-content: stretch; gap: clamp(.25rem, 1vw, .75rem); border-bottom: 1px solid var(--glass-border-strong); }
@@ -133,11 +133,14 @@
 
 @media (max-width: 767px) {
   .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-  .analytics-grid { display: grid; grid-template-columns: 1fr; }
+  .analytics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
   .overview-card { min-width: 0; min-height: 9.4rem; padding: var(--space-3); grid-column: auto; }
   .overview-card .metric-value { font-size: clamp(1.35rem, 7vw, 1.8rem); }
   .overview-card .status-pill { display: none; }
-  .home-chart-card, .home-distribution-card, .latest-card, .next-actions-card, .volt-tip-card, .analytics-metric, .chart-card, .comparison-card { min-width: 0; grid-column: 1 / -1; }
+  .analytics-metric { min-width: 0; min-height: 6.6rem; padding: var(--space-3); gap: var(--space-1); grid-column: auto; }
+  .analytics-metric .metric-value { font-size: clamp(1.3rem, 6vw, 1.8rem); }
+  .analytics-metric .metric-caption, .analytics-metric .metric-delta { font-size: .7rem; }
+  .home-chart-card, .home-distribution-card, .latest-card, .next-actions-card, .volt-tip-card, .chart-card, .comparison-card { min-width: 0; grid-column: 1 / -1; }
   .home-chart-card { min-height: 18rem; }
   .home-bar-chart .chart-bar { max-width: 1.4rem; flex-basis: 1.4rem; }
   .reading-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

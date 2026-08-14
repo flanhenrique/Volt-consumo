@@ -1,6 +1,6 @@
 {
   "release": "20260813.7",
-  "build": "20260814.13",
-  "releasedAt": "2026-08-14T14:57:00Z",
-  "message": "Correção da inicialização da Home após remoção do card de consumo diário, preservando o contrato DOM do renderer."
+  "build": "20260814.14",
+  "releasedAt": "2026-08-14T15:18:00Z",
+  "message": "Correção da tela de login no desktop, restaurando a composição aprovada em duas colunas sem aplicar compactação de altura do layout móvel."
 }

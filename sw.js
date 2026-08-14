@@ -1,9 +1,10 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260814.13";
+const CACHE_REVISION = "20260814.14";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
-const BOOTSTRAP_BUILD = "20260814.13";
+const BOOTSTRAP_BUILD = "20260814.14";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260814.13",
   "volt-app-v4-atomic-20260814.12",
   "volt-app-v4-atomic-20260813.7",
   "volt-app-recovery-20260814.10",
@@ -32,6 +33,8 @@ const CORE_ASSETS = [
   releaseAsset("./styles/components.css"),
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
+  bootstrapAsset("./styles/auth-desktop.css"),
+  "./bootstrap.js?v=20260814.11",
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),

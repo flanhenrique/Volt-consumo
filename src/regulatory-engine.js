@@ -46,6 +46,45 @@ function profileMatches(rule, profile) {
   return allowed.includes(profile.state);
 }
 
+function invoiceMatchersForRule(rule, effect) {
+  const matchers = [effect?.component_code, rule?.code, rule?.name].filter(Boolean);
+  if (rule?.code === "br_energy_itaipu_bonus") matchers.push("itaipu", "10.438", "art. 21", "art 21");
+  if (rule?.code === "br_energy_tsee_80kwh") matchers.push("tarifa social", "subvencao baixa renda", "subvenção baixa renda", "baixa renda");
+  return [...new Set(matchers)];
+}
+
+function legalBenefitMetadata(rule, profile, effect, options = {}) {
+  const legalBasis = text(rule?.legal_basis);
+  const sourceTitle = text(rule?.source_title) || "Fonte oficial";
+  const sourceUrl = text(rule?.source_url);
+  const confirmedOnBill = profile?.state === "confirmed_on_bill";
+  return {
+    legalBenefit: true,
+    active: true,
+    code: rule.code,
+    name: rule.name,
+    recurring: options.recurring !== false,
+    forecastable: effect?.forecastable !== false,
+    invoiceMatchers: invoiceMatchersForRule(rule, effect),
+    law: {
+      label: legalBasis || sourceTitle,
+      article: "",
+      url: sourceUrl
+    },
+    regulation: sourceUrl ? { label: sourceTitle, url: sourceUrl } : null,
+    annualAct: null,
+    formulaLabel: options.formulaLabel || "Conforme regra regulatória aplicável",
+    referencePeriodLabel: confirmedOnBill ? "Benefício confirmado na fatura" : "Benefício regulatório identificado",
+    officialRate: null,
+    officialRateUnit: null,
+    explanation: options.explanation || (confirmedOnBill
+      ? "O benefício foi identificado na fatura da concessionária. O valor só é incorporado ao subtotal quando o lançamento monetário estiver confirmado."
+      : "O benefício foi identificado pela regra regulatória aplicável."),
+    regulatoryRuleId: rule.id,
+    profileState: profile?.state || "not_analyzed"
+  };
+}
+
 export function resolveRegulatoryRules({ rules = [], profiles = [], unit, cycle }) {
   if (!unit) return [];
   const profileMap = latestProfiles(profiles, unit.id);
@@ -70,7 +109,10 @@ export function buildEnergyBillingRules(context) {
     const effect = rule?.effect && typeof rule.effect === "object" ? rule.effect : {};
     if (effect.type === "free_energy_band" && Number(effect.up_to_kwh) > 0 && Number(effect.discount_percent) === 100) {
       benefits.push({
-        code: rule.code,
+        ...legalBenefitMetadata(rule, profile, effect, {
+          recurring: true,
+          formulaLabel: `Gratuidade de até ${Number(effect.up_to_kwh)} kWh conforme regra aplicável`
+        }),
         label: rule.name,
         type: "free_kwh_credit",
         upToKwh: Number(effect.up_to_kwh),
@@ -90,6 +132,18 @@ export function buildEnergyBillingRules(context) {
       continue;
     }
     if (effect.type === "invoice_credit_only") {
+      benefits.push({
+        ...legalBenefitMetadata(rule, profile, effect, {
+          recurring: false,
+          formulaLabel: "Crédito conforme lançamento da concessionária e ato regulatório aplicável",
+          explanation: "O Desconto Itaipu foi identificado e confirmado na fatura. Como o valor monetário do lançamento ainda não foi confirmado, o VOLT o exibe como benefício legal identificado, sem atribuir automaticamente a ele a diferença restante da conta e sem projetá-lo para os próximos ciclos."
+        }),
+        label: rule.name,
+        type: "invoice_credit_only",
+        forecastable: false,
+        extraordinary: true,
+        regulatoryRuleId: rule.id
+      });
       applied.push({ ruleId: rule.id, code: rule.code, profileState: profile?.state || "not_analyzed", forecastable: false });
     }
   }

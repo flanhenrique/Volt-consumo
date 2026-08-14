@@ -1,4 +1,4 @@
-import { GRID_FACTOR_KG_CO2E_PER_KWH, publishWidgetSnapshot } from "./widget-snapshot.js?v=20260814.3";
+import { GRID_FACTOR_KG_CO2E_PER_KWH, publishWidgetSnapshot } from "./widget-snapshot.js?v=20260814.4";
 
 const $ = (id) => document.getElementById(id);
 let queued = false;
@@ -29,7 +29,7 @@ function loadCss() {
   if (document.querySelector("link[data-home-sustainability]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/home-dashboard-sustainability.css?v=20260814.2";
+  link.href = "./styles/home-dashboard-sustainability.css?v=20260814.3";
   link.dataset.homeSustainability = "";
   document.head.append(link);
 }
@@ -57,6 +57,10 @@ function structure() {
   const home = $("page-home");
   if (!home) return;
   home.classList.add("home-sustainability");
+
+  const dailyConsumptionCard = home.querySelector(".home-chart-card, .home-daily-card");
+  if (dailyConsumptionCard) dailyConsumptionCard.remove();
+
   prepareMeter("energy");
   prepareMeter("water");
   prepareEnvironmentCard();

@@ -78,9 +78,27 @@ function tariffItems(consumptionKwh, bands) {
   return items;
 }
 
+function costOfFirstKwh(items, capInput) {
+  let remaining = nonNegative(capInput);
+  let total = 0;
+  for (const item of Array.isArray(items) ? items : []) {
+    if (remaining <= 0) break;
+    const quantity = nonNegative(item?.quantityKwh);
+    const rate = nonNegative(item?.unitRate);
+    if (quantity <= 0 || rate <= 0) continue;
+    const covered = Math.min(remaining, quantity);
+    total += covered * rate;
+    remaining -= covered;
+  }
+  return roundMoney(total);
+}
+
 function benefitAmount(rule, context) {
   const type = String(rule?.type || "fixed_credit");
   const cap = rule?.upToKwh == null ? context.consumptionKwh : Math.min(context.consumptionKwh, nonNegative(rule.upToKwh));
+  if (type === "free_kwh_credit") {
+    return { quantityKwh: cap, unitRate: null, amount: signedAmount(costOfFirstKwh(context.energyItems, cap), -1) };
+  }
   if (type === "per_kwh_credit") {
     const rate = rule?.rateSource === "flagRate" ? context.flagRate : nonNegative(rule?.rate);
     return { quantityKwh: cap, unitRate: rate, amount: signedAmount(cap * rate, -1) };
@@ -143,7 +161,7 @@ export function forecastEnergyBill(consumptionKwhInput, rules = {}, runtime = {}
     extraordinary: false
   } : null;
   const flagGross = flagItem?.amount || 0;
-  const context = { consumptionKwh, flagRate, energySubtotal, flagGross };
+  const context = { consumptionKwh, flagRate, energySubtotal, flagGross, energyItems };
   const benefitItems = (Array.isArray(rules?.benefits) ? rules.benefits : [])
     .filter((rule) => rule?.forecastable !== false)
     .map((rule) => normalizeRuleItem(rule, benefitAmount(rule, context), "benefit"))
@@ -166,7 +184,7 @@ export function forecastEnergyBill(consumptionKwhInput, rules = {}, runtime = {}
   const items = [...energyItems, ...(flagItem ? [flagItem] : []), ...benefitItems, ...chargeItems, ...fixedItems];
   const flagNet = sum(items, (item) => item.category === "flag" || (item.category === "benefit" && item.code.toLowerCase().includes("flag")));
   const totalCost = sum(items, (item) => item.forecastable !== false && !item.extraordinary);
-  return { engine: "billing-rules-v1", consumptionKwh, energySubtotal, flagGross, flagNet, totalCost, items };
+  return { engine: "billing-rules-v2", consumptionKwh, energySubtotal, flagGross, flagNet, totalCost, items };
 }
 
 export function analyzeEnergyInvoice(input = {}) {
@@ -190,7 +208,7 @@ export function analyzeEnergyInvoice(input = {}) {
   const reconciliationStatus = meterDifferenceKwh > 0 ? "pending_underbilled" : meterDifferenceKwh < 0 ? "pending_overbilled" : "aligned";
   const unexplainedAdjustment = invoiceTotal == null ? null : roundMoney(invoiceTotal - knownTotal);
   return {
-    engine: "billing-rules-v1",
+    engine: "billing-rules-v2",
     billingBasis,
     measuredConsumptionKwh,
     billedConsumptionKwh,

@@ -1,6 +1,6 @@
 {
-  "release": "20260814.8",
-  "build": "20260814.8",
-  "releasedAt": "2026-08-14T13:39:30Z",
-  "message": "Correção completa do bootstrap, login e MFA no iPhone/PWA, com recuperação automática de cache antigo."
+  "release": "20260814.9",
+  "build": "20260814.9",
+  "releasedAt": "2026-08-14T13:52:00Z",
+  "message": "Recuperação de autenticação no navegador e PWA com limpeza forçada de cache e compatibilidade Safari."
 }

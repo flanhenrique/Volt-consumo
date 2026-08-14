@@ -4,10 +4,10 @@ export const VOLT_CONFIG = Object.freeze({
 });
 
 const AUXILIARY_MODULES = Object.freeze([
-  "./src/consumption-reports.js?v=20260814.11",
-  "./src/home-dashboard-v2.js?v=20260814.11",
-  "./src/home-dashboard-sustainability.js?v=20260814.11",
-  "./src/pwa-update.js?v=20260814.11"
+  "./src/consumption-reports.js?v=20260814.13",
+  "./src/home-dashboard-v2.js?v=20260814.13",
+  "./src/home-dashboard-sustainability.js?v=20260814.13",
+  "./src/pwa-update.js?v=20260814.13"
 ]);
 
 function loadAuxiliaryModules() {

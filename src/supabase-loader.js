@@ -4,7 +4,7 @@ let billingWorkflowStarted = false;
 function startBillingWorkflow() {
   if (billingWorkflowStarted) return;
   billingWorkflowStarted = true;
-  void import("./billing-workflow.js?v=20260814.1")
+  void import("./billing-workflow.js?v=20260813.7")
     .then((module) => module.startBillingWorkflow?.())
     .catch((error) => console.warn("VOLT billing workflow unavailable", error instanceof Error ? error.message : "unknown_error"));
 }

@@ -42,6 +42,23 @@
 .chart-bar { position: relative; display: grid; min-width: 0; height: max(.35rem, var(--bar-height, 0%)); flex: 1; border-radius: var(--radius-pill) var(--radius-pill) .15rem .15rem; background: linear-gradient(180deg, var(--volt-accent), color-mix(in srgb, var(--volt-accent) 42%, transparent)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4); }
 .chart-bar[data-type="water"] { background: linear-gradient(180deg, var(--volt-water), color-mix(in srgb, var(--volt-water) 42%, transparent)); }
 .chart-bar span { position: absolute; right: 50%; bottom: -1.65rem; color: var(--text-tertiary); font-size: .62rem; transform: translateX(50%); white-space: nowrap; }
+.line-chart-host { display: block; min-width: 0; min-height: 15rem; }
+.line-chart { --line-color: var(--volt-accent); display: grid; width: 100%; min-width: 0; gap: var(--space-3); }
+.line-chart[data-type="water"] { --line-color: var(--volt-water); }
+.line-chart-svg { display: block; width: 100%; height: auto; min-height: 15rem; overflow: visible; }
+.line-chart-grid-line { stroke: color-mix(in srgb, var(--glass-border-strong) 74%, transparent); stroke-width: 1; }
+.line-chart-y-label, .line-chart-x-label { fill: var(--text-tertiary); font-size: .68rem; }
+.line-chart-average { stroke: color-mix(in srgb, var(--text-secondary) 70%, transparent); stroke-width: 1.25; stroke-dasharray: 5 5; }
+.line-chart-average-label, .line-chart-extreme-label { fill: var(--text-secondary); font-size: .68rem; font-weight: 800; }
+.line-chart-area { fill: color-mix(in srgb, var(--line-color) 14%, transparent); }
+.line-chart-path { fill: none; stroke: var(--line-color); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.line-chart-point { fill: var(--glass-3); stroke: var(--line-color); stroke-width: 2; }
+.line-chart-point.peak { fill: var(--line-color); stroke-width: 2.5; }
+.line-chart-point.min { stroke-width: 3; }
+.line-chart-legend { display: grid; gap: var(--space-2); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.line-chart-legend span { display: grid; padding: var(--space-2); gap: .15rem; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--glass-control) 72%, transparent); color: var(--text-secondary); font-size: .72rem; }
+.line-chart-legend strong { color: var(--text-primary); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; }
+.line-chart-empty { display: grid; min-height: 14rem; place-items: center; color: var(--text-secondary); text-align: center; }
 .comparison-list { display: grid; margin: 0; padding: 0; gap: var(--space-3); list-style: none; }
 .comparison-list li { display: grid; padding: var(--space-3); gap: var(--space-1); border-radius: var(--radius-md); background: color-mix(in srgb, var(--glass-control) 72%, transparent); }
 .comparison-list small { color: var(--text-secondary); }
@@ -143,6 +160,10 @@
   .home-chart-card, .home-distribution-card, .latest-card, .next-actions-card, .volt-tip-card, .chart-card, .comparison-card { min-width: 0; grid-column: 1 / -1; }
   .home-chart-card { min-height: 18rem; }
   .home-bar-chart .chart-bar { max-width: 1.4rem; flex-basis: 1.4rem; }
+  .line-chart-svg { min-height: 12.5rem; }
+  .line-chart-legend { grid-template-columns: 1fr; gap: var(--space-1); }
+  .line-chart-legend span { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+  .line-chart-y-label, .line-chart-x-label { font-size: .62rem; }
   .reading-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reading-layout, .settings-layout, .help-grid { grid-template-columns: 1fr; }
   .settings-group.wide { grid-column: auto; }

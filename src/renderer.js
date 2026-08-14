@@ -158,6 +158,10 @@ function createConsumptionSnapshot(state) {
 function utilitySnapshot(type, consumption, cost, goal, cycle, readings) {
   const ratio = goal > 0 ? consumption / goal : 0;
   const intervals = readingIntervals(readings);
+  const dailySeries = buildDailyAverageSeries(readings, cycle.current);
+  const average = dailySeries.length ? dailySeries.reduce((total, item) => total + item.value, 0) / dailySeries.length : 0;
+  const peakPoint = dailySeries.length ? dailySeries.reduce((best, item) => !best || item.value > best.value ? item : best, null) : null;
+  const minPoint = dailySeries.length ? dailySeries.reduce((best, item) => !best || item.value < best.value ? item : best, null) : null;
   return {
     type,
     consumption,
@@ -167,8 +171,11 @@ function utilitySnapshot(type, consumption, cost, goal, cycle, readings) {
     cycle,
     readings,
     intervals,
-    average: intervals.length ? intervals.reduce((total, item) => total + item.value, 0) / intervals.length : 0,
-    peak: intervals.length ? Math.max(...intervals.map((item) => item.value)) : 0,
+    dailySeries,
+    average,
+    peak: peakPoint?.value ?? 0,
+    peakPoint,
+    minPoint,
     status: ratio > 1 ? { label: "Acima da meta", tone: "danger" } : ratio >= .8 ? { label: "Atenção à meta", tone: "warning" } : { label: "Dentro da meta", tone: "success" }
   };
 }
@@ -222,22 +229,27 @@ function renderConsumption(state, snapshot, byId) {
   const utility = snapshot[type];
   const decimals = type === "water" ? 3 : 0;
   const unit = type === "water" ? "m³" : "kWh";
+  const trend = consumptionTrend(utility.dailySeries);
   byId("consumption-total").textContent = formatNumber(utility.consumption, decimals);
   byId("consumption-unit").textContent = unit;
   byId("consumption-cost").textContent = currency(utility.cost);
   byId("consumption-average").textContent = `${formatNumber(utility.average, decimals)} ${unit}`;
   byId("consumption-peak").textContent = `${formatNumber(utility.peak, decimals)} ${unit}`;
-  byId("consumption-status").textContent = utility.status.label;
-  byId("consumption-status").dataset.tone = utility.status.tone;
+  const peakStatus = byId("consumption-status");
+  peakStatus.textContent = utility.peakPoint ? `Pico ${chartDateNumeric(utility.peakPoint.date)}` : "Sem dados";
+  peakStatus.dataset.tone = utility.peakPoint ? "warning" : "success";
   byId("consumption-chart-caption").textContent = periodLabel(state.view.consumptionPeriod);
-  byId("consumption-chart-title").textContent = `${utilityLabel(type)} por dia`;
-  const max = Math.max(1, ...utility.intervals.map((item) => item.value));
-  byId("consumption-chart").replaceChildren(...utility.intervals.slice(-12).map((item) => chartBar(item, max, type)));
-  byId("consumption-chart").dataset.empty = String(utility.intervals.length === 0);
+  byId("consumption-chart-title").textContent = `${utilityLabel(type)} diário`;
+  const chartHost = byId("consumption-chart");
+  chartHost.classList.remove("bar-chart");
+  chartHost.classList.add("line-chart-host");
+  chartHost.replaceChildren(renderLineChart(utility.dailySeries, type));
+  chartHost.dataset.empty = String(utility.dailySeries.length === 0);
   byId("consumption-comparison").replaceChildren(
-    comparisonItem("Meta configurada", `${formatNumber(utility.goal, type === "water" ? 1 : 0)} ${unit}`, "Referência do ciclo"),
-    comparisonItem("Meta utilizada", percent(utility.ratio), utility.status.label),
-    comparisonItem("Margem restante", `${formatNumber(Math.max(utility.goal - utility.consumption, 0), decimals)} ${unit}`, utility.ratio > 1 ? "Meta ultrapassada" : "Até a meta")
+    comparisonItem("Maior consumo", utility.peakPoint ? `${formatNumber(utility.peakPoint.value, decimals)} ${unit}` : "—", utility.peakPoint ? chartDateNumeric(utility.peakPoint.date) : "Sem dados"),
+    comparisonItem("Menor consumo", utility.minPoint ? `${formatNumber(utility.minPoint.value, decimals)} ${unit}` : "—", utility.minPoint ? chartDateNumeric(utility.minPoint.date) : "Sem dados"),
+    comparisonItem("Tendência", trend.label, trend.note),
+    comparisonItem("Meta utilizada", percent(utility.ratio), utility.status.label)
   );
   document.querySelectorAll("[data-consumption-type]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.consumptionType === type)));
   document.querySelectorAll("[data-consumption-period]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.consumptionPeriod === state.view.consumptionPeriod)));
@@ -328,6 +340,111 @@ function combinedReadings(state) {
 function readingIntervals(readings) {
   const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
   return sorted.slice(1).map((reading, index) => ({ value: Math.max(0, Number(reading.value) - Number(sorted[index].value)), date: reading.date }));
+}
+
+function buildDailyAverageSeries(readings, range) {
+  const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+  if (sorted.length < 2) return [];
+  const series = [];
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = sorted[index - 1];
+    const current = sorted[index];
+    const start = dayStart(previous.date);
+    const end = dayStart(current.date);
+    const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+    const intervalConsumption = Math.max(0, Number(current.value) - Number(previous.value));
+    const dailyAverage = intervalConsumption / dayCount;
+    for (let day = 1; day <= dayCount; day += 1) {
+      const pointDate = new Date(start);
+      pointDate.setDate(pointDate.getDate() + day);
+      pointDate.setHours(12, 0, 0, 0);
+      if (range && (pointDate < range.start || pointDate > range.end)) continue;
+      series.push({ date: pointDate.toISOString(), value: dailyAverage });
+    }
+  }
+  return series;
+}
+
+function dayStart(value) {
+  const date = new Date(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function consumptionTrend(series) {
+  if (series.length < 4) return { label: "Sem tendência", note: "Registre mais leituras" };
+  const sample = Math.min(3, Math.floor(series.length / 2));
+  const first = series.slice(0, sample).reduce((total, item) => total + item.value, 0) / sample;
+  const last = series.slice(-sample).reduce((total, item) => total + item.value, 0) / sample;
+  if (first <= 0 && last <= 0) return { label: "Estável", note: "Sem variação relevante" };
+  const change = first > 0 ? (last - first) / first : 1;
+  if (Math.abs(change) < .05) return { label: "Estável", note: "Variação inferior a 5%" };
+  const magnitude = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 }).format(Math.abs(change));
+  return change > 0 ? { label: `Subindo ${magnitude}`, note: "Consumo diário aumentou" } : { label: `Caindo ${magnitude}`, note: "Consumo diário diminuiu" };
+}
+
+function renderLineChart(series, type) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "line-chart";
+  wrapper.dataset.type = type;
+  if (!series.length) {
+    const empty = document.createElement("div");
+    empty.className = "line-chart-empty";
+    empty.textContent = "Sem leituras suficientes para calcular o consumo diário.";
+    wrapper.append(empty);
+    return wrapper;
+  }
+
+  const width = 720;
+  const height = 270;
+  const padding = { top: 24, right: 22, bottom: 38, left: 52 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const decimals = type === "water" ? 3 : 0;
+  const unit = type === "water" ? "m³" : "kWh";
+  const maxValue = Math.max(...series.map((item) => item.value), 1);
+  const maxY = maxValue * 1.12;
+  const points = series.map((item, index) => ({
+    ...item,
+    index,
+    x: padding.left + (series.length === 1 ? innerWidth / 2 : (index / (series.length - 1)) * innerWidth),
+    y: padding.top + innerHeight - ((item.value / maxY) * innerHeight)
+  }));
+  const peakPoint = points.reduce((best, point) => !best || point.value > best.value ? point : best, null);
+  const minPoint = points.reduce((best, point) => !best || point.value < best.value ? point : best, null);
+  const average = series.reduce((total, item) => total + item.value, 0) / series.length;
+  const averageY = padding.top + innerHeight - ((average / maxY) * innerHeight);
+  const linePath = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+  const areaPath = `${linePath} L ${points.at(-1).x.toFixed(2)} ${(height - padding.bottom).toFixed(2)} L ${points[0].x.toFixed(2)} ${(height - padding.bottom).toFixed(2)} Z`;
+  const labelStep = Math.max(1, Math.ceil(points.length / 6));
+  const labelIndexes = new Set(points.map((_, index) => index).filter((index) => index % labelStep === 0 || index === points.length - 1));
+  const grid = [0, .33, .66, 1].map((ratio) => {
+    const y = padding.top + innerHeight * ratio;
+    const value = maxY * (1 - ratio);
+    return `<g><line class="line-chart-grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line><text class="line-chart-y-label" x="${padding.left - 8}" y="${y + 4}" text-anchor="end">${formatNumber(value, decimals)}</text></g>`;
+  }).join("");
+  const xLabels = points.filter((point) => labelIndexes.has(point.index)).map((point) => `<text class="line-chart-x-label" x="${point.x}" y="${height - 10}" text-anchor="middle">${chartDateNumeric(point.date)}</text>`).join("");
+  const pointMarkup = points.map((point) => {
+    const classes = ["line-chart-point"];
+    if (point.index === peakPoint.index) classes.push("peak");
+    if (point.index === minPoint.index) classes.push("min");
+    return `<circle class="${classes.join(" ")}" cx="${point.x}" cy="${point.y}" r="${point.index === peakPoint.index || point.index === minPoint.index ? 4.8 : 3}"><title>${chartDateNumeric(point.date)} · ${formatNumber(point.value, decimals)} ${unit}</title></circle>`;
+  }).join("");
+  const peakLabelY = Math.max(14, peakPoint.y - 11);
+  const showSeparateMinimum = minPoint.index !== peakPoint.index && Math.abs(minPoint.value - peakPoint.value) > 1e-9;
+  const minLabelY = Math.min(height - padding.bottom - 5, minPoint.y + 17);
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "line-chart-svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `${utilityLabel(type)} diário, de ${chartDateNumeric(series[0].date)} a ${chartDateNumeric(series.at(-1).date)}`);
+  svg.innerHTML = `${grid}<line class="line-chart-average" x1="${padding.left}" y1="${averageY}" x2="${width - padding.right}" y2="${averageY}"></line><text class="line-chart-average-label" x="${width - padding.right}" y="${Math.max(12, averageY - 6)}" text-anchor="end">Média</text><path class="line-chart-area" d="${areaPath}"></path><path class="line-chart-path" d="${linePath}"></path>${pointMarkup}${xLabels}<text class="line-chart-extreme-label" x="${peakPoint.x}" y="${peakLabelY}" text-anchor="middle">Pico</text>${showSeparateMinimum ? `<text class="line-chart-extreme-label" x="${minPoint.x}" y="${minLabelY}" text-anchor="middle">Menor</text>` : ""}`;
+
+  const legend = document.createElement("div");
+  legend.className = "line-chart-legend";
+  legend.innerHTML = `<span><strong>Média</strong>${formatNumber(average, decimals)} ${unit}</span><span><strong>Pico</strong>${formatNumber(peakPoint.value, decimals)} ${unit} · ${chartDateNumeric(peakPoint.date)}</span><span><strong>Menor</strong>${formatNumber(minPoint.value, decimals)} ${unit} · ${chartDateNumeric(minPoint.date)}</span>`;
+  wrapper.append(svg, legend);
+  return wrapper;
 }
 
 function miniReadingItem(reading) {
@@ -456,5 +573,6 @@ function chartDate(value) {
   const month = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date).replace(".", "");
   return `${day}/${month}`;
 }
+function chartDateNumeric(value) { return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(new Date(value)); }
 function dateTime(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
 function dateOnly(value) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value)); }

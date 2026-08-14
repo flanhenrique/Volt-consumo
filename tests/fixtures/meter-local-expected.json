@@ -1,0 +1,8 @@
+[
+  { "fixture": "IMG_1649", "expected": { "status": "suggested", "value": 28425, "register": "03" } },
+  { "fixture": "IMG_1662", "expected": { "status": "suggested", "value": 28431, "register": "03" } },
+  { "fixture": "IMG_1862", "expected": { "status": "suggested", "value": 28490, "register": "03" } },
+  { "fixture": "IMG_1684", "expected": { "status": "review", "reason": "wrong-register" } },
+  { "fixture": "IMG_1683", "expected": { "status": "review", "reason": "test-screen" } },
+  { "fixture": "IMG_1792", "expected": { "status": "review", "reason": "reflection" } }
+]

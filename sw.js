@@ -1,69 +1,119 @@
-const RELEASE_ID = "20260814.10";
-const CACHE_REVISION = "20260814.10";
-const CACHE_NAME = `volt-app-recovery-${CACHE_REVISION}`;
+const RELEASE_ID = "20260813.7";
+const CACHE_REVISION = "20260813.7";
+const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
+const BOOTSTRAP_BUILD = "20260814.11";
+const OWNED_CACHE_NAMES = new Set([
+  CACHE_NAME,
+  "volt-app-recovery-20260814.10",
+  "volt-app-recovery-20260814.9",
+  "volt-app-v4-atomic-20260814.8",
+  "volt-app-v4-atomic-20260814.7",
+  "volt-app-v4-atomic-20260814.5",
+  "volt-app-v4-atomic-20260814.4",
+  "volt-app-v4-atomic-20260814.3",
+  "volt-app-v4-atomic-20260813.6",
+  "volt-app-v3-liquid-glass",
+  "volt-app-v2",
+  "volt-app-v1",
+  "volt-shell-v10",
+  "volt-beta-shell-v96"
+]);
+const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
+const bootstrapAsset = (path) => `${path}?v=${BOOTSTRAP_BUILD}`;
+
+const CORE_ASSETS = [
+  "./",
+  "./index.html",
+  releaseAsset("./styles/tokens.css"),
+  releaseAsset("./styles/glass.css"),
+  releaseAsset("./styles/layout.css"),
+  releaseAsset("./styles/components.css"),
+  releaseAsset("./styles/pages.css"),
+  releaseAsset("./styles/billing-workflow.css"),
+  bootstrapAsset("./bootstrap.js"),
+  bootstrapAsset("./app.js"),
+  releaseAsset("./config.js"),
+  "./manifest.webmanifest",
+  "./version.json",
+  "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+  releaseAsset("./vendor/supabase/supabase.js"),
+  releaseAsset("./packages/consumption-domain/browser/index.js"),
+  releaseAsset("./packages/consumption-domain/browser/billing-engine.js"),
+  releaseAsset("./data/national-energy-catalog.js"),
+  releaseAsset("./src/app-state.js"),
+  releaseAsset("./src/bill-detail.js"),
+  releaseAsset("./src/cycles.js"),
+  releaseAsset("./src/meter-ocr.js"),
+  releaseAsset("./src/renderer.js"),
+  releaseAsset("./src/supabase-loader.js"),
+  releaseAsset("./src/tariff.js"),
+  releaseAsset("./src/volt-service.js"),
+  releaseAsset("./src/billing-workflow.js"),
+  releaseAsset("./src/regulatory-engine.js"),
+  releaseAsset("./src/invoice-ocr.js"),
+  "./ocr-runtime.html",
+  releaseAsset("./src/invoice-ocr-runtime.js"),
+  releaseAsset("./src/executive-pdf.js"),
+  bootstrapAsset("./src/consumption-reports.js"),
+  bootstrapAsset("./src/home-dashboard-v2.js"),
+  bootstrapAsset("./src/home-dashboard-sustainability.js"),
+  bootstrapAsset("./src/pwa-update.js")
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(cacheApplicationShell().then(() => self.skipWaiting()));
 });
+
+async function cacheApplicationShell() {
+  const cache = await caches.open(CACHE_NAME);
+  for (const asset of CORE_ASSETS) await cache.add(asset);
+}
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(activateRecoveryBuild());
+  event.waitUntil(
+    caches.keys()
+      .then((names) => Promise.all(
+        names
+          .filter((name) => OWNED_CACHE_NAMES.has(name) && name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      ))
+      .then(async () => {
+        await self.clients.claim();
+        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        clients.forEach((client) => client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: BOOTSTRAP_BUILD }));
+      })
+  );
 });
-
-async function activateRecoveryBuild() {
-  const names = await caches.keys();
-  await Promise.all(names.filter((name) => name !== CACHE_NAME && name.startsWith("volt-")).map((name) => caches.delete(name)));
-  await self.clients.claim();
-
-  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  await Promise.all(clients.map(async (client) => {
-    client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: CACHE_REVISION });
-    if (typeof client.navigate !== "function") return;
-
-    try {
-      const target = new URL(client.url);
-      if (target.searchParams.get("volt_build") === CACHE_REVISION) return;
-      target.searchParams.set("volt_build", CACHE_REVISION);
-      await client.navigate(target.href);
-    } catch {
-      // A próxima abertura ainda será controlada por este worker e usará rede sem cache.
-    }
-  }));
-}
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
-
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirstNavigation(request));
+    event.respondWith(navigationResponse(request, event));
     return;
   }
 
-  event.respondWith(networkFirstAsset(request));
+  event.respondWith(assetResponse(request, event));
 });
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
   if (event.data?.type === "CLEAR_VOLT_CACHE") {
-    event.waitUntil(clearVoltCaches());
+    event.waitUntil(Promise.all([...OWNED_CACHE_NAMES].map((name) => caches.delete(name))));
   }
 });
 
-async function clearVoltCaches() {
-  const names = await caches.keys();
-  await Promise.all(names.filter((name) => name.startsWith("volt-")).map((name) => caches.delete(name)));
-}
-
-async function networkFirstNavigation(request) {
+async function navigationResponse(request, event) {
   try {
     const response = await fetch(request, { cache: "no-store" });
     if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put("./index.html", response.clone());
+      const cacheCopy = response.clone();
+      event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", cacheCopy)));
     }
     return response;
   } catch {
@@ -72,13 +122,12 @@ async function networkFirstNavigation(request) {
   }
 }
 
-async function networkFirstAsset(request) {
+async function assetResponse(request, event) {
   try {
     const response = await fetch(request, { cache: "no-store" });
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put(request, response.clone());
-    }
+    if (!response.ok) return response;
+    const cacheCopy = response.clone();
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
     return response;
   } catch {
     const cache = await caches.open(CACHE_NAME);

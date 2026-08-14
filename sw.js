@@ -42,7 +42,7 @@ const CORE_ASSETS = [
   releaseAsset("./src/executive-pdf.js"),
   "./src/home-dashboard-v2.js?v=20260814.1",
   "./src/home-dashboard-sustainability.js?v=20260814.4",
-  "./src/widget-snapshot.js?v=20260814.4"
+  "./src/widget-snapshot.js?v=20260813.7"
 ];
 
 self.addEventListener("install", (event) => {

@@ -15,14 +15,6 @@ document.addEventListener("change", (event) => {
 document.addEventListener("click", (event) => {
   const tab = event.target.closest?.("[data-report-tab]");
   if (!tab) return;
-  const mode = tab.dataset.reportTab;
-  if (["energy", "water"].includes(mode)) {
-    const select = document.querySelector("[data-report-period]");
-    if (select && select.value !== "cycle") {
-      select.value = "cycle";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
   setTimeout(refresh, 0);
 }, true);
 
@@ -37,8 +29,7 @@ document.addEventListener("click", (event) => {
   event.stopImmediatePropagation();
   const state = getApplicationStateSnapshot();
   if (state?.status !== "READY") return;
-  const period = ["energy", "water"].includes(mode) ? "cycle" : selectedPeriod();
-  exportConsumptionReport(mode, state, period);
+  exportConsumptionReport(mode, state, selectedPeriod());
 }, true);
 
 document.addEventListener("click", (event) => {
@@ -52,27 +43,15 @@ function refresh() {
   const page = document.getElementById("page-reports");
   if (!page || state?.status !== "READY" || !state.settings?.energy || !state.settings?.water) return;
   ensureStyles();
-  ensureCycleDefault();
   ensureGeneralConsumptionReport();
   ensureUtilityConsumptionReport("energy");
   ensureUtilityConsumptionReport("water");
-  const mode = activeMode();
-  const period = ["energy", "water"].includes(mode) ? "cycle" : selectedPeriod();
+  const period = selectedPeriod();
   const energy = buildConsumptionReportData("energy", state, period);
   const water = buildConsumptionReportData("water", state, period);
   renderGeneralConsumptionReport(energy, water, period);
-  renderUtilityConsumptionReport("energy", buildConsumptionReportData("energy", state, "cycle"));
-  renderUtilityConsumptionReport("water", buildConsumptionReportData("water", state, "cycle"));
-}
-
-function ensureCycleDefault() {
-  const select = document.querySelector("[data-report-period]");
-  if (!select || select.dataset.cycleDefaultApplied === "true") return;
-  select.dataset.cycleDefaultApplied = "true";
-  if (select.value === "6m") {
-    select.value = "cycle";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  }
+  renderUtilityConsumptionReport("energy", energy);
+  renderUtilityConsumptionReport("water", water);
 }
 
 function activeMode() {
@@ -80,7 +59,7 @@ function activeMode() {
 }
 
 function selectedPeriod() {
-  return document.querySelector("[data-report-period]")?.value || "cycle";
+  return document.querySelector("[data-report-period]")?.value || "6m";
 }
 
 function ensureStyles() {

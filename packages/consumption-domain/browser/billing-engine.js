@@ -143,10 +143,19 @@ function sum(items, predicate = () => true) {
   return roundMoney(items.filter(predicate).reduce((total, item) => total + finite(item?.amount), 0));
 }
 
+function verifiedFlagRate(rules, runtimeRate) {
+  const candidate = nonNegative(runtimeRate);
+  if (candidate === 0) return 0;
+  const verified = Object.values(rules?.flagRates || {})
+    .map((value) => nonNegative(value))
+    .filter((value) => value > 0);
+  return verified.some((value) => Math.abs(value - candidate) <= 0.0000005) ? candidate : 0;
+}
+
 export function forecastEnergyBill(consumptionKwhInput, rules = {}, runtime = {}) {
   const consumptionKwh = nonNegative(consumptionKwhInput);
   const fallbackRate = nonNegative(runtime?.fallbackRate);
-  const flagRate = nonNegative(runtime?.flagRate);
+  const flagRate = verifiedFlagRate(rules, runtime?.flagRate);
   const bands = normalizeBands(rules, fallbackRate);
   const energyItems = tariffItems(consumptionKwh, bands);
   const energySubtotal = sum(energyItems);

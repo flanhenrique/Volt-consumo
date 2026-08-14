@@ -1,4 +1,5 @@
 import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
+import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260813.7";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.7";
 import { StartupStatus } from "./app-state.js?v=20260813.7";
 import { renderReports } from "./reports.js?v=20260813.7";
@@ -13,8 +14,9 @@ const REQUIRED_IDS = [
   "home-energy-cost", "home-water-cost", "home-energy-goal", "home-water-goal", "home-energy-progress",
   "home-water-progress", "home-energy-status", "home-water-status", "home-total-cost", "home-summary",
   "home-insight-title", "home-insight-body", "home-latest-readings", "home-consumption-chart", "home-distribution", "consumption-total", "consumption-cost",
-  "consumption-average", "consumption-peak", "consumption-status", "consumption-chart", "consumption-chart-caption",
-  "consumption-comparison", "readings-list", "readings-empty", "readings-last-energy", "readings-last-water",
+  "consumption-forecast", "consumption-forecast-cost", "consumption-total-note", "consumption-forecast-note", "consumption-cost-note", "consumption-forecast-cost-note",
+  "consumption-cycle-range", "consumption-cycle-days", "consumption-cycle-progress", "consumption-cycle-progress-fill", "consumption-last-reading", "consumption-confidence",
+  "consumption-chart", "consumption-chart-caption", "consumption-chart-note", "consumption-comparison", "consumption-insight-title", "consumption-insight-body", "readings-list", "readings-empty", "readings-last-energy", "readings-last-water",
   "readings-last-energy-date", "readings-last-water-date", "readings-energy-delta", "readings-water-delta",
   "alerts-list", "alerts-empty", "alerts-count", "display-name", "account-email", "sidebar-display-name",
   "sidebar-email", "profile-initials", "mobile-profile-name", "mobile-profile-email", "mobile-profile-initials",
@@ -142,41 +144,41 @@ function createConsumptionSnapshot(state) {
   const waterCycle = getCycleContext(state.cycles.water);
   const energyConsumption = consumptionWithinCycle(state.readings.energy, energyCycle.current);
   const waterConsumption = consumptionWithinCycle(state.readings.water, waterCycle.current);
-  const energyEstimate = calculateEnergyEstimate(energyConsumption, {
-    rate: state.settings.energy.rate,
-    flagRate: FLAGS[state.settings.energy.flag] ?? 0,
-    lightingFee: state.settings.energy.lightingFee
-  });
-  const waterEstimate = calculateWaterEstimate(waterConsumption, state.settings.water);
-  return {
-    energy: utilitySnapshot("energy", energyConsumption, energyEstimate.totalCost, state.settings.energy.goal, energyCycle, state.readings.energy),
-    water: utilitySnapshot("water", waterConsumption, waterEstimate.totalCost, state.settings.water.goal, waterCycle, state.readings.water),
-    totalCost: energyEstimate.totalCost + waterEstimate.totalCost
-  };
+  const previousEnergy = consumptionWithinCycle(state.readings.energy, energyCycle.previous);
+  const previousWater = consumptionWithinCycle(state.readings.water, waterCycle.previous);
+  const energy = utilitySnapshot("energy", energyConsumption, state.settings.energy.goal, energyCycle, state.readings.energy, previousEnergy, state);
+  const water = utilitySnapshot("water", waterConsumption, state.settings.water.goal, waterCycle, state.readings.water, previousWater, state);
+  return { energy, water, totalCost: energy.cost + water.cost };
 }
 
-function utilitySnapshot(type, consumption, cost, goal, cycle, readings) {
-  const ratio = goal > 0 ? consumption / goal : 0;
+function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsumption, state) {
   const intervals = readingIntervals(readings);
   const dailySeries = buildDailyAverageSeries(readings, cycle.current);
-  const average = dailySeries.length ? dailySeries.reduce((total, item) => total + item.value, 0) / dailySeries.length : 0;
-  const peakPoint = dailySeries.length ? dailySeries.reduce((best, item) => !best || item.value > best.value ? item : best, null) : null;
-  const minPoint = dailySeries.length ? dailySeries.reduce((best, item) => !best || item.value < best.value ? item : best, null) : null;
+  const rateIntervals = buildDailyRateIntervals(readings, cycle.current);
+  const progress = cycleProgress(cycle.current);
+  const lastReading = latestReadingForRange(readings, cycle.current);
+  const measuredDays = lastReading ? clampNumber(dayDifference(cycle.current.start, dayStart(lastReading.date)), 0, progress.totalDays) : 0;
+  const fallbackAverage = dailySeries.length ? dailySeries.reduce((total, item) => total + item.value, 0) / dailySeries.length : 0;
+  const average = measuredDays > 0 ? consumption / measuredDays : fallbackAverage;
+  const projectedConsumption = measuredDays > 0 ? Math.max(consumption, average * progress.totalDays) : consumption;
+  const currentEstimate = estimateUtilityCost(type, consumption, state);
+  const projectedEstimate = estimateUtilityCost(type, projectedConsumption, state);
+  const targetDaily = progress.totalDays > 0 && goal > 0 ? goal / progress.totalDays : 0;
+  const remainingFromReading = Math.max(0, progress.totalDays - measuredDays);
+  const paceToGoal = remainingFromReading > 0 && goal > 0 ? Math.max(0, goal - consumption) / remainingFromReading : 0;
+  const ratio = goal > 0 ? consumption / goal : 0;
+  const forecastRatio = goal > 0 ? projectedConsumption / goal : 0;
+  const previousChange = previousConsumption > 0 ? (projectedConsumption - previousConsumption) / previousConsumption : null;
+  const quality = readingConfidence(lastReading, rateIntervals);
+  const values = rateIntervals.map((item) => item.value);
   return {
-    type,
-    consumption,
-    cost,
-    goal,
-    ratio,
-    cycle,
-    readings,
-    intervals,
-    dailySeries,
-    average,
-    peak: peakPoint?.value ?? 0,
-    peakPoint,
-    minPoint,
-    status: ratio > 1 ? { label: "Acima da meta", tone: "danger" } : ratio >= .8 ? { label: "Atenção à meta", tone: "warning" } : { label: "Dentro da meta", tone: "success" }
+    type, consumption, goal, ratio, forecastRatio, cycle, readings, intervals, dailySeries, rateIntervals,
+    average, projectedConsumption, cost: currentEstimate.total, projectedCost: projectedEstimate.total,
+    costSource: currentEstimate.source, targetDaily, paceToGoal, progress, lastReading, measuredDays,
+    remainingFromReading, previousConsumption, previousChange, quality,
+    maxDaily: values.length ? Math.max(...values) : 0,
+    minDaily: values.length ? Math.min(...values) : 0,
+    status: forecastRatio > 1 ? { label: "Previsão acima da meta", tone: "danger" } : forecastRatio >= .9 ? { label: "Próximo da meta", tone: "warning" } : { label: "Dentro da meta", tone: "success" }
   };
 }
 
@@ -229,30 +231,47 @@ function renderConsumption(state, snapshot, byId) {
   const utility = snapshot[type];
   const decimals = type === "water" ? 3 : 0;
   const unit = type === "water" ? "m³" : "kWh";
-  const trend = consumptionTrend(utility.dailySeries);
+  const trend = consumptionTrend(utility.rateIntervals);
+
   byId("consumption-total").textContent = formatNumber(utility.consumption, decimals);
   byId("consumption-unit").textContent = unit;
+  byId("consumption-total-note").textContent = utility.lastReading ? `Até ${chartDateNumeric(utility.lastReading.date)}` : "Sem leitura no ciclo";
+  byId("consumption-forecast").textContent = `${formatNumber(utility.projectedConsumption, decimals)} ${unit}`;
+  byId("consumption-forecast-note").textContent = forecastGoalNote(utility, decimals, unit);
   byId("consumption-cost").textContent = currency(utility.cost);
-  byId("consumption-average").textContent = `${formatNumber(utility.average, decimals)} ${unit}`;
-  byId("consumption-peak").textContent = `${formatNumber(utility.peak, decimals)} ${unit}`;
-  const peakStatus = byId("consumption-status");
-  peakStatus.textContent = utility.peakPoint ? `Pico ${chartDateNumeric(utility.peakPoint.date)}` : "Sem dados";
-  peakStatus.dataset.tone = utility.peakPoint ? "warning" : "success";
-  byId("consumption-chart-caption").textContent = periodLabel(state.view.consumptionPeriod);
-  byId("consumption-chart-title").textContent = `${utilityLabel(type)} diário`;
+  byId("consumption-cost-note").textContent = utility.costSource;
+  byId("consumption-forecast-cost").textContent = currency(utility.projectedCost);
+  byId("consumption-forecast-cost-note").textContent = utility.measuredDays > 0 ? "se o ritmo medido continuar" : "aguardando base de leitura";
+
+  byId("consumption-cycle-range").textContent = utility.cycle.label;
+  byId("consumption-cycle-days").textContent = `${utility.progress.elapsedDays} de ${utility.progress.totalDays} dias`;
+  byId("consumption-cycle-progress").textContent = `${utility.progress.remainingDays} ${utility.progress.remainingDays === 1 ? "dia restante" : "dias restantes"}`;
+  byId("consumption-cycle-progress-fill").style.width = `${Math.round(utility.progress.ratio * 100)}%`;
+  byId("consumption-last-reading").textContent = utility.lastReading ? dateTime(utility.lastReading.date) : "Sem leitura";
+  const confidence = byId("consumption-confidence");
+  confidence.textContent = `Confiança ${utility.quality.label.toLowerCase()}`;
+  confidence.dataset.tone = utility.quality.tone;
+
+  byId("consumption-chart-caption").textContent = utility.cycle.label;
+  byId("consumption-chart-title").textContent = `${utilityLabel(type)} diário estimado`;
+  byId("consumption-chart-note").textContent = utility.quality.note;
   const chartHost = byId("consumption-chart");
-  chartHost.classList.remove("bar-chart");
-  chartHost.classList.add("line-chart-host");
-  chartHost.replaceChildren(renderLineChart(utility.dailySeries, type));
+  chartHost.replaceChildren(renderLineChart(utility.dailySeries, type, utility.targetDaily));
   chartHost.dataset.empty = String(utility.dailySeries.length === 0);
+
+  const rangeValue = utility.rateIntervals.length ? `${formatNumber(utility.minDaily, decimals)}–${formatNumber(utility.maxDaily, decimals)} ${unit}/dia` : "—";
   byId("consumption-comparison").replaceChildren(
-    comparisonItem("Maior consumo", utility.peakPoint ? `${formatNumber(utility.peakPoint.value, decimals)} ${unit}` : "—", utility.peakPoint ? chartDateNumeric(utility.peakPoint.date) : "Sem dados"),
-    comparisonItem("Menor consumo", utility.minPoint ? `${formatNumber(utility.minPoint.value, decimals)} ${unit}` : "—", utility.minPoint ? chartDateNumeric(utility.minPoint.date) : "Sem dados"),
-    comparisonItem("Tendência", trend.label, trend.note),
-    comparisonItem("Meta utilizada", percent(utility.ratio), utility.status.label)
+    comparisonItem("Média diária", utility.average > 0 ? `${formatNumber(utility.average, decimals)} ${unit}/dia` : "—", "Até a última leitura registrada"),
+    comparisonItem("Ritmo para ficar na meta", utility.remainingFromReading > 0 && utility.goal > 0 ? `${formatNumber(utility.paceToGoal, decimals)} ${unit}/dia` : "—", utility.remainingFromReading > 0 ? `A partir da última leitura · ${utility.remainingFromReading} dias` : "Ciclo encerrado ou sem meta"),
+    comparisonItem("Previsão vs ciclo anterior", utility.previousChange == null ? "Sem histórico" : signedPercent(utility.previousChange), utility.previousChange == null ? "Ainda não há ciclo anterior comparável" : `${formatNumber(utility.previousConsumption, decimals)} ${unit} no ciclo anterior`),
+    comparisonItem("Tendência entre leituras", trend.label, trend.note),
+    comparisonItem("Faixa diária estimada", rangeValue, "Menor e maior média diária entre leituras")
   );
+
+  const insight = consumptionInsight(utility, decimals, unit);
+  byId("consumption-insight-title").textContent = insight.title;
+  byId("consumption-insight-body").textContent = insight.body;
   document.querySelectorAll("[data-consumption-type]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.consumptionType === type)));
-  document.querySelectorAll("[data-consumption-period]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.consumptionPeriod === state.view.consumptionPeriod)));
 }
 
 function renderReadings(state, snapshot, byId) {
@@ -342,6 +361,91 @@ function readingIntervals(readings) {
   return sorted.slice(1).map((reading, index) => ({ value: Math.max(0, Number(reading.value) - Number(sorted[index].value)), date: reading.date }));
 }
 
+function buildDailyRateIntervals(readings, range) {
+  const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+  const rates = [];
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = sorted[index - 1];
+    const current = sorted[index];
+    const start = dayStart(previous.date);
+    const end = dayStart(current.date);
+    if (range && (end < range.start || start > range.end)) continue;
+    const days = Math.max(1, dayDifference(start, end));
+    rates.push({ value: Math.max(0, Number(current.value) - Number(previous.value)) / days, date: current.date, startDate: previous.date, endDate: current.date });
+  }
+  return rates;
+}
+
+function latestReadingForRange(readings, range) {
+  return [...readings].filter((reading) => { const date = new Date(reading.date); return date >= range.start && date <= range.end; }).sort((left, right) => Date.parse(left.date) - Date.parse(right.date)).at(-1) || null;
+}
+
+function cycleProgress(range, now = new Date()) {
+  const totalDays = Math.max(1, dayDifference(range.start, range.end));
+  const today = dayStart(now);
+  const bounded = today < range.start ? range.start : today > range.end ? range.end : today;
+  const elapsedDays = clampNumber(dayDifference(range.start, bounded), 0, totalDays);
+  return { totalDays, elapsedDays, remainingDays: Math.max(0, totalDays - elapsedDays), ratio: elapsedDays / totalDays };
+}
+
+function estimateUtilityCost(type, consumption, state) {
+  if (type === "water") return { total: calculateWaterEstimate(consumption, state.settings.water).totalCost, source: "Tarifa de água configurada" };
+  const settings = state.settings.energy;
+  const rules = globalThis.__VOLT_BILLING_CONTEXT__?.profile?.rules;
+  if (rules) {
+    const result = forecastEnergyBill(consumption, rules, { fallbackRate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, flagLabel: "Bandeira tarifária", lightingFee: settings.lightingFee });
+    return { total: result.totalCost, source: "Regras regulatórias aplicadas" };
+  }
+  const fallback = calculateEnergyEstimate(consumption, { rate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, lightingFee: settings.lightingFee });
+  return { total: fallback.totalCost, source: "Configuração atual" };
+}
+
+function readingConfidence(lastReading, rateIntervals, now = new Date()) {
+  if (!lastReading || !rateIntervals.length) return { label: "Baixa", tone: "warning", note: "Sem leituras suficientes no ciclo. Registre uma nova leitura para habilitar uma previsão útil." };
+  const ageDays = Math.max(0, dayDifference(dayStart(lastReading.date), dayStart(now)));
+  if (ageDays <= 2 && rateIntervals.length >= 2) return { label: "Alta", tone: "success", note: "Curva estimada entre leituras. A última leitura é recente e há mais de um intervalo para comparar." };
+  if (ageDays <= 4) return { label: "Moderada", tone: "warning", note: `Curva estimada entre leituras. Última leitura há ${ageDays} ${ageDays === 1 ? "dia" : "dias"}.` };
+  return { label: "Baixa", tone: "warning", note: `Curva estimada entre leituras. Última leitura há ${ageDays} dias; uma nova leitura melhora a previsão.` };
+}
+
+function forecastGoalNote(utility, decimals, unit) {
+  if (!(utility.goal > 0) || !(utility.measuredDays > 0)) return utility.goal > 0 ? "Aguardando base de leitura" : "Sem meta configurada";
+  const difference = utility.projectedConsumption - utility.goal;
+  if (Math.abs(difference) < 0.0001) return "Projeção alinhada à meta";
+  return difference > 0 ? `${formatNumber(difference, decimals)} ${unit} acima da meta` : `${formatNumber(Math.abs(difference), decimals)} ${unit} abaixo da meta`;
+}
+
+function consumptionInsight(utility, decimals, unit) {
+  if (!utility.lastReading || utility.measuredDays <= 0) return { title: "Registre uma leitura para projetar o ciclo", body: "O VOLT precisa de uma leitura dentro do ciclo para calcular ritmo, fechamento e valor provável da fatura sem inventar dados." };
+  const projected = `${formatNumber(utility.projectedConsumption, decimals)} ${unit}`;
+  const goal = `${formatNumber(utility.goal, decimals)} ${unit}`;
+  if (!(utility.goal > 0)) return { title: "Previsão de fechamento disponível", body: `No ritmo medido até a última leitura, o ciclo tende a fechar em aproximadamente ${projected}. Configure uma meta para o VOLT indicar o ritmo recomendado.` };
+  if (utility.forecastRatio > 1) {
+    const excess = `${formatNumber(utility.projectedConsumption - utility.goal, decimals)} ${unit}`;
+    if (utility.consumption >= utility.goal) return { title: "A meta já foi ultrapassada", body: `O consumo registrado já passou de ${goal}. Mantido o ritmo atual, o fechamento tende a chegar a ${projected}, cerca de ${excess} acima da meta.` };
+    return { title: "Previsão acima da meta", body: `No ritmo atual, o ciclo tende a fechar em ${projected}, cerca de ${excess} acima da meta de ${goal}. A partir da última leitura, o ritmo precisaria ficar em até ${formatNumber(utility.paceToGoal, decimals)} ${unit}/dia para voltar à meta.` };
+  }
+  const margin = `${formatNumber(Math.max(0, utility.goal - utility.projectedConsumption), decimals)} ${unit}`;
+  return { title: "Ritmo compatível com a meta", body: `A previsão de fechamento é ${projected}, deixando uma margem estimada de ${margin} em relação à meta de ${goal}.` };
+}
+
+function signedPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  const formatted = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 }).format(Math.abs(number));
+  if (number > 0) return `+${formatted}`;
+  if (number < 0) return `−${formatted}`;
+  return formatted;
+}
+
+function dayDifference(left, right) {
+  return Math.max(0, Math.round((dayStart(right).getTime() - dayStart(left).getTime()) / 86400000));
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(Math.max(Number(value) || 0, min), max);
+}
+
 function buildDailyAverageSeries(readings, range) {
   const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
   if (sorted.length < 2) return [];
@@ -371,29 +475,27 @@ function dayStart(value) {
 }
 
 function consumptionTrend(series) {
-  if (series.length < 4) return { label: "Sem tendência", note: "Registre mais leituras" };
-  const sample = Math.min(3, Math.floor(series.length / 2));
-  const first = series.slice(0, sample).reduce((total, item) => total + item.value, 0) / sample;
-  const last = series.slice(-sample).reduce((total, item) => total + item.value, 0) / sample;
-  if (first <= 0 && last <= 0) return { label: "Estável", note: "Sem variação relevante" };
+  if (series.length < 2) return { label: "Sem tendência", note: "Registre pelo menos mais uma leitura" };
+  const first = series[0].value;
+  const last = series.at(-1).value;
+  if (first <= 0 && last <= 0) return { label: "Estável", note: "Sem variação relevante entre leituras" };
   const change = first > 0 ? (last - first) / first : 1;
-  if (Math.abs(change) < .05) return { label: "Estável", note: "Variação inferior a 5%" };
+  if (Math.abs(change) < .05) return { label: "Estável", note: "Variação inferior a 5% entre intervalos" };
   const magnitude = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 }).format(Math.abs(change));
-  return change > 0 ? { label: `Subindo ${magnitude}`, note: "Consumo diário aumentou" } : { label: `Caindo ${magnitude}`, note: "Consumo diário diminuiu" };
+  return change > 0 ? { label: `Subindo ${magnitude}`, note: "A média diária do último intervalo aumentou" } : { label: `Caindo ${magnitude}`, note: "A média diária do último intervalo diminuiu" };
 }
 
-function renderLineChart(series, type) {
+function renderLineChart(series, type, targetDaily = 0) {
   const wrapper = document.createElement("div");
   wrapper.className = "line-chart";
   wrapper.dataset.type = type;
   if (!series.length) {
     const empty = document.createElement("div");
     empty.className = "line-chart-empty";
-    empty.textContent = "Sem leituras suficientes para calcular o consumo diário.";
+    empty.textContent = "Sem leituras suficientes para calcular o ritmo diário.";
     wrapper.append(empty);
     return wrapper;
   }
-
   const width = 720;
   const height = 270;
   const padding = { top: 24, right: 22, bottom: 38, left: 52 };
@@ -401,48 +503,30 @@ function renderLineChart(series, type) {
   const innerHeight = height - padding.top - padding.bottom;
   const decimals = type === "water" ? 3 : 0;
   const unit = type === "water" ? "m³" : "kWh";
-  const maxValue = Math.max(...series.map((item) => item.value), 1);
-  const maxY = maxValue * 1.12;
-  const points = series.map((item, index) => ({
-    ...item,
-    index,
-    x: padding.left + (series.length === 1 ? innerWidth / 2 : (index / (series.length - 1)) * innerWidth),
-    y: padding.top + innerHeight - ((item.value / maxY) * innerHeight)
-  }));
+  const average = series.reduce((total, item) => total + item.value, 0) / series.length;
+  const maxValue = Math.max(...series.map((item) => item.value), targetDaily, average, 1);
+  const maxY = maxValue * 1.14;
+  const points = series.map((item, index) => ({ ...item, index, x: padding.left + (series.length === 1 ? innerWidth / 2 : (index / (series.length - 1)) * innerWidth), y: padding.top + innerHeight - ((item.value / maxY) * innerHeight) }));
   const peakPoint = points.reduce((best, point) => !best || point.value > best.value ? point : best, null);
   const minPoint = points.reduce((best, point) => !best || point.value < best.value ? point : best, null);
-  const average = series.reduce((total, item) => total + item.value, 0) / series.length;
   const averageY = padding.top + innerHeight - ((average / maxY) * innerHeight);
+  const targetY = targetDaily > 0 ? padding.top + innerHeight - ((targetDaily / maxY) * innerHeight) : null;
   const linePath = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
   const areaPath = `${linePath} L ${points.at(-1).x.toFixed(2)} ${(height - padding.bottom).toFixed(2)} L ${points[0].x.toFixed(2)} ${(height - padding.bottom).toFixed(2)} Z`;
   const labelStep = Math.max(1, Math.ceil(points.length / 6));
   const labelIndexes = new Set(points.map((_, index) => index).filter((index) => index % labelStep === 0 || index === points.length - 1));
-  const grid = [0, .33, .66, 1].map((ratio) => {
-    const y = padding.top + innerHeight * ratio;
-    const value = maxY * (1 - ratio);
-    return `<g><line class="line-chart-grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line><text class="line-chart-y-label" x="${padding.left - 8}" y="${y + 4}" text-anchor="end">${formatNumber(value, decimals)}</text></g>`;
-  }).join("");
+  const grid = [0, .33, .66, 1].map((ratio) => { const y = padding.top + innerHeight * ratio; const value = maxY * (1 - ratio); return `<g><line class="line-chart-grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line><text class="line-chart-y-label" x="${padding.left - 8}" y="${y + 4}" text-anchor="end">${formatNumber(value, decimals)}</text></g>`; }).join("");
   const xLabels = points.filter((point) => labelIndexes.has(point.index)).map((point) => `<text class="line-chart-x-label" x="${point.x}" y="${height - 10}" text-anchor="middle">${chartDateNumeric(point.date)}</text>`).join("");
-  const pointMarkup = points.map((point) => {
-    const classes = ["line-chart-point"];
-    if (point.index === peakPoint.index) classes.push("peak");
-    if (point.index === minPoint.index) classes.push("min");
-    return `<circle class="${classes.join(" ")}" cx="${point.x}" cy="${point.y}" r="${point.index === peakPoint.index || point.index === minPoint.index ? 4.8 : 3}"><title>${chartDateNumeric(point.date)} · ${formatNumber(point.value, decimals)} ${unit}</title></circle>`;
-  }).join("");
-  const peakLabelY = Math.max(14, peakPoint.y - 11);
-  const showSeparateMinimum = minPoint.index !== peakPoint.index && Math.abs(minPoint.value - peakPoint.value) > 1e-9;
-  const minLabelY = Math.min(height - padding.bottom - 5, minPoint.y + 17);
-
+  const pointMarkup = points.map((point) => `<circle class="line-chart-point" cx="${point.x}" cy="${point.y}" r="3"><title>${chartDateNumeric(point.date)} · ${formatNumber(point.value, decimals)} ${unit}/dia</title></circle>`).join("");
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "line-chart-svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", `${utilityLabel(type)} diário, de ${chartDateNumeric(series[0].date)} a ${chartDateNumeric(series.at(-1).date)}`);
-  svg.innerHTML = `${grid}<line class="line-chart-average" x1="${padding.left}" y1="${averageY}" x2="${width - padding.right}" y2="${averageY}"></line><text class="line-chart-average-label" x="${width - padding.right}" y="${Math.max(12, averageY - 6)}" text-anchor="end">Média</text><path class="line-chart-area" d="${areaPath}"></path><path class="line-chart-path" d="${linePath}"></path>${pointMarkup}${xLabels}<text class="line-chart-extreme-label" x="${peakPoint.x}" y="${peakLabelY}" text-anchor="middle">Pico</text>${showSeparateMinimum ? `<text class="line-chart-extreme-label" x="${minPoint.x}" y="${minLabelY}" text-anchor="middle">Menor</text>` : ""}`;
-
+  svg.setAttribute("aria-label", `${utilityLabel(type)} diário estimado, de ${chartDateNumeric(series[0].date)} a ${chartDateNumeric(series.at(-1).date)}`);
+  svg.innerHTML = `${grid}<line class="line-chart-average" x1="${padding.left}" y1="${averageY}" x2="${width - padding.right}" y2="${averageY}"></line><text class="line-chart-average-label" x="${width - padding.right}" y="${Math.max(12, averageY - 6)}" text-anchor="end">Média atual</text>${targetY == null ? "" : `<line class="line-chart-target" x1="${padding.left}" y1="${targetY}" x2="${width - padding.right}" y2="${targetY}"></line><text class="line-chart-target-label" x="${padding.left + 6}" y="${Math.max(12, targetY - 6)}">Meta diária</text>`}<path class="line-chart-area" d="${areaPath}"></path><path class="line-chart-path" d="${linePath}"></path>${pointMarkup}${xLabels}`;
   const legend = document.createElement("div");
   legend.className = "line-chart-legend";
-  legend.innerHTML = `<span><strong>Média</strong>${formatNumber(average, decimals)} ${unit}</span><span><strong>Pico</strong>${formatNumber(peakPoint.value, decimals)} ${unit} · ${chartDateNumeric(peakPoint.date)}</span><span><strong>Menor</strong>${formatNumber(minPoint.value, decimals)} ${unit} · ${chartDateNumeric(minPoint.date)}</span>`;
+  legend.innerHTML = `<span><strong>Média atual</strong>${formatNumber(average, decimals)} ${unit}/dia</span><span><strong>Ritmo da meta</strong>${targetDaily > 0 ? `${formatNumber(targetDaily, decimals)} ${unit}/dia` : "Sem meta"}</span><span><strong>Maior média</strong>${formatNumber(peakPoint.value, decimals)} ${unit}/dia</span><span><strong>Menor média</strong>${formatNumber(minPoint.value, decimals)} ${unit}/dia</span>`;
   wrapper.append(svg, legend);
   return wrapper;
 }

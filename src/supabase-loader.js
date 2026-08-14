@@ -1,5 +1,38 @@
 let loadingPromise = null;
 let billingWorkflowStarted = false;
+let authLockHardened = false;
+
+const RUNTIME_LOAD_TIMEOUT_MS = 8000;
+
+async function runWithoutBrowserWebLock(_name, _acquireTimeout, operation) {
+  return operation();
+}
+
+function hardenSupabaseAuthLock() {
+  if (authLockHardened || !window.supabase?.createClient) return;
+
+  const runtime = window.supabase;
+  const originalCreateClient = runtime.createClient.bind(runtime);
+  const hardenedRuntime = Object.create(runtime);
+
+  Object.defineProperty(hardenedRuntime, "createClient", {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value(url, key, options = {}) {
+      return originalCreateClient(url, key, {
+        ...options,
+        auth: {
+          ...(options.auth || {}),
+          lock: runWithoutBrowserWebLock
+        }
+      });
+    }
+  });
+
+  window.supabase = hardenedRuntime;
+  authLockHardened = true;
+}
 
 function startBillingWorkflow() {
   if (billingWorkflowStarted) return;
@@ -11,6 +44,7 @@ function startBillingWorkflow() {
 
 export function loadSupabaseRuntime() {
   if (window.supabase?.createClient) {
+    hardenSupabaseAuthLock();
     startBillingWorkflow();
     return Promise.resolve();
   }
@@ -23,14 +57,28 @@ export function loadSupabaseRuntime() {
     script.src = runtimeUrl.href;
     script.async = true;
     script.dataset.voltDependency = "supabase";
+
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("O carregamento da autenticação demorou demais. Tente novamente."));
+    }, RUNTIME_LOAD_TIMEOUT_MS);
+
     script.addEventListener("load", () => {
+      window.clearTimeout(timeoutId);
       if (window.supabase?.createClient) {
+        hardenSupabaseAuthLock();
         startBillingWorkflow();
         resolve();
       } else reject(new Error("O runtime Supabase foi carregado sem expor createClient."));
     }, { once: true });
-    script.addEventListener("error", () => reject(new Error("Não foi possível carregar o runtime Supabase.")), { once: true });
+    script.addEventListener("error", () => {
+      window.clearTimeout(timeoutId);
+      reject(new Error("Não foi possível carregar o runtime Supabase."));
+    }, { once: true });
     document.head.append(script);
+  }).catch((error) => {
+    loadingPromise = null;
+    throw error;
   });
+
   return loadingPromise;
 }

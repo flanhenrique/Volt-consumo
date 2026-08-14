@@ -11,6 +11,8 @@ const CORE_ASSETS = [
   releaseAsset("./styles/components.css"),
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
+  "./styles/home-dashboard-v2.css?v=20260814.1",
+  "./styles/home-dashboard-sustainability.css?v=20260814.2",
   releaseAsset("./app.js"),
   releaseAsset("./config.js"),
   "./manifest.webmanifest",
@@ -34,7 +36,9 @@ const CORE_ASSETS = [
   releaseAsset("./src/billing-workflow.js"),
   releaseAsset("./src/regulatory-engine.js"),
   releaseAsset("./src/invoice-ocr.js"),
-  releaseAsset("./src/executive-pdf.js")
+  releaseAsset("./src/executive-pdf.js"),
+  "./src/home-dashboard-v2.js?v=20260814.1",
+  "./src/home-dashboard-sustainability.js?v=20260814.2"
 ];
 
 self.addEventListener("install", (event) => {

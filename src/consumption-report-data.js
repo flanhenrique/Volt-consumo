@@ -1,7 +1,9 @@
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.7";
 
 const DAY_MS = 86400000;
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });
+const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 
 export function buildConsumptionReportData(type, state, period) {
   const readings = [...(state.readings?.[type] || [])].sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
@@ -10,25 +12,34 @@ export function buildConsumptionReportData(type, state, period) {
   const intervals = readingIntervals(readings);
   const selectedIntervals = intervals.filter((item) => inside(item.date, range));
   const consumption = period === "cycle" ? consumptionWithinCycle(readings, cycle.current) : sum(selectedIntervals);
-  const days = periodDays(range);
+  const days = period === "cycle" ? elapsedCycleDays(cycle.current) : periodDays(range);
   const daily = consumption / Math.max(1, days);
   const monthly = daily * 30;
-  const goal = Number(state.settings[type].goal) || 0;
+  const goal = Number(state.settings?.[type]?.goal) || 0;
   const currentConsumption = consumptionWithinCycle(readings, cycle.current);
   const projection = projectCurrentCycle(currentConsumption, goal, cycle.current);
   const buckets = monthBuckets(selectedIntervals);
   const previous = previousConsumption(period, readings, intervals, cycle, range);
   const change = relativeChange(consumption, previous);
   const peak = selectedIntervals.reduce((best, item) => !best || item.value > best.value ? item : best, null);
-  return { type, readings, cycle, range, intervals: selectedIntervals, consumption, days, daily, monthly, goal, currentConsumption, projection, buckets, previous, change, peak };
+  const cycleHistory = buildCycleHistory(readings, cycle);
+  const contextRange = { start: new Date(cycle.previous.start), end: new Date(cycle.current.end) };
+  const contextLabel = `${dateOnly(contextRange.start)} a ${dateOnly(contextRange.end)}`;
+  const financial = estimateFinancial(type, consumption, state.settings?.[type] || {});
+  return { type, readings, cycle, range, intervals: selectedIntervals, consumption, days, daily, monthly, goal, currentConsumption, projection, buckets, previous, change, peak, cycleHistory, contextRange, contextLabel, financial };
 }
 
 export function periodLabel(period) {
-  return ({ cycle: "Ciclo atual", "3m": "Últimos 3 meses", "6m": "Últimos 6 meses", all: "Todo o histórico" })[period] || "Últimos 6 meses";
+  return ({ cycle: "Ciclo atual", "3m": "Últimos 3 meses", "6m": "Últimos 6 meses", all: "Todo o histórico" })[period] || "Ciclo atual";
 }
 
 export function monthLabel(value) {
   return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" }).format(new Date(value)).replace(".", "");
+}
+
+export function cycleLabel(range) {
+  const formatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+  return `${formatter.format(new Date(range.start))}–${formatter.format(new Date(range.end))}`;
 }
 
 export function formatDateTime(value) {
@@ -43,6 +54,14 @@ export function formatNumber(value, decimals) {
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(value) || 0);
 }
 
+export function currency(value) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0);
+}
+
+export function flagLabel(flag) {
+  return ({ green: "Verde", yellow: "Amarela", red1: "Vermelha 1", red2: "Vermelha 2" })[flag] || "Verde";
+}
+
 export function signedPercent(value) {
   const number = Number(value) || 0;
   return `${number > 0 ? "+" : ""}${new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 }).format(number)}`;
@@ -50,6 +69,45 @@ export function signedPercent(value) {
 
 export function rangeContains(value, range) {
   return inside(value, range);
+}
+
+function estimateFinancial(type, consumption, settings) {
+  if (type === "water") {
+    const estimate = calculateWaterEstimate(consumption, settings);
+    return {
+      totalCost: Number(estimate.totalCost) || 0,
+      rate: Number(settings.rate) || 0,
+      sewerPercent: Number(settings.sewerPercent) || 0,
+      fixedFee: Number(settings.fixedFee) || 0
+    };
+  }
+  const flagRate = FLAG_RATES[settings.flag] ?? 0;
+  const estimate = calculateEnergyEstimate(consumption, {
+    rate: settings.rate,
+    flagRate,
+    lightingFee: settings.lightingFee,
+    flagLabel: settings.flag
+  });
+  return {
+    totalCost: Number(estimate.totalCost) || 0,
+    baseCost: Number(estimate.baseCost) || 0,
+    flagCost: Number(estimate.flagCost) || 0,
+    rate: Number(settings.rate) || 0,
+    flag: settings.flag || "green",
+    flagRate,
+    lightingFee: Number(settings.lightingFee) || 0
+  };
+}
+
+function buildCycleHistory(readings, cycle) {
+  const previousValue = consumptionWithinCycle(readings, cycle.previous);
+  const currentValue = consumptionWithinCycle(readings, cycle.current);
+  const previousDays = fullCycleDays(cycle.previous);
+  const currentDays = elapsedCycleDays(cycle.current);
+  return [
+    { range: cycle.previous, value: previousValue, daily: previousValue / Math.max(1, previousDays), status: "Fechado", isCurrent: false },
+    { range: cycle.current, value: currentValue, daily: currentValue / Math.max(1, currentDays), status: "Em andamento", isCurrent: true }
+  ];
 }
 
 function resolveRange(period, readings, cycle) {
@@ -86,12 +144,9 @@ function previousConsumption(period, readings, intervals, cycle, range) {
 }
 
 function projectCurrentCycle(consumption, goal, range) {
-  const start = new Date(range.start);
-  const end = new Date(range.end);
-  const now = new Date();
-  const totalDays = Math.max(1, Math.ceil((end - start) / DAY_MS) + 1);
-  const elapsedDays = Math.max(1, Math.min(totalDays, Math.ceil((Math.min(now.getTime(), end.getTime()) - start.getTime()) / DAY_MS) + 1));
-  const projected = (Number(consumption) || 0) / elapsedDays * totalDays;
+  const totalDays = fullCycleDays(range);
+  const elapsedDays = elapsedCycleDays(range);
+  const projected = (Number(consumption) || 0) / Math.max(1, elapsedDays) * totalDays;
   return { projected, goal, ratio: goal > 0 ? projected / goal : 0, elapsedDays, totalDays };
 }
 
@@ -104,6 +159,17 @@ function monthBuckets(intervals) {
     map.get(key).value += Number(item.value) || 0;
   });
   return [...map.values()].sort((a, b) => a.date - b.date);
+}
+
+function fullCycleDays(range) {
+  return Math.max(1, Math.ceil((new Date(range.end).getTime() - new Date(range.start).getTime()) / DAY_MS) + 1);
+}
+
+function elapsedCycleDays(range) {
+  const start = new Date(range.start).getTime();
+  const end = new Date(range.end).getTime();
+  const effectiveEnd = Math.min(Date.now(), end);
+  return Math.max(1, Math.ceil((effectiveEnd - start) / DAY_MS) + 1);
 }
 
 function periodDays(range) {

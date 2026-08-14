@@ -36,8 +36,8 @@ async function hydrateCanonicalBilling(targetId, state) {
     const snapshot = await fetchSnapshot(targetId);
     if (!snapshot?.authorized || !snapshot?.found) return;
 
-    const cycles = buildExactCycles(snapshot.billing_cycles, state.cycles);
-    const billing = normalizeLatestBill(snapshot.latest_bill, snapshot.billing_cycles);
+    const cycles = buildExactCycles(snapshot.billing_cycles, state.cycles, snapshot.latest_bill);
+    const billing = normalizeLatestBill(snapshot.latest_bill, snapshot.billing_cycles) || state.billing?.energy || null;
     const historicalConsumption = {
       energy: normalizeMonthlyHistory(snapshot.monthly_history),
       water: state.historicalConsumption?.water || []
@@ -70,9 +70,10 @@ async function fetchSnapshot(userId) {
   return data;
 }
 
-function buildExactCycles(rows, fallbackCycles) {
+function buildExactCycles(rows, fallbackCycles, latestBill) {
   const cycles = (Array.isArray(rows) ? rows : [])
     .map((row) => ({
+      id: row?.id || null,
       start: calendarKey(row?.cycle_start),
       end: calendarKey(row?.cycle_end),
       status: String(row?.status || ""),
@@ -97,11 +98,20 @@ function buildExactCycles(rows, fallbackCycles) {
 
   const fallback = fallbackCycles?.energy || fallbackCycles || { start: 1, end: 31 };
   if (!current) return fallback;
+
+  const billMatchesPrevious = Boolean(previous?.id && latestBill?.billing_cycle_id === previous.id);
+  const closingMeterValue = billMatchesPrevious ? finiteOrNull(latestBill?.extraction_metadata?.current_meter_value) : null;
+  const measuredPrevious = billMatchesPrevious ? finiteOrNull(latestBill?.measured_consumption) : null;
+  const exactCurrent = { start: current.start, end: current.end };
+  const exactPrevious = previous ? { start: previous.start, end: previous.end } : null;
+  if (closingMeterValue != null && previous?.end === current.start) exactCurrent.baselineValue = closingMeterValue;
+  if (exactPrevious && measuredPrevious != null) exactPrevious.fixedConsumption = measuredPrevious;
+
   return {
     start: Number(current.start.slice(8, 10)) || Number(fallback.start) || 1,
     end: Number(current.end.slice(8, 10)) || Number(fallback.end) || 31,
-    exactCurrent: { start: current.start, end: current.end },
-    exactPrevious: previous ? { start: previous.start, end: previous.end } : null,
+    exactCurrent,
+    exactPrevious,
     sourceType: current.sourceType,
     confidence: current.confidence
   };

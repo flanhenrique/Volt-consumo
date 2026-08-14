@@ -14,6 +14,9 @@ export function loadCycleState(user) {
 }
 
 export function getCycleContext(preference, now = new Date()) {
+  const exact = exactCycleContext(preference);
+  if (exact) return exact;
+
   const cycle = normalizeCycle(preference);
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
@@ -42,6 +45,54 @@ export function consumptionWithinCycle(readings, range) {
     return date >= range.start && date <= range.end;
   });
   return contained.length >= 2 ? Math.max(0, Number(contained.at(-1).value) - Number(contained[0].value)) : 0;
+}
+
+function exactCycleContext(preference) {
+  if (!preference || typeof preference !== "object") return null;
+  const current = normalizeExactRange(preference.exactCurrent || preference.current);
+  if (!current) return null;
+  const previous = normalizeExactRange(preference.exactPrevious || preference.previous);
+  const cycle = normalizeCycle(preference);
+  return {
+    preference: cycle,
+    current,
+    previous: previous || previousRangeFromCurrent(current, cycle.start),
+    label: formatRange(current.start, current.end),
+    exact: true
+  };
+}
+
+function normalizeExactRange(value) {
+  if (!value?.start || !value?.end) return null;
+  const start = calendarDate(value.start, false);
+  const end = calendarDate(value.end, true);
+  if (!start || !end || end < start) return null;
+  return { start, end };
+}
+
+function previousRangeFromCurrent(current, startDay) {
+  const end = new Date(current.start.getTime() - 1);
+  return { start: occurrenceOnOrBefore(end, startDay), end };
+}
+
+function calendarDate(value, endOfDay) {
+  if (value instanceof Date) {
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return null;
+    date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    return date;
+  }
+  const text = String(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+    return date;
+  }
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return date;
 }
 
 function occurrenceOnOrBefore(reference, day) {

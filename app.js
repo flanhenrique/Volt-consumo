@@ -18,8 +18,10 @@ let sessionQueue = Promise.resolve();
 let mfaFactorId = null;
 let readingPreviewUrl = null;
 let readingPhotoSequence = 0;
+let readingStep = "type";
 let applicationStarted = false;
 const ACCENT_CHOICES = Object.freeze(["emerald", "azure", "violet", "amber", "coral", "teal"]);
+const READING_STEPS = Object.freeze(["type", "capture", "review", "done"]);
 
 store.subscribe((state) => renderer.render(state));
 startApplication();
@@ -147,6 +149,7 @@ function bindStaticUi() {
   document.querySelectorAll("[data-reading-type]").forEach((button) => button.addEventListener("click", () => selectReadingType(button.dataset.readingType)));
   document.getElementById("reading-type").addEventListener("change", (event) => selectReadingType(event.target.value));
   document.getElementById("reading-photo").addEventListener("change", handleReadingPhoto);
+  initializeReadingWizard();
   applySavedTheme();
   applyAccentToDocument("emerald");
 }
@@ -329,9 +332,7 @@ async function handleReading(event) {
   try {
     const readings = await service.addReading(type, state.user.id, reading);
     store.update({ readings: { ...state.readings, [type]: readings } });
-    event.target.reset();
-    clearReadingPreview();
-    closeDialog("reading-dialog");
+    showReadingCompletion(type, reading);
     renderer.setMessage("readings-message", "Leitura registrada.");
   } catch (error) {
     renderer.setMessage("reading-message", operationMessage(error), true);
@@ -380,6 +381,7 @@ function openReadingDialog() {
   dateInput.value = toLocalDateTime(new Date());
   renderer.setMessage("reading-message", "");
   renderer.setMessage("ocr-message", "A foto é analisada somente quando escolhida. Revise sempre o valor.");
+  setReadingStep("type");
   openDialog("reading-dialog");
 }
 
@@ -394,6 +396,111 @@ function selectReadingType(type) {
   const normalized = type === "water" ? "water" : "energy";
   document.getElementById("reading-type").value = normalized;
   document.querySelectorAll("[data-reading-type]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.readingType === normalized)));
+}
+
+function initializeReadingWizard() {
+  const flow = document.querySelector("#reading-form .reading-flow");
+  if (!flow || flow.dataset.wizardReady === "true") return;
+
+  const typeGrid = flow.querySelector(".reading-type-grid");
+  const typeSelect = document.getElementById("reading-type")?.closest("label");
+  const captureZone = flow.querySelector(".capture-zone");
+  const reviewFields = flow.querySelector(".two-columns.form");
+  const reviewed = document.getElementById("reading-reviewed")?.closest("label");
+  const submitButton = flow.querySelector("button[type='submit']");
+  const message = document.getElementById("reading-message");
+  if (!typeGrid || !typeSelect || !captureZone || !reviewFields || !reviewed || !submitButton || !message) return;
+
+  flow.dataset.wizardReady = "true";
+  typeSelect.hidden = true;
+
+  const typePanel = createReadingPanel("type");
+  typePanel.append(typeGrid, typeSelect);
+  typePanel.append(createReadingActions([
+    createReadingButton("Continuar", "primary-button", () => setReadingStep("capture"))
+  ]));
+
+  const capturePanel = createReadingPanel("capture");
+  const captureHint = document.createElement("p");
+  captureHint.className = "supporting-copy";
+  captureHint.textContent = "A foto é opcional. Você também pode continuar e informar o valor manualmente.";
+  capturePanel.append(captureZone, captureHint);
+  capturePanel.append(createReadingActions([
+    createReadingButton("Voltar", "secondary-button", () => setReadingStep("type")),
+    createReadingButton("Continuar", "primary-button", () => setReadingStep("review"))
+  ]));
+
+  const reviewPanel = createReadingPanel("review");
+  reviewPanel.append(reviewFields, reviewed);
+  const reviewActions = createReadingActions([
+    createReadingButton("Voltar", "secondary-button", () => setReadingStep("capture")),
+    submitButton
+  ]);
+  reviewPanel.append(reviewActions, message);
+
+  const donePanel = createReadingPanel("done", "empty-state");
+  donePanel.innerHTML = '<svg class="icon icon-xl" aria-hidden="true"><use href="#icon-shield"></use></svg><strong id="reading-complete-title">Leitura registrada</strong><p id="reading-complete-summary" class="supporting-copy"></p>';
+  donePanel.append(createReadingButton("Concluir", "primary-button", () => closeDialog("reading-dialog")));
+
+  flow.append(typePanel, capturePanel, reviewPanel, donePanel);
+  setReadingStep("type");
+}
+
+function createReadingPanel(step, className = "form") {
+  const panel = document.createElement("section");
+  panel.className = className;
+  panel.dataset.readingPanel = step;
+  panel.hidden = true;
+  return panel;
+}
+
+function createReadingActions(buttons) {
+  const actions = document.createElement("div");
+  actions.className = "form-actions";
+  buttons.forEach((button) => actions.append(button));
+  return actions;
+}
+
+function createReadingButton(label, className, handler) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = label;
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function setReadingStep(step) {
+  readingStep = READING_STEPS.includes(step) ? step : "type";
+  const activeIndex = READING_STEPS.indexOf(readingStep);
+
+  document.querySelectorAll("[data-reading-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.readingPanel !== readingStep;
+  });
+
+  document.querySelectorAll("[data-reading-step]").forEach((indicator) => {
+    const index = READING_STEPS.indexOf(indicator.dataset.readingStep);
+    if (index === activeIndex) indicator.dataset.active = "true";
+    else indicator.removeAttribute("data-active");
+    if (index < activeIndex) indicator.dataset.complete = "true";
+    else indicator.removeAttribute("data-complete");
+  });
+}
+
+function showReadingCompletion(type, reading) {
+  const unit = type === "water" ? "m³" : "kWh";
+  const label = type === "water" ? "Água" : "Energia";
+  const title = document.getElementById("reading-complete-title");
+  const summary = document.getElementById("reading-complete-summary");
+  if (title) title.textContent = `${label} registrada`;
+  if (summary) {
+    const formattedDate = new Date(reading.date).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    summary.textContent = `${reading.value} ${unit} · ${formattedDate}`;
+  }
+  renderer.setMessage("reading-message", "");
+  document.getElementById("reading-form").reset();
+  clearReadingPreview();
+  setReadingStep("done");
 }
 
 async function handleReadingPhoto(event) {

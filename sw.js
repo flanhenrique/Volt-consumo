@@ -1,106 +1,69 @@
-const RELEASE_ID = "20260814.8";
-const CACHE_REVISION = "20260814.8";
-const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260814.7", "volt-app-v4-atomic-20260814.5", "volt-app-v4-atomic-20260814.4", "volt-app-v4-atomic-20260814.3", "volt-app-v4-atomic-20260813.7", "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
-const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
-const CORE_ASSETS = [
-  "./",
-  "./index.html",
-  releaseAsset("./styles/tokens.css"),
-  releaseAsset("./styles/glass.css"),
-  releaseAsset("./styles/layout.css"),
-  releaseAsset("./styles/components.css"),
-  releaseAsset("./styles/pages.css"),
-  releaseAsset("./styles/billing-workflow.css"),
-  "./styles/home-dashboard-v2.css?v=20260814.1",
-  "./styles/home-dashboard-sustainability.css?v=20260814.3",
-  "./styles/pwa-update.css?v=20260814.8",
-  releaseAsset("./app.js"),
-  releaseAsset("./config.js"),
-  "./manifest.webmanifest",
-  "./version.json",
-  "./icon.svg",
-  "./icon-192.png",
-  "./icon-512.png",
-  releaseAsset("./vendor/supabase/supabase.js"),
-  releaseAsset("./packages/consumption-domain/browser/index.js"),
-  releaseAsset("./packages/consumption-domain/browser/billing-engine.js"),
-  "./packages/consumption-domain/browser/billing-engine.js",
-  releaseAsset("./data/national-energy-catalog.js"),
-  "./data/energy-billing-profiles.js",
-  releaseAsset("./src/app-state.js"),
-  releaseAsset("./src/bill-detail.js"),
-  releaseAsset("./src/cycles.js"),
-  releaseAsset("./src/meter-ocr.js"),
-  releaseAsset("./src/renderer.js"),
-  releaseAsset("./src/supabase-loader.js"),
-  releaseAsset("./src/tariff.js"),
-  releaseAsset("./src/volt-service.js"),
-  releaseAsset("./src/billing-workflow.js"),
-  releaseAsset("./src/regulatory-engine.js"),
-  releaseAsset("./src/invoice-ocr.js"),
-  "./ocr-runtime.html",
-  releaseAsset("./src/invoice-ocr-runtime.js"),
-  releaseAsset("./src/executive-pdf.js"),
-  "./src/home-dashboard-v2.js?v=20260814.1",
-  "./src/home-dashboard-sustainability.js?v=20260814.3",
-  "./src/pwa-update.js?v=20260814.8"
-];
+const RELEASE_ID = "20260814.9";
+const CACHE_REVISION = "20260814.9";
+const CACHE_NAME = `volt-app-recovery-${CACHE_REVISION}`;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheApplicationShell().then(() => self.skipWaiting()));
+  event.waitUntil(self.skipWaiting());
 });
-
-async function cacheApplicationShell() {
-  const cache = await caches.open(CACHE_NAME);
-  for (const asset of CORE_ASSETS) await cache.add(asset);
-}
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((names) => Promise.all(names.filter((name) => OWNED_CACHE_NAMES.has(name) && name !== CACHE_NAME).map((name) => caches.delete(name))))
-      .then(async () => {
-        await self.clients.claim();
-        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        await Promise.all(clients.map(async (client) => {
-          client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: CACHE_REVISION });
-          if (typeof client.navigate !== "function") return;
-          try {
-            await client.navigate(client.url);
-          } catch {
-            // A navegação forçada é somente uma proteção para clientes presos em builds antigos.
-          }
-        }));
-      })
-  );
+  event.waitUntil(activateRecoveryBuild());
 });
+
+async function activateRecoveryBuild() {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name !== CACHE_NAME && name.startsWith("volt-")).map((name) => caches.delete(name)));
+  await self.clients.claim();
+
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  await Promise.all(clients.map(async (client) => {
+    client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: CACHE_REVISION });
+    if (typeof client.navigate !== "function") return;
+
+    try {
+      const target = new URL(client.url);
+      if (target.searchParams.get("volt_build") === CACHE_REVISION) return;
+      target.searchParams.set("volt_build", CACHE_REVISION);
+      await client.navigate(target.href);
+    } catch {
+      // A próxima abertura ainda será controlada por este worker e usará rede sem cache.
+    }
+  }));
+}
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
   if (request.mode === "navigate") {
-    event.respondWith(navigationResponse(request, event));
+    event.respondWith(networkFirstNavigation(request));
     return;
   }
-  event.respondWith(assetResponse(request, event));
+
+  event.respondWith(networkFirstAsset(request));
 });
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
   if (event.data?.type === "CLEAR_VOLT_CACHE") {
-    event.waitUntil(Promise.all([...OWNED_CACHE_NAMES].map((name) => caches.delete(name))));
+    event.waitUntil(clearVoltCaches());
   }
 });
 
-async function navigationResponse(request, event) {
+async function clearVoltCaches() {
+  const names = await caches.keys();
+  await Promise.all(names.filter((name) => name.startsWith("volt-")).map((name) => caches.delete(name)));
+}
+
+async function networkFirstNavigation(request) {
   try {
     const response = await fetch(request, { cache: "no-store" });
     if (response.ok) {
-      const cacheCopy = response.clone();
-      event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", cacheCopy)));
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put("./index.html", response.clone());
     }
     return response;
   } catch {
@@ -109,14 +72,13 @@ async function navigationResponse(request, event) {
   }
 }
 
-async function assetResponse(request, event) {
+async function networkFirstAsset(request) {
   try {
     const response = await fetch(request, { cache: "no-store" });
-    if (!response.ok) {
-      return new Response(null, { status: response.status, statusText: response.statusText });
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
     }
-    const cacheCopy = response.clone();
-    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
     return response;
   } catch {
     const cache = await caches.open(CACHE_NAME);

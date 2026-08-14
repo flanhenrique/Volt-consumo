@@ -267,9 +267,9 @@ function ensureConsumptionHost() {
     host.id = "volt-billing-workflow";
     host.className = "volt-billing-stack";
     host.setAttribute("aria-label", "Faturamento e conciliação por ciclo");
-    const header = page.querySelector(".page-header");
-    if (header) header.after(host);
-    else page.prepend(host);
+    const analytics = page.querySelector(".analytics-grid");
+    if (analytics) analytics.after(host);
+    else page.append(host);
   }
   return host;
 }

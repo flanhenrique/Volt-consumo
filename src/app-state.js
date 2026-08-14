@@ -16,6 +16,7 @@ const initialState = Object.freeze({
   identity: null,
   account: null,
   readings: { energy: [], water: [] },
+  historicalConsumption: { energy: [], water: [] },
   settings: { energy: null, water: null },
   cycles: { energy: null, water: null },
   tariff: null,

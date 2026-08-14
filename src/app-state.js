@@ -19,6 +19,7 @@ const initialState = Object.freeze({
   historicalConsumption: { energy: [], water: [] },
   settings: { energy: null, water: null },
   cycles: { energy: null, water: null },
+  billing: { energy: null },
   tariff: null,
   locality: null,
   permissions: { canManageUsers: false, role: null },
@@ -30,6 +31,11 @@ const initialState = Object.freeze({
   view: { consumptionType: "energy", consumptionPeriod: "cycle", theme: "system", accent: "emerald" },
   error: null
 });
+
+const ADMIN_VIEW_PATCH_KEYS = Object.freeze([
+  "identity", "account", "readings", "historicalConsumption", "settings", "cycles", "billing",
+  "tariff", "locality", "organization", "adminView", "activePage", "transitionSurface", "view", "error"
+]);
 
 let latestApplicationState = structuredClone(initialState);
 
@@ -74,8 +80,61 @@ export function createApplicationStore() {
     }
   });
 
-  // Extensão administrativa do próprio VOLT usa somente a API pública do store.
-  // Nenhum token, senha ou cliente Supabase é exposto por esta referência.
-  if (typeof globalThis !== "undefined") globalThis.__VOLT_APP_STORE__ = store;
+  if (typeof globalThis !== "undefined") {
+    globalThis.__VOLT_ADMIN_VIEW_BRIDGE__ = createAdminViewBridge({
+      getState: () => state,
+      publish,
+      replaceState(nextState) { state = nextState; },
+      subscribers
+    });
+  }
   return store;
+}
+
+function createAdminViewBridge(context) {
+  const snapshot = () => sanitizeAdminViewState(context.getState());
+  return Object.freeze({
+    getState: snapshot,
+    subscribe(subscriber) {
+      if (typeof subscriber !== "function") throw new TypeError("Assinante administrativo inválido.");
+      const wrapped = () => subscriber(snapshot());
+      context.subscribers.add(wrapped);
+      wrapped();
+      return () => context.subscribers.delete(wrapped);
+    },
+    update(patch) {
+      const current = context.getState();
+      if (!current.permissions?.canManageUsers || current.status !== StartupStatus.READY) throw new Error("Visualização administrativa indisponível.");
+      const safePatch = {};
+      for (const key of ADMIN_VIEW_PATCH_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(patch || {}, key)) safePatch[key] = patch[key];
+      }
+      context.replaceState({ ...current, ...safePatch });
+      context.publish();
+    }
+  });
+}
+
+function sanitizeAdminViewState(state) {
+  return {
+    status: state.status,
+    authenticatedUserId: state.user?.id || null,
+    identity: state.identity,
+    account: state.account,
+    readings: state.readings,
+    historicalConsumption: state.historicalConsumption,
+    settings: state.settings,
+    cycles: state.cycles,
+    billing: state.billing,
+    tariff: state.tariff,
+    locality: state.locality,
+    permissions: state.permissions,
+    organization: state.organization,
+    admin: state.admin,
+    adminView: state.adminView,
+    activePage: state.activePage,
+    transitionSurface: state.transitionSurface,
+    view: state.view,
+    error: state.error
+  };
 }

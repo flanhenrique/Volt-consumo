@@ -1,4 +1,4 @@
-import "./src/consumption-reports.js?v=20260813.7";
+import "./src/consumption-reports.js?v=20260813.8";
 
 export const VOLT_CONFIG = Object.freeze({
   url: "https://zatwcrouojjqnuuabdif.supabase.co",

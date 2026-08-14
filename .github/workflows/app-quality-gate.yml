@@ -32,6 +32,8 @@ jobs:
             -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Validate DOM contract, imports, local references, SW and checksums
         run: python tests/quality_gate.py
+      - name: Validate billing, regulatory, OCR and PDF domain
+        run: node --test tests/billing-domain.test.mjs
       - name: Validate backend helper semantics
         shell: bash
         run: |

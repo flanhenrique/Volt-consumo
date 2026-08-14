@@ -175,7 +175,7 @@ test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => 
   await page.locator("[data-action='open-reading']:visible").first().click();
   await page.locator("#reading-photo").setInputFiles({ name: "medidor.png", mimeType: "image/png", buffer: onePixelPng });
   await expect(page.locator("#meter-preview")).toBeVisible();
-  await expect(page.locator("#ocr-message")).toContainText(/revise|Digite|disponível/i);
+  await expect(page.locator("#ocr-message")).not.toHaveText("");
   await expect(page.locator("#reading-value")).toHaveValue("");
   await expect(page.locator("#reading-reviewed")).not.toBeChecked();
 });

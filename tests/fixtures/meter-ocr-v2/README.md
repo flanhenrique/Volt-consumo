@@ -1,0 +1,1 @@
+Initial manual validation set for Meter OCR v2. Expected outcomes: IMG_1649 -> 28425; IMG_1662 -> 28431; IMG_1862 -> 28430; IMG_1684 -> reject wrong register 24/kVArh; IMG_1683 -> reject test screen; IMG_1792 -> require review because of reflection. Original photos are not committed here yet.

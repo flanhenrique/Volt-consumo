@@ -1,7 +1,7 @@
 import { getApplicationStateSnapshot } from "./app-state.js?v=20260813.7";
-import { buildConsumptionReportData } from "./consumption-report-data.js?v=20260813.8";
+import { buildConsumptionReportData } from "./consumption-report-data.js?v=20260813.7";
 import { ensureGeneralConsumptionReport, renderGeneralConsumptionReport } from "./consumption-report-general.js?v=20260813.7";
-import { ensureUtilityConsumptionReport, renderUtilityConsumptionReport } from "./consumption-report-utility.js?v=20260813.8";
+import { ensureUtilityConsumptionReport, renderUtilityConsumptionReport } from "./consumption-report-utility.js?v=20260813.7";
 import { exportConsumptionReport } from "./consumption-report-export.js?v=20260813.7";
 
 window.addEventListener("volt:startup-status", (event) => {
@@ -84,7 +84,7 @@ function selectedPeriod() {
 }
 
 function ensureStyles() {
-  ensureStyle("./styles/consumption-reports.css?v=20260813.8", "consumption-reports-style");
+  ensureStyle("./styles/consumption-reports.css?v=20260813.7", "consumption-reports-style");
   ensureStyle("./styles/reports-mobile-compact.css?v=20260813.7", "reports-mobile-compact-style");
 }
 

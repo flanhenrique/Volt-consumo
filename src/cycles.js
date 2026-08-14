@@ -36,7 +36,19 @@ export function getCycleContext(preference, now = new Date()) {
 }
 
 export function consumptionWithinCycle(readings, range) {
+  const fixedConsumption = finiteOrNull(range?.fixedConsumption);
+  if (fixedConsumption != null) return Math.max(0, fixedConsumption);
+
   const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+  const baselineValue = finiteOrNull(range?.baselineValue);
+  if (baselineValue != null) {
+    const latest = sorted
+      .filter((item) => new Date(item.date) <= range.end)
+      .filter((item) => Number(item.value) >= baselineValue)
+      .at(-1);
+    return latest ? Math.max(0, Number(latest.value) - baselineValue) : 0;
+  }
+
   const base = sorted.filter((item) => new Date(item.date) <= range.start).at(-1);
   const latest = sorted.filter((item) => new Date(item.date) <= range.end).at(-1);
   if (base && latest && Date.parse(latest.date) > Date.parse(base.date)) return Math.max(0, Number(latest.value) - Number(base.value));
@@ -67,7 +79,12 @@ function normalizeExactRange(value) {
   const start = calendarDate(value.start, false);
   const end = calendarDate(value.end, true);
   if (!start || !end || end < start) return null;
-  return { start, end };
+  const range = { start, end };
+  const baselineValue = finiteOrNull(value.baselineValue);
+  const fixedConsumption = finiteOrNull(value.fixedConsumption);
+  if (baselineValue != null) range.baselineValue = baselineValue;
+  if (fixedConsumption != null) range.fixedConsumption = fixedConsumption;
+  return range;
 }
 
 function previousRangeFromCurrent(current, startDay) {
@@ -93,6 +110,12 @@ function calendarDate(value, endOfDay) {
   if (!Number.isFinite(date.getTime())) return null;
   date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
   return date;
+}
+
+function finiteOrNull(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function occurrenceOnOrBefore(reference, day) {

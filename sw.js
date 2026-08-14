@@ -1,9 +1,10 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260814.16";
+const CACHE_REVISION = "20260814.17";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260814.15";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260814.16",
   "volt-app-v4-atomic-20260814.15",
   "volt-app-v4-atomic-20260814.14",
   "volt-app-v4-atomic-20260814.13",
@@ -68,7 +69,8 @@ const CORE_ASSETS = [
   bootstrapAsset("./src/home-dashboard-sustainability.js"),
   bootstrapAsset("./src/pwa-update.js"),
   bootstrapAsset("./src/admin-user-view.js"),
-  bootstrapAsset("./src/admin-billing-context.js")
+  bootstrapAsset("./src/admin-billing-context.js"),
+  bootstrapAsset("./src/canonical-billing-context.js")
 ];
 
 self.addEventListener("install", (event) => {

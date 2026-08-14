@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_ID = "20260813.7"
+BOOTSTRAP_BUILD = "20260814.11"
 failures = []
 
 
@@ -43,11 +44,17 @@ def parse_html(relative):
 index_source = (ROOT / "index.html").read_text(encoding="utf-8")
 root_html = parse_html("index.html")
 check(len(root_html.ids) == len(set(root_html.ids)), "index.html contém IDs duplicados")
-check(root_html.module_entries == [f"./app.js?v={RELEASE_ID}"], "a raiz deve possuir exatamente uma entrada module versionada: app.js")
+check(root_html.module_entries == [f"./bootstrap.js?v={BOOTSTRAP_BUILD}"], "a raiz deve possuir exatamente uma entrada module versionada: bootstrap.js")
 for reference in root_html.refs:
     check((ROOT / reference[2:]).exists(), f"referência local inexistente em index.html: {reference}")
-for asset in ["styles/tokens.css", "styles/glass.css", "styles/layout.css", "styles/components.css", "styles/pages.css", "app.js"]:
+for asset in ["styles/tokens.css", "styles/glass.css", "styles/layout.css", "styles/components.css", "styles/pages.css"]:
     check(f'./{asset}?v={RELEASE_ID}' in index_source, f"asset mutável sem versão de release no HTML: {asset}")
+check(f'./bootstrap.js?v={BOOTSTRAP_BUILD}' in index_source, "bootstrap mutável sem versão própria no HTML")
+
+bootstrap_source = (ROOT / "bootstrap.js").read_text(encoding="utf-8")
+check(f'const BOOTSTRAP_BUILD = "{BOOTSTRAP_BUILD}"' in bootstrap_source, "bootstrap e HTML devem compartilhar o mesmo build")
+check(f'const ATOMIC_RELEASE = "{RELEASE_ID}"' in bootstrap_source, "bootstrap deve atualizar o grafo atômico correto")
+check('cache: "reload"' in bootstrap_source, "bootstrap deve revalidar os módulos críticos antes de iniciar")
 
 beta_html = parse_html("beta/index.html")
 check(not beta_html.module_entries, "/beta não pode inicializar uma segunda aplicação")
@@ -99,6 +106,7 @@ check('request.mode === "navigate"' in sw_source, "Service Worker deve separar n
 check("OWNED_CACHE_NAMES.has(name)" in sw_source, "Service Worker só pode limpar caches explicitamente próprios")
 check(sw_source.count("response.clone()") == 2, "cada estratégia de rede deve clonar a resposta exatamente uma vez")
 check(f'const RELEASE_ID = "{RELEASE_ID}"' in sw_source, "Service Worker e grafo de assets devem compartilhar a release")
+check(f'const BOOTSTRAP_BUILD = "{BOOTSTRAP_BUILD}"' in sw_source, "Service Worker deve conhecer o build do bootstrap")
 check("cacheApplicationShell().then(() => self.skipWaiting())" in sw_source, "Service Worker novo deve ativar somente após formar o cache completo")
 check(f'searchParams.set("v", "{RELEASE_ID}")' in (ROOT / "src/supabase-loader.js").read_text(encoding="utf-8"), "runtime Supabase deve pertencer à mesma release")
 service_source = (ROOT / "src/volt-service.js").read_text(encoding="utf-8")

@@ -43,6 +43,10 @@ export function createApplicationStore() {
   const publish = () => {
     latestApplicationState = state;
     subscribers.forEach((subscriber) => subscriber(state));
+    if (typeof document !== "undefined") document.documentElement.dataset.startupStatus = state.status;
+    if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
+      window.dispatchEvent(new CustomEvent("volt:startup-status", { detail: { status: state.status } }));
+    }
   };
 
   return Object.freeze({

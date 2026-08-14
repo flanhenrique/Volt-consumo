@@ -105,7 +105,7 @@ function normalizeClosedCycleBilling(input, range) {
   return {
     cycleStart: input.cycleStart || null,
     cycleEnd: input.cycleEnd || null,
-    range: { start: input.cycleStart || range.start, end: input.cycleEnd || range.end },
+    range: { start: range.start, end: range.end },
     measuredConsumptionKwh: finiteOrNull(input.measuredConsumptionKwh),
     billedConsumptionKwh: finiteOrNull(input.billedConsumptionKwh),
     billingBasis: String(input.billingBasis || "metered"),

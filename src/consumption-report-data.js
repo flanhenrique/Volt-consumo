@@ -8,26 +8,60 @@ const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red
 export function buildConsumptionReportData(type, state, period) {
   const readings = [...(state.readings?.[type] || [])].sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
   const cycle = getCycleContext(state.cycles[type]);
-  const range = resolveRange(period, readings, cycle);
+  const monthlyHistory = normalizeMonthlyHistory(state.historicalConsumption?.[type] || []);
+  const selectedHistory = selectMonthlyHistory(period, monthlyHistory);
+  const usesMonthlyHistory = period !== "cycle" && selectedHistory.length > 0;
+  const range = usesMonthlyHistory ? monthlyHistoryRange(selectedHistory) : resolveRange(period, readings, cycle);
   const intervals = readingIntervals(readings);
   const selectedIntervals = intervals.filter((item) => inside(item.date, range));
-  const consumption = period === "cycle" ? consumptionWithinCycle(readings, cycle.current) : sum(selectedIntervals);
-  const days = period === "cycle" ? elapsedCycleDays(cycle.current) : periodDays(range);
+  const consumption = period === "cycle"
+    ? consumptionWithinCycle(readings, cycle.current)
+    : usesMonthlyHistory ? sum(selectedHistory) : sum(selectedIntervals);
+  const days = period === "cycle"
+    ? elapsedCycleDays(cycle.current)
+    : usesMonthlyHistory ? selectedHistory.length * 30 : periodDays(range);
   const daily = consumption / Math.max(1, days);
-  const monthly = daily * 30;
+  const monthly = usesMonthlyHistory ? consumption / Math.max(1, selectedHistory.length) : daily * 30;
   const goal = Number(state.settings?.[type]?.goal) || 0;
   const currentConsumption = consumptionWithinCycle(readings, cycle.current);
   const projection = projectCurrentCycle(currentConsumption, goal, cycle.current);
-  const buckets = monthBuckets(selectedIntervals);
-  const previous = previousConsumption(period, readings, intervals, cycle, range);
+  const buckets = usesMonthlyHistory ? historyBuckets(selectedHistory) : monthBuckets(selectedIntervals);
+  const previous = usesMonthlyHistory
+    ? previousHistoricalConsumption(period, monthlyHistory, selectedHistory)
+    : previousConsumption(period, readings, intervals, cycle, range);
   const change = relativeChange(consumption, previous);
-  const peak = selectedIntervals.reduce((best, item) => !best || item.value > best.value ? item : best, null);
+  const peak = usesMonthlyHistory
+    ? selectedHistory.reduce((best, item) => !best || item.value > best.value ? { value: item.value, date: monthEnd(item.referenceMonth), source: "bill_history" } : best, null)
+    : selectedIntervals.reduce((best, item) => !best || item.value > best.value ? item : best, null);
   const billing = type === "energy" ? normalizeClosedCycleBilling(state.billing?.energy, cycle.previous) : null;
   const cycleHistory = buildCycleHistory(readings, cycle, billing);
   const contextRange = { start: new Date(cycle.previous.start), end: new Date(cycle.current.end) };
   const contextLabel = `${dateOnly(contextRange.start)} a ${dateOnly(contextRange.end)}`;
   const financial = estimateFinancial(type, consumption, state.settings?.[type] || {});
-  return { type, readings, cycle, range, intervals: selectedIntervals, consumption, days, daily, monthly, goal, currentConsumption, projection, buckets, previous, change, peak, billing, cycleHistory, contextRange, contextLabel, financial };
+  return {
+    type,
+    readings,
+    cycle,
+    range,
+    intervals: selectedIntervals,
+    consumption,
+    days,
+    daily,
+    monthly,
+    goal,
+    currentConsumption,
+    projection,
+    buckets,
+    previous,
+    change,
+    peak,
+    billing,
+    cycleHistory,
+    contextRange,
+    contextLabel,
+    financial,
+    historySource: usesMonthlyHistory ? "bill_history" : "meter_readings"
+  };
 }
 
 export function periodLabel(period) {
@@ -165,6 +199,73 @@ function finiteOrNull(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function normalizeMonthlyHistory(input) {
+  return (Array.isArray(input) ? input : [])
+    .map((item) => ({
+      referenceMonth: calendarMonth(item?.referenceMonth),
+      value: Number(item?.value),
+      basis: String(item?.basis || "not_identified"),
+      sourceType: String(item?.sourceType || "bill_identified"),
+      confidence: String(item?.confidence || "not_identified")
+    }))
+    .filter((item) => item.referenceMonth && Number.isFinite(item.value) && item.value >= 0)
+    .sort((a, b) => a.referenceMonth.localeCompare(b.referenceMonth));
+}
+
+function calendarMonth(value) {
+  if (!value) return null;
+  const text = String(value);
+  if (/^\d{4}-\d{2}/.test(text)) return `${text.slice(0, 7)}-01`;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function selectMonthlyHistory(period, history) {
+  if (period === "cycle" || !history.length) return [];
+  const currentMonth = calendarMonth(new Date());
+  const eligible = history.filter((item) => !currentMonth || item.referenceMonth <= currentMonth);
+  if (PERIOD_MONTHS[period]) return eligible.slice(-PERIOD_MONTHS[period]);
+  return eligible;
+}
+
+function monthlyHistoryRange(history) {
+  const first = history[0]?.referenceMonth;
+  const last = history.at(-1)?.referenceMonth;
+  return {
+    start: first ? monthStart(first) : new Date(),
+    end: last ? monthEnd(last) : new Date()
+  };
+}
+
+function historyBuckets(history) {
+  return history.map((item) => ({
+    date: monthStart(item.referenceMonth),
+    value: item.value,
+    basis: item.basis,
+    sourceType: item.sourceType,
+    confidence: item.confidence
+  }));
+}
+
+function previousHistoricalConsumption(period, history, selected) {
+  const months = PERIOD_MONTHS[period];
+  if (!months || selected.length !== months) return NaN;
+  const firstIndex = history.findIndex((item) => item.referenceMonth === selected[0].referenceMonth);
+  if (firstIndex < months) return NaN;
+  return sum(history.slice(firstIndex - months, firstIndex));
+}
+
+function monthStart(value) {
+  const [year, month] = String(value).slice(0, 7).split("-").map(Number);
+  return new Date(year, month - 1, 1);
+}
+
+function monthEnd(value) {
+  const [year, month] = String(value).slice(0, 7).split("-").map(Number);
+  return new Date(year, month, 0, 23, 59, 59, 999);
 }
 
 function resolveRange(period, readings, cycle) {

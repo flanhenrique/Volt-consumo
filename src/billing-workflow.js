@@ -1,11 +1,11 @@
-import { VOLT_CONFIG } from "../config.js?v=20260814.1";
+import { VOLT_CONFIG } from "../config.js?v=20260813.7";
 import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260813.7";
 import { getCycleContext } from "./cycles.js?v=20260813.7";
 import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
-import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260814.1";
-import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20260814.1";
-import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20260814.1";
-import { downloadExecutivePdf } from "./executive-pdf.js?v=20260814.1";
+import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260813.7";
+import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20260813.7";
+import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20260813.7";
+import { downloadExecutivePdf } from "./executive-pdf.js?v=20260813.7";
 
 const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const RECONCILIATION_POLICY = Object.freeze({ matchingAmount: 1, smallAmount: 5, smallPercent: 3 });
@@ -43,7 +43,7 @@ function ensureStyleSheet() {
   if (document.querySelector('link[data-volt-billing-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/billing-workflow.css?v=20260814.1";
+  link.href = "./styles/billing-workflow.css?v=20260813.7";
   link.dataset.voltBillingStyle = "true";
   document.head.append(link);
 }
@@ -137,7 +137,7 @@ async function ensureOperationalCycles(units, cycles) {
 
   for (const cycle of cycles) {
     if (cycle.cycle_end >= today) continue;
-    if (!['open', 'closed'].includes(cycle.status)) continue;
+    if (!["open", "closed"].includes(cycle.status)) continue;
     await patch("billing_cycles", cycle.id, { status: "awaiting_bill", updated_at: new Date().toISOString() });
     cycle.status = "awaiting_bill";
     changed = true;
@@ -148,7 +148,7 @@ async function ensureOperationalCycles(units, cycles) {
 async function ensureClosedCycleEstimates(domain, state) {
   let changed = false;
   for (const cycle of domain.cycles) {
-    if (!['closed', 'awaiting_bill'].includes(cycle.status)) continue;
+    if (!["closed", "awaiting_bill"].includes(cycle.status)) continue;
     if (domain.bills.some((bill) => bill.billing_cycle_id === cycle.id)) continue;
     if (domain.estimates.some((estimate) => estimate.billing_cycle_id === cycle.id)) continue;
     const unit = domain.units.find((candidate) => candidate.id === cycle.consumer_unit_id);
@@ -276,7 +276,7 @@ function ensureConsumptionHost() {
 
 function buildBillingCard(unit) {
   const cycles = cache.cycles.filter((cycle) => cycle.consumer_unit_id === unit.id).sort((a, b) => b.cycle_end.localeCompare(a.cycle_end));
-  const cycle = cycles.find((item) => item.status === "awaiting_bill") || cycles.find((item) => ['billed', 'reconciled'].includes(item.status)) || cycles[0];
+  const cycle = cycles.find((item) => item.status === "awaiting_bill") || cycles.find((item) => ["billed", "reconciled"].includes(item.status)) || cycles[0];
   if (!cycle) return null;
   const bills = cache.bills.filter((bill) => bill.billing_cycle_id === cycle.id).sort((a, b) => Number(b.revision) - Number(a.revision));
   const bill = bills[0] || null;
@@ -773,6 +773,10 @@ async function confirmPendingExtraction(billId) {
       code: item.code || `ocr_item_${position}`,
       label: item.label || item.code || "Item identificado",
       direction: item.direction || "neutral",
+      quantity: finiteOrNull(item.quantity),
+      quantity_unit: item.quantityUnit || null,
+      unit_rate: finiteOrNull(item.unitRate),
+      percentage: finiteOrNull(item.percentage),
       amount: item.amount == null ? null : Math.abs(Number(item.amount)),
       source_type: "bill_identified",
       confidence: item.amount == null ? "probable" : "confirmed",
@@ -798,6 +802,7 @@ async function confirmPendingExtraction(billId) {
 }
 
 async function linkRegulatoryEvidence(unit, bill, components) {
+  const profiledRuleCodes = new Set();
   for (const component of components) {
     const rule = matchRegulatoryRuleForComponent(cache.rules, component);
     if (!rule) continue;
@@ -819,7 +824,7 @@ async function linkRegulatoryEvidence(unit, bill, components) {
       });
     }
     const profile = latestProfile(unit.id, rule.code);
-    if (!profile || profile.state !== "confirmed_on_bill") {
+    if ((!profile || profile.state !== "confirmed_on_bill") && !profiledRuleCodes.has(rule.code)) {
       await insert("regulatory_profiles", {
         organization_id: bill.organization_id,
         consumer_unit_id: unit.id,
@@ -831,6 +836,7 @@ async function linkRegulatoryEvidence(unit, bill, components) {
         evidence_bill_id: bill.id,
         details: { evidence_component_id: component.id, amount_confirmed: component.amount != null }
       });
+      profiledRuleCodes.add(rule.code);
     }
   }
 }
@@ -1003,7 +1009,7 @@ function flagLabel(value) {
 }
 
 function allowedBillingMethod(value) {
-  return ['metered', 'average', 'estimated', 'adjusted'].includes(value) ? value : "not_identified";
+  return ["metered", "average", "estimated", "adjusted"].includes(value) ? value : "not_identified";
 }
 
 function currency(value) {

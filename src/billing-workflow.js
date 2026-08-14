@@ -7,7 +7,6 @@ import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryPro
 import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20260813.7";
 import { downloadExecutivePdf } from "./executive-pdf.js?v=20260813.7";
 
-const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const RECONCILIATION_POLICY = Object.freeze({ matchingAmount: 1, smallAmount: 5, smallPercent: 3 });
 const CACHE_VERSION = "billing-workflow-v1";
 
@@ -196,10 +195,10 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
   const settings = state.settings?.energy;
   if (!settings) return null;
   const regulatory = buildEnergyBillingRules({ rules: domain.rules, profiles: domain.profiles, unit, cycle });
-  const flagRate = FLAG_RATES[settings.flag] ?? 0;
+  const flagRate = settings.flag === "green" ? 0 : finiteOrNull(regulatory.flagRates?.[settings.flag]);
   const result = forecastEnergyBill(measured, regulatory, {
     fallbackRate: settings.rate,
-    flagRate,
+    flagRate: flagRate ?? 0,
     flagLabel: flagLabel(settings.flag),
     lightingFee: settings.lightingFee
   });
@@ -212,10 +211,11 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
       fallbackRate: settings.rate,
       flag: settings.flag,
       flagRate,
+      flagRateSource: flagRate == null ? "not_identified" : "regulatory_rule",
       lightingFee: settings.lightingFee,
       regulatoryRules: regulatory.applied
     },
-    output: { ...result, note: "Estimativa congelada no fechamento; itens não identificados não são inventados." }
+    output: { ...result, note: flagRate == null ? "Estimativa congelada no fechamento; taxa de bandeira não identificada e não cobrada." : "Estimativa congelada no fechamento; itens não identificados não são inventados." }
   };
 }
 

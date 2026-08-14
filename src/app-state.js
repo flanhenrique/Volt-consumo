@@ -36,6 +36,7 @@ const ADMIN_VIEW_PATCH_KEYS = Object.freeze([
   "identity", "account", "readings", "historicalConsumption", "settings", "cycles", "billing",
   "tariff", "locality", "organization", "adminView", "activePage", "transitionSurface", "view", "error"
 ]);
+const CANONICAL_SYNC_PATCH_KEYS = Object.freeze(["historicalConsumption", "cycles", "billing"]);
 
 let latestApplicationState = structuredClone(initialState);
 
@@ -81,12 +82,14 @@ export function createApplicationStore() {
   });
 
   if (typeof globalThis !== "undefined") {
-    globalThis.__VOLT_ADMIN_VIEW_BRIDGE__ = createAdminViewBridge({
+    const bridgeContext = {
       getState: () => state,
       publish,
       replaceState(nextState) { state = nextState; },
       subscribers
-    });
+    };
+    globalThis.__VOLT_ADMIN_VIEW_BRIDGE__ = createAdminViewBridge(bridgeContext);
+    globalThis.__VOLT_CANONICAL_SYNC_BRIDGE__ = createCanonicalSyncBridge(bridgeContext);
   }
   return store;
 }
@@ -107,6 +110,40 @@ function createAdminViewBridge(context) {
       if (!current.permissions?.canManageUsers || current.status !== StartupStatus.READY) throw new Error("Visualização administrativa indisponível.");
       const safePatch = {};
       for (const key of ADMIN_VIEW_PATCH_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(patch || {}, key)) safePatch[key] = patch[key];
+      }
+      context.replaceState({ ...current, ...safePatch });
+      context.publish();
+    }
+  });
+}
+
+function createCanonicalSyncBridge(context) {
+  const snapshot = () => {
+    const current = context.getState();
+    return {
+      status: current.status,
+      authenticatedUserId: current.user?.id || null,
+      adminView: current.adminView,
+      historicalConsumption: current.historicalConsumption,
+      cycles: current.cycles,
+      billing: current.billing
+    };
+  };
+  return Object.freeze({
+    getState: snapshot,
+    subscribe(subscriber) {
+      if (typeof subscriber !== "function") throw new TypeError("Assinante de sincronização inválido.");
+      const wrapped = () => subscriber(snapshot());
+      context.subscribers.add(wrapped);
+      wrapped();
+      return () => context.subscribers.delete(wrapped);
+    },
+    update(patch) {
+      const current = context.getState();
+      if (current.status !== StartupStatus.READY || current.adminView) throw new Error("Sincronização canônica indisponível neste estado.");
+      const safePatch = {};
+      for (const key of CANONICAL_SYNC_PATCH_KEYS) {
         if (Object.prototype.hasOwnProperty.call(patch || {}, key)) safePatch[key] = patch[key];
       }
       context.replaceState({ ...current, ...safePatch });

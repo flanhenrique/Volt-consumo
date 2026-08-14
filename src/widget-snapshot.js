@@ -63,7 +63,8 @@ function utilitySnapshot(type, state, now) {
   const consumption = consumptionWithinCycle(readings, cycle.current);
   const progress = cycleProgress(cycle.current, now);
   const lastReading = latestReadingForRange(readings, cycle.current);
-  const measuredDays = lastReading
+  const measurable = hasMeasurableConsumption(readings, cycle.current);
+  const measuredDays = measurable && lastReading
     ? clampNumber(dayDifference(cycle.current.start, dayStart(lastReading.date)), 0, progress.totalDays)
     : 0;
   const dailyAverage = measuredDays > 0 ? consumption / measuredDays : 0;
@@ -123,6 +124,19 @@ function isReadyState(state) {
     && state?.cycles?.water
     && Array.isArray(state?.readings?.energy)
     && Array.isArray(state?.readings?.water);
+}
+
+function hasMeasurableConsumption(readings, range) {
+  const sorted = [...readings].sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+  const base = sorted.filter((item) => new Date(item.date) <= range.start).at(-1);
+  const latest = sorted.filter((item) => new Date(item.date) <= range.end).at(-1);
+  if (base && latest && Date.parse(latest.date) > Date.parse(base.date)) return true;
+
+  const contained = sorted.filter((item) => {
+    const date = new Date(item.date);
+    return date >= range.start && date <= range.end;
+  });
+  return contained.length >= 2 && Date.parse(contained.at(-1).date) > Date.parse(contained[0].date);
 }
 
 function latestReadingForRange(readings, range) {

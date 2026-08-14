@@ -1,6 +1,6 @@
 {
   "release": "20260813.7",
-  "build": "20260814.6",
-  "releasedAt": "2026-08-14T05:42:00Z",
-  "message": "Correção de estabilidade no login e no fluxo de atualização do PWA."
+  "build": "20260814.7",
+  "releasedAt": "2026-08-14T05:46:00Z",
+  "message": "Correção do travamento de autenticação no iPhone/PWA."
 }

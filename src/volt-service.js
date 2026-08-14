@@ -1,5 +1,6 @@
 import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260813.7";
 import { renderLegalBillDetail } from "./bill-detail.js?v=20260813.7";
+import { buildEnergyBillingRules } from "./regulatory-engine.js?v=20260814.1";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });
@@ -67,18 +68,20 @@ export function createVoltService(config) {
       const user = session?.user;
       if (!user) throw new Error("Sessão sem usuário.");
       const identity = normalizeIdentity(user);
-      const [organization, energyReadings, energySettings, waterReadings, waterSettings, permissions] = await Promise.all([
+      const [organization, energyReadings, energySettings, waterReadings, waterSettings, permissions, sqlBilling] = await Promise.all([
         loadOrganization(client),
         queryReadings(client, "beta_meter_readings"),
         querySettings(client, "beta_user_settings", user.id),
         queryReadings(client, "beta_water_readings"),
         querySettings(client, "beta_water_settings", user.id),
-        queryPermissions(client)
+        queryPermissions(client),
+        loadSqlBillingContext(client, user.id)
       ]);
       const locality = normalizeLocality(user.user_metadata?.locality);
       const energyBill = normalizeEnergyBillingReference(user.user_metadata?.energy_billing_reference);
       const storedEnergy = energySettings ? mapEnergySettings(energySettings) : { ...DEFAULT_ENERGY_SETTINGS };
       const tariff = resolveEnergyTariff(locality, storedEnergy);
+      activateSqlBillingContext(sqlBilling, tariff.settings.rate);
       renderLegalBillDetail(globalThis.__VOLT_BILLING_CONTEXT__?.profile || null, energyBill);
       if (tariff.resolution.automatic && Math.abs(tariff.settings.rate - storedEnergy.rate) > 0.0000005) {
         await persistEnergySettings(client, user.id, tariff.settings);
@@ -129,6 +132,8 @@ export function createVoltService(config) {
       const { data, error } = await client.auth.updateUser({ data: { ...metadata, locality, locality_updated_at: new Date().toISOString() } });
       if (error) throw error;
       const tariff = resolveEnergyTariff(locality, currentSettings);
+      const sqlBilling = await loadSqlBillingContext(client, user.id);
+      activateSqlBillingContext(sqlBilling, tariff.settings.rate);
       renderLegalBillDetail(globalThis.__VOLT_BILLING_CONTEXT__?.profile || null, normalizeEnergyBillingReference(data.user?.user_metadata?.energy_billing_reference));
       if (tariff.resolution.automatic && Math.abs(tariff.settings.rate - currentSettings.rate) > 0.0000005) {
         await persistEnergySettings(client, user.id, tariff.settings);
@@ -195,6 +200,46 @@ async function loadOrganization(client) {
   const active = (context.organizations || []).find((item) => item.id === context.active_organization_id);
   if (!active) throw new Error("O contexto ativo da conta não pôde ser confirmado.");
   return { id: active.id, name: active.name, role: active.role };
+}
+
+async function loadSqlBillingContext(client, userId) {
+  try {
+    const [{ data: units, error: unitError }, { data: rules, error: ruleError }, { data: profiles, error: profileError }] = await Promise.all([
+      client.from("consumer_units").select("*").eq("service", "energy").eq("status", "active"),
+      client.from("regulatory_rules").select("*").eq("status", "published").order("priority"),
+      client.from("regulatory_profiles").select("*").order("created_at", { ascending: false })
+    ]);
+    if (unitError || ruleError || profileError) return null;
+    const owned = (units || []).filter((unit) => unit.created_by === userId);
+    if (owned.length !== 1) return null;
+    return { unit: owned[0], rules: rules || [], profiles: profiles || [] };
+  } catch {
+    return null;
+  }
+}
+
+function activateSqlBillingContext(context, fallbackRate) {
+  if (!context?.unit) {
+    globalThis.__VOLT_BILLING_CONTEXT__ = null;
+    return;
+  }
+  const resolved = buildEnergyBillingRules({ rules: context.rules, profiles: context.profiles, unit: context.unit, cycle: null });
+  const compatibleBenefits = resolved.benefits.map((benefit) => benefit.type === "free_kwh_credit"
+    ? { ...benefit, type: "per_kwh_credit", rate: Number(fallbackRate) || 0 }
+    : benefit);
+  globalThis.__VOLT_BILLING_CONTEXT__ = {
+    profile: {
+      id: "sql-regulatory-current",
+      version: "regulatory-sql-v1",
+      provider: context.unit.distributor || "",
+      label: "Regras regulatórias confirmadas no Supabase",
+      validFrom: null,
+      active: true,
+      legalBenefits: [],
+      rules: { tariffBands: resolved.tariffBands, benefits: compatibleBenefits, charges: resolved.charges },
+      appliedRules: resolved.applied
+    }
+  };
 }
 
 async function queryReadings(client, table) {

@@ -1,6 +1,6 @@
 {
   "release": "20260813.7",
-  "build": "20260814.11",
-  "releasedAt": "2026-08-14T14:08:00Z",
-  "message": "Correção do bootstrap de autenticação com revalidação de módulos críticos e Service Worker atômico."
+  "build": "20260814.12",
+  "releasedAt": "2026-08-14T14:35:00Z",
+  "message": "Correção do travamento em Verificando sua sessão com proteção persistente de login e cache isolado."
 }

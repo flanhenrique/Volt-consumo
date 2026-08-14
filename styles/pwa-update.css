@@ -1,0 +1,108 @@
+.volt-update-banner {
+  position: fixed;
+  z-index: calc(var(--z-skip, 100) + 20);
+  top: calc(var(--safe-top, 0px) + 12px);
+  left: 12px;
+  right: 12px;
+  max-width: 42rem;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3, .75rem);
+  padding: .8rem .85rem;
+  color: var(--text-primary, #10251f);
+  background: var(--glass-modal, rgba(250, 255, 253, .94));
+  border: 1px solid var(--glass-border-strong, rgba(117, 153, 142, .34));
+  border-radius: var(--radius-lg, 1.65rem);
+  box-shadow: var(--glass-shadow, 0 22px 60px rgba(35, 78, 66, .13));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 22px)) saturate(var(--glass-saturation, 145%));
+  backdrop-filter: blur(var(--glass-blur, 22px)) saturate(var(--glass-saturation, 145%));
+  opacity: 0;
+  transform: translateY(-12px) scale(.985);
+  pointer-events: none;
+  transition: opacity var(--duration-normal, 240ms) var(--ease-standard, ease), transform var(--duration-normal, 240ms) var(--ease-standard, ease);
+}
+
+.volt-update-banner[hidden] {
+  display: none !important;
+}
+
+.volt-update-banner[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.volt-update-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-on-accent, #fff);
+  background: var(--volt-accent, #00a878);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: var(--glass-shadow-control, 0 6px 18px rgba(35, 78, 66, .08));
+}
+
+.volt-update-copy {
+  min-width: 0;
+  display: grid;
+  gap: .12rem;
+}
+
+.volt-update-copy strong {
+  font-size: var(--font-size-sm, .875rem);
+  line-height: 1.25;
+}
+
+.volt-update-copy small {
+  color: var(--text-secondary, #506761);
+  font-size: var(--font-size-xs, .75rem);
+  line-height: 1.35;
+}
+
+.volt-update-action {
+  min-height: 2.45rem;
+  padding: .6rem .9rem;
+  border: 0;
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-on-accent, #fff);
+  background: var(--volt-accent-strong, #007f60);
+  font: inherit;
+  font-size: var(--font-size-sm, .875rem);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.volt-update-action:focus-visible {
+  outline: 3px solid var(--volt-accent-soft, rgba(0, 168, 120, .22));
+  outline-offset: 2px;
+}
+
+.volt-update-action:disabled {
+  opacity: .65;
+  cursor: progress;
+}
+
+@media (max-width: 520px) {
+  .volt-update-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+    border-radius: var(--radius-md, 1.2rem);
+  }
+
+  .volt-update-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .volt-update-banner {
+    transition: none;
+  }
+}

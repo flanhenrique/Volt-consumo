@@ -1,7 +1,7 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260814.4";
+const CACHE_REVISION = "20260814.5";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260814.3", "volt-app-v4-atomic-20260813.7", "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
+const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260814.4", "volt-app-v4-atomic-20260814.3", "volt-app-v4-atomic-20260813.7", "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
 const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
 const CORE_ASSETS = [
   "./",
@@ -14,9 +14,11 @@ const CORE_ASSETS = [
   releaseAsset("./styles/billing-workflow.css"),
   "./styles/home-dashboard-v2.css?v=20260814.1",
   "./styles/home-dashboard-sustainability.css?v=20260814.3",
+  "./styles/pwa-update.css?v=20260814.5",
   releaseAsset("./app.js"),
   releaseAsset("./config.js"),
   "./manifest.webmanifest",
+  "./version.json",
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",
@@ -41,7 +43,8 @@ const CORE_ASSETS = [
   releaseAsset("./src/invoice-ocr-runtime.js"),
   releaseAsset("./src/executive-pdf.js"),
   "./src/home-dashboard-v2.js?v=20260814.1",
-  "./src/home-dashboard-sustainability.js?v=20260814.3"
+  "./src/home-dashboard-sustainability.js?v=20260814.3",
+  "./src/pwa-update.js?v=20260814.5"
 ];
 
 self.addEventListener("install", (event) => {
@@ -57,7 +60,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((names) => Promise.all(names.filter((name) => OWNED_CACHE_NAMES.has(name) && name !== CACHE_NAME).map((name) => caches.delete(name))))
-      .then(() => self.clients.claim())
+      .then(async () => {
+        await self.clients.claim();
+        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        clients.forEach((client) => client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: CACHE_REVISION }));
+      })
   );
 });
 

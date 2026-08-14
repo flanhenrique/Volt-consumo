@@ -1,6 +1,7 @@
-const RELEASE_ID = "20260814.3";
-const CACHE_NAME = `volt-app-v4-atomic-${RELEASE_ID}`;
-const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260813.7", "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
+const RELEASE_ID = "20260813.7";
+const CACHE_REVISION = "20260814.4";
+const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
+const OWNED_CACHE_NAMES = new Set([CACHE_NAME, "volt-app-v4-atomic-20260814.3", "volt-app-v4-atomic-20260813.7", "volt-app-v4-atomic-20260813.6", "volt-app-v3-liquid-glass", "volt-app-v2", "volt-app-v1", "volt-shell-v10", "volt-beta-shell-v96"]);
 const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
 const CORE_ASSETS = [
   "./",
@@ -36,6 +37,8 @@ const CORE_ASSETS = [
   releaseAsset("./src/billing-workflow.js"),
   releaseAsset("./src/regulatory-engine.js"),
   releaseAsset("./src/invoice-ocr.js"),
+  "./ocr-runtime.html",
+  releaseAsset("./src/invoice-ocr-runtime.js"),
   releaseAsset("./src/executive-pdf.js"),
   "./src/home-dashboard-v2.js?v=20260814.1",
   "./src/home-dashboard-sustainability.js?v=20260814.3"

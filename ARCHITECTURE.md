@@ -47,10 +47,12 @@ O renderer deriva a visibilidade exclusivamente desse estado. Login, MFA, erro e
 | lifecycle/bootstrap/auth events | `app.js` | uma fila serializa mudanças de sessão e deduplica o mesmo token |
 | estado privado e startup | `src/app-state.js` | snapshot em memória; DOM nunca é fonte de identidade ou dados |
 | Supabase, tabelas e RPCs | `src/volt-service.js` | um cliente; funções retornam dados e não acessam DOM |
-| Home, Leituras, Usuários, Configurações e navegação | `src/renderer.js` | um renderer; usa `textContent`, `replaceChildren` e valores da store |
+| Home, Leituras, Usuários, Configurações e navegação | `src/renderer.js` | renderer principal; usa valores da store |
+| Relatórios | `src/reports.js` + `src/consumption-report-*` | visão derivada das leituras/configurações; ciclo é a referência principal nas visões de energia e água |
 | ciclos | `src/cycles.js` | cálculo puro e persistência explícita via service |
-| tarifa | `src/tariff.js` + `data/national-energy-catalog.js` | resolução pura; persistência por função, nunca `requestSubmit()` |
+| tarifa | `src/tariff.js` + catálogos em `data/` | resolução atual; migração futura para catálogo SQL versionado |
 | cálculos de consumo | `packages/consumption-domain/browser/index.js` | funções puras |
+| cálculo/análise de faturamento | `packages/consumption-domain/browser/billing-engine.js` | mantém consumo medido e faturado separados e produz componentes de cálculo |
 | cache/offline | `sw.js` | escopo `/`; cache versionado e explicitamente pertencente ao Volt |
 | compatibilidade antiga | `beta/index.html` + `beta/redirect.js` | redirecionamento; nenhum bootstrap, store ou SW próprio |
 
@@ -65,6 +67,8 @@ Supabase / funções puras -> store -> renderer -> DOM
 ```
 
 Formulários chamam funções explícitas do service; o resultado confirmado atualiza a store. Nenhuma rotina lê texto da tela para reconstruir identidade, contexto ou valores financeiros.
+
+A Fase 1 do novo domínio não altera ainda esse snapshot. `consumer_units`, `billing_cycles`, `bills`, `reconciliations` e o catálogo regulatório entram no runtime apenas após backfill e paridade na Fase 2 e posteriores.
 
 ## Auth e identidade
 
@@ -94,13 +98,19 @@ Portanto, uma falha JavaScript não sobrepõe Login, Dashboard ou páginas inter
 
 Somente `src/renderer.js` escreve na Home. Ciclos e cálculos retornam dados. O Dashboard permanece oculto em todos os estados de carregamento; números são escritos no mesmo render síncrono que publica `READY`. Zero é exibido somente depois que coleções e configurações foram carregadas e o cálculo consolidado realmente resultou em zero.
 
+A estimativa financeira não deve ser tratada como simples `consumo × tarifa`. O billing engine já suporta faixas, bandeira, benefícios, cobranças e iluminação; a evolução planejada é fazê-lo consumir regras versionadas do banco e nunca inventar componentes ausentes.
+
 ## Usuários e administração
 
 O bootstrap chama apenas `beta_user_permissions()`, que retorna papel e autorização mínima usando a mesma autoridade do banco. A função é `SECURITY INVOKER`, exige `auth.uid()`, AAL2, identidade administrativa e papel `owner/admin`; `PUBLIC` e `anon` não recebem `EXECUTE`. O diretório global (`beta_platform_users_snapshot`) só é solicitado ao abrir Usuários. Ele lista todas as contas de `auth.users` sem expor credenciais, tokens ou sessões e exige identidade administrativa explícita, AAL2 e membership ativa `owner/admin`. A página é estática e reusada; abrir/fechar/reabrir não substitui o nó nem perde listeners. Não existe polling administrativo nem renderer de organização na tela.
 
 ## Relatórios
 
-A rota e a aba existem. `#page-reports` permanece sem filhos e sem texto. Não há renderer, lazy import ou CSS de relatório.
+A tela de Relatórios é ativa e possui renderer em `src/reports.js`, CSS próprio em `styles/reports.css` e módulos auxiliares de relatório de consumo.
+
+As guias são Visão geral, Energia, Água e Personalizados. Nas visões específicas de Energia e Água, o ciclo atual é a referência prioritária. Energia e água permanecem separadas em unidade e cálculo; não existe soma de `kWh` com `m³`.
+
+O layout mobile possui regras específicas para reduzir altura dos cards, compactar controles e evitar overflow horizontal. A evolução de relatórios deve preservar essa estrutura e implementar, nesta ordem, Consumo, Comparação e Financeiro. PDF executivo é fase posterior; exportação de dados pode continuar separada.
 
 ## Service Worker
 
@@ -120,7 +130,25 @@ O registro do worker acontece antes da restauração de autenticação, para que
 
 ## Backend
 
-O frontend preserva tabelas e RPCs existentes `beta_*`; o prefixo é compatibilidade de dados, não uma segunda aplicação. `supabase/migrations/202608130900_bootstrap_permissions.sql` é aditiva, não apaga nem modifica dados, senhas ou sessões. RLS e RPCs continuam sendo a autoridade de autorização.
+O frontend continua lendo e escrevendo as tabelas `beta_*` durante a transição. Isso é deliberado: a fundação nova foi criada de forma aditiva e ainda não é a autoridade do runtime.
+
+A Fase 1 adicionou o schema privado `volt_private` e as tabelas:
+
+- `consumer_units`
+- `billing_cycles`
+- `unit_meter_readings`
+- `bills`
+- `bill_components`
+- `reconciliations`
+- `regulatory_rules`
+- `regulatory_profiles`
+- `rule_applications`
+
+Todas as tabelas de domínio expostas possuem RLS habilitado e forçado. O isolamento de dados privados é por organização/membership. As funções auxiliares de autorização ficam em schema privado. O catálogo regulatório é leitura autenticada global e seu conteúdo é imutável depois de publicado; apenas transições administrativas de status são permitidas. Mudança de regra legal/tarifária exige nova versão.
+
+As migrations correspondentes estão em `supabase/migrations/20260814011407_volt_domain_foundation_v1.sql` e incrementos `v1_1`, `v1_2_indexes` e `v1_3_rule_lifecycle`.
+
+A arquitetura de domínio, estratégia de backfill, reconciliação e retenção está documentada em `docs/VOLT-DOMAIN-FOUNDATION.md`.
 
 ## Gates
 
@@ -129,3 +157,5 @@ O frontend preserva tabelas e RPCs existentes `beta_*`; o prefixo é compatibili
 - `tests/e2e/sw.spec.mjs`: registro, controle, asset 404, offline e retorno online.
 - `tests/browser_smoke.py`: fallback local equivalente.
 - `.github/workflows/app-quality-gate.yml`: sintaxe, helpers backend e browser real.
+
+Para mudanças de domínio SQL, o gate inclui também: migrations sincronizadas entre Supabase e GitHub, RLS/GRANT revisados, advisors de segurança/performance e contagem de paridade antes de qualquer cutover de dados.

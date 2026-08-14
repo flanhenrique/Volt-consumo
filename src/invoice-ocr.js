@@ -68,8 +68,8 @@ function classifyLine(line) {
     ["social_tariff", /tarifa social/, "benefit", "credit"],
     ["itaipu_bonus", /itaipu|10\.438|art\.?\s*21/, "credit", "credit"],
     ["compensation", /compensacao|credito de energia|saldo de energia/, "credit", "credit"],
-    ["energy_charge", /energia eletrica|energia ativa|consumo.*kwh|\btusd\b|\bte\b/, "energy", "charge"],
-    ["water_charge", /consumo.*(?:m3|m³)|agua faturada|tarifa de agua/, "water", "charge"],
+    ["energy_charge", /energia.*kwh|energia eletrica|energia ativa|\btusd\b|\bte\b/, "energy", "charge"],
+    ["water_charge", /agua.*(?:m3|m³)|agua faturada|tarifa de agua/, "water", "charge"],
     ["other_fee", /multa|juros|taxa|encargo/, "fee", "charge"]
   ];
   for (const [code, matcher, category, direction] of definitions) {

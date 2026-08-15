@@ -1,0 +1,104 @@
+name: Repair VOLT home dashboard once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/repair-home-dashboard-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Repair dashboard runtime and release
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          home_path = Path('src/home-dashboard-v2.js')
+          home = home_path.read_text(encoding='utf-8')
+          home = home.replace('let queued=false;', 'let queued=false,dashboardObserver=null;', 1)
+
+          old_boot = 'function boot(){const start=()=>{loadCss();structure();queue();window.addEventListener("volt:startup-status",e=>{if(e.detail?.status==="READY")queue()});window.addEventListener("volt:regulatory-context",queue);document.addEventListener("change",e=>{if(["energy-flag","energy-rate","lighting-fee"].includes(e.target?.id))queue()})};document.readyState==="loading"?document.addEventListener("DOMContentLoaded",start,{once:true}):start()}'
+          new_boot = 'function boot(){const start=()=>{loadCss();structure();observeDashboard();queue();window.addEventListener("volt:startup-status",e=>{if(e.detail?.status==="READY")queue()});window.addEventListener("pageshow",queue);window.addEventListener("volt:regulatory-context",queue);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")queue()});document.addEventListener("change",e=>{if(["energy-flag","energy-rate","lighting-fee"].includes(e.target?.id))queue()})};document.readyState==="loading"?document.addEventListener("DOMContentLoaded",start,{once:true}):start()}'
+          if old_boot not in home:
+              raise SystemExit('Home dashboard boot signature not found; aborting safe patch.')
+          home = home.replace(old_boot, new_boot, 1)
+
+          load_css = 'function loadCss(){if(document.querySelector(\'link[data-home-v2]\'))return;const l=document.createElement("link");l.rel="stylesheet";l.href="./styles/home-dashboard-v2.css?v=20260814.1";l.dataset.homeV2="";document.head.append(l)}'
+          observe = load_css + '\nfunction observeDashboard(){const dashboard=$("dashboard");if(!dashboard||dashboardObserver)return;dashboardObserver=new MutationObserver(()=>{if(!dashboard.hidden)queue()});dashboardObserver.observe(dashboard,{attributes:true,attributeFilter:["hidden"]})}'
+          if load_css not in home:
+              raise SystemExit('Home dashboard CSS loader not found; aborting safe patch.')
+          home = home.replace(load_css, observe, 1)
+          home_path.write_text(home, encoding='utf-8')
+
+          bootstrap_path = Path('bootstrap.js')
+          bootstrap = bootstrap_path.read_text(encoding='utf-8')
+          bootstrap = bootstrap.replace('const BOOTSTRAP_BUILD = "20260814.11";', 'const BOOTSTRAP_BUILD = "20260815.10";', 1)
+          bootstrap = bootstrap.replace('const UPDATE_BUILD = "20260815.9";', 'const UPDATE_BUILD = "20260815.10";', 1)
+          app_import = '  await import(`./app.js?v=${BOOTSTRAP_BUILD}`);\n'
+          enhancement_imports = app_import + '  await import(`./src/home-dashboard-v2.js?v=${UPDATE_BUILD}`);\n  await import(`./src/home-dashboard-sustainability.js?v=${UPDATE_BUILD}`);\n'
+          if app_import not in bootstrap:
+              raise SystemExit('Bootstrap app import not found; aborting safe patch.')
+          if './src/home-dashboard-v2.js?v=${UPDATE_BUILD}' not in bootstrap:
+              bootstrap = bootstrap.replace(app_import, enhancement_imports, 1)
+          bootstrap_path.write_text(bootstrap, encoding='utf-8')
+
+          index_path = Path('index.html')
+          index = index_path.read_text(encoding='utf-8')
+          index = index.replace('./bootstrap.js?v=20260814.11', './bootstrap.js?v=20260815.10')
+          index_path.write_text(index, encoding='utf-8')
+
+          sw_path = Path('sw.js')
+          sw = sw_path.read_text(encoding='utf-8')
+          sw = sw.replace('const CACHE_REVISION = "20260815.9";', 'const CACHE_REVISION = "20260815.10";', 1)
+          sw = sw.replace('const BOOTSTRAP_BUILD = "20260814.11";', 'const BOOTSTRAP_BUILD = "20260815.10";', 1)
+          sw = sw.replace('const UPDATE_BUILD = "20260815.9";', 'const UPDATE_BUILD = "20260815.10";', 1)
+          marker = '  CACHE_NAME,\n'
+          if '"volt-app-v4-atomic-20260815.9"' not in sw:
+              sw = sw.replace(marker, marker + '  "volt-app-v4-atomic-20260815.9",\n', 1)
+          sw_path.write_text(sw, encoding='utf-8')
+
+          quality_path = Path('tests/quality_gate.py')
+          quality = quality_path.read_text(encoding='utf-8')
+          quality = quality.replace('BOOTSTRAP_BUILD = "20260814.11"', 'BOOTSTRAP_BUILD = "20260815.10"', 1)
+          quality_path.write_text(quality, encoding='utf-8')
+
+          version = {
+              'release': '20260815.10',
+              'build': '20260815.10',
+              'releasedAt': '2026-08-15T23:22:00Z',
+              'message': 'Correção do Dashboard no iPhone: garante o carregamento dos módulos da Home e refaz gráficos e estimativas quando a sessão fica pronta ou o PWA retorna ao primeiro plano.'
+          }
+          Path('version.json').write_text(json.dumps(version, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Validate static contract and JavaScript syntax
+        shell: bash
+        run: |
+          node --check bootstrap.js
+          node --check sw.js
+          node --check src/home-dashboard-v2.js
+          node --check src/home-dashboard-sustainability.js
+          python tests/quality_gate.py
+
+      - name: Commit repair and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name "VOLT Automation"
+          git config user.email "actions@users.noreply.github.com"
+          rm .github/workflows/repair-home-dashboard-once.yml
+          git add -A
+          git commit -m "fix: recover home dashboard rendering on iPhone"
+          git push origin main

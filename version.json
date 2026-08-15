@@ -1,6 +1,6 @@
 {
-  "release": "20260815.10",
-  "build": "20260815.10",
-  "releasedAt": "2026-08-15T22:14:53Z",
-  "message": "Ajusta a área de toque dos botões de fechar nos modais mobile para no mínimo 44 px e atualiza a revisão de cache para garantir entrega consistente em PWAs instalados."
+  "release": "20260815.11",
+  "build": "20260815.11",
+  "releasedAt": "2026-08-15T23:29:00Z",
+  "message": "Teste do Easter Egg VOLT: sete toques no raio da marca, no dashboard autenticado, ativam uma sequência visual secreta com carga elétrica, assinatura de Manaus e identificação do build."
 }

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const onePixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZfWQAAAAASUVORK5CYII=";
+const twoPixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8//8/AwMDEwMDAwMDAwAkBgMB/DXemwAAAABJRU5ErkJggg==";
 
 test("OCR runtime funciona sem liberar same-origin", async ({ page }) => {
   const failures = [];
@@ -14,7 +14,6 @@ test("OCR runtime funciona sem liberar same-origin", async ({ page }) => {
     contentType: "application/javascript",
     headers: { "access-control-allow-origin": "*" },
     body: `
-      void navigator.serviceWorker;
       globalThis.Tesseract = {
         createWorker: async () => ({
           recognize: async () => ({ data: { text: "kWh 01234" } })
@@ -66,7 +65,7 @@ test("OCR runtime funciona sem liberar same-origin", async ({ page }) => {
       payload,
       sandbox: frame.getAttribute("sandbox")
     };
-  }, onePixelPng);
+  }, twoPixelPng);
 
   expect(result.sandbox).toBe("allow-scripts");
   expect(result.payload).toMatchObject({

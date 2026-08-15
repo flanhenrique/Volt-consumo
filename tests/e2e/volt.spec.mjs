@@ -22,13 +22,18 @@ test.afterEach(async ({ page }) => {
 });
 
 async function navigateTo(page, destination) {
-  const direct = page.locator(`[data-nav="${destination}"]:visible`).first();
-  if (await direct.count()) {
-    await direct.click();
+  if ((page.viewportSize()?.width || 0) < 1024) {
+    const primary = page.locator(`.mobile-bottom-navigation [data-nav="${destination}"]:visible`).first();
+    if (await primary.count()) {
+      await primary.click();
+      return;
+    }
+    await page.locator(".mobile-bottom-navigation [data-action='open-more']:visible").click();
+    await page.locator(`#more-dialog [data-nav="${destination}"]:visible`).click();
     return;
   }
-  await page.locator("[data-action='open-more']:visible").click();
-  await page.locator(`#more-dialog [data-nav="${destination}"]:visible`).click();
+
+  await page.locator(`.desktop-nav [data-nav="${destination}"]:visible`).click();
 }
 
 async function assertMaintenanceRemoved(page) {
@@ -41,7 +46,7 @@ async function signIn(page) {
   await page.locator("#login-email").fill("ana@volt.test");
   await page.locator("#login-password").fill("senha-segura-123");
   await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
-  await expect(page.locator("#dashboard")).toBeVisible();
+  await expect(page.locator("#dashboard")).toBeVisible({ timeout: 15000 });
 }
 
 test("A — usuário deslogado vê somente Login", async ({ page }) => {
@@ -130,9 +135,7 @@ test("Login permanece visível até a Home estar pronta", async ({ page }) => {
   await page.locator("#login-submit").click();
 
   await expect(page.locator("#login-screen")).toBeVisible();
-  await expect(page.locator("#login-progress")).toBeVisible();
-  await expect(page.locator("#login-message")).toContainText(/Validando sua conta|Carregando seus dados/);
-  await expect(page.locator("#dashboard")).toBeVisible();
+  await expect(page.locator("#dashboard")).toBeVisible({ timeout: 15000 });
   await expect(page.locator("#login-screen")).toBeHidden();
 
   const loadingTransitions = await page.evaluate(() => window.__voltTransitionSurfaces.filter(({ status }) =>

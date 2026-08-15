@@ -1,7 +1,8 @@
-const RELEASE_ID = "20260815.2";
+const RELEASE_ID = "20260813.7";
 const CACHE_REVISION = "20260815.2";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
-const BOOTSTRAP_BUILD = "20260815.2";
+const BOOTSTRAP_BUILD = "20260814.11";
+const UPDATE_BUILD = "20260815.2";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
   "volt-app-v4-atomic-20260815.1",
@@ -28,6 +29,7 @@ const OWNED_CACHE_NAMES = new Set([
 ]);
 const releaseAsset = (path) => `${path}?v=${RELEASE_ID}`;
 const bootstrapAsset = (path) => `${path}?v=${BOOTSTRAP_BUILD}`;
+const updateAsset = (path) => `${path}?v=${UPDATE_BUILD}`;
 
 const CORE_ASSETS = [
   "./",
@@ -38,8 +40,7 @@ const CORE_ASSETS = [
   releaseAsset("./styles/components.css"),
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
-  bootstrapAsset("./styles/auth-desktop.css"),
-  "./bootstrap.js?v=20260814.11",
+  updateAsset("./styles/auth-desktop.css"),
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),
@@ -66,13 +67,14 @@ const CORE_ASSETS = [
   "./ocr-runtime.html",
   releaseAsset("./src/invoice-ocr-runtime.js"),
   releaseAsset("./src/executive-pdf.js"),
-  bootstrapAsset("./src/consumption-reports.js"),
-  bootstrapAsset("./src/home-dashboard-v2.js"),
-  bootstrapAsset("./src/home-dashboard-sustainability.js"),
-  bootstrapAsset("./src/pwa-update.js"),
-  bootstrapAsset("./src/admin-user-view.js"),
-  bootstrapAsset("./src/admin-billing-context.js"),
-  bootstrapAsset("./src/canonical-billing-context.js")
+  updateAsset("./src/consumption-reports.js"),
+  updateAsset("./src/home-dashboard-v2.js"),
+  updateAsset("./src/home-dashboard-sustainability.js"),
+  updateAsset("./src/pwa-update.js"),
+  updateAsset("./styles/pwa-update.css"),
+  updateAsset("./src/admin-user-view.js"),
+  updateAsset("./src/admin-billing-context.js"),
+  updateAsset("./src/canonical-billing-context.js")
 ];
 
 self.addEventListener("install", (event) => {
@@ -115,7 +117,7 @@ self.addEventListener("activate", (event) => {
         const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
         clients.forEach((client) => {
           client.postMessage({ type: "VOLT_UPDATE_PROGRESS", phase: "complete", progress: 100 });
-          client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: BOOTSTRAP_BUILD });
+          client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: UPDATE_BUILD });
         });
       })
   );

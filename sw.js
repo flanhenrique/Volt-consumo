@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260815.6";
+const CACHE_REVISION = "20260815.7";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260814.11";
-const UPDATE_BUILD = "20260815.6";
+const UPDATE_BUILD = "20260815.7";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260815.6",
   "volt-app-v4-atomic-20260815.5",
   "volt-app-v4-atomic-20260815.4",
   "volt-app-v4-atomic-20260815.3",

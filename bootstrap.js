@@ -1,8 +1,16 @@
-const BOOTSTRAP_BUILD = "20260815.2";
-globalThis.__VOLT_BUILD__ = BOOTSTRAP_BUILD;
+const BOOTSTRAP_BUILD = "20260814.11";
+const ATOMIC_RELEASE = "20260813.7";
+const UPDATE_BUILD = "20260815.2";
+globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
 const RECOVERY_DELAY_MS = 9000;
+const CRITICAL_MODULES = Object.freeze([
+  `./app.js?v=${BOOTSTRAP_BUILD}`,
+  `./src/app-state.js?v=${ATOMIC_RELEASE}`,
+  `./src/renderer.js?v=${ATOMIC_RELEASE}`,
+  `./src/volt-service.js?v=${ATOMIC_RELEASE}`
+]);
 
 const loginForm = document.getElementById("login-form");
 const loginMessage = document.getElementById("login-message");
@@ -15,7 +23,7 @@ function loadDesktopAuthLayout() {
   if (document.querySelector("link[data-volt-auth-desktop]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = `./styles/auth-desktop.css?v=${BOOTSTRAP_BUILD}`;
+  link.href = `./styles/auth-desktop.css?v=${UPDATE_BUILD}`;
   link.dataset.voltAuthDesktop = "";
   document.head.append(link);
 }
@@ -53,6 +61,15 @@ function keepLoginReleasedWhileStartupIsStuck() {
   }
 }
 
+async function revalidateCriticalModules() {
+  const results = await Promise.allSettled(CRITICAL_MODULES.map(async (url) => {
+    const response = await fetch(url, { cache: "reload" });
+    if (!response.ok) throw new Error(`Falha ao revalidar ${url}`);
+  }));
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
+}
+
 window.setTimeout(() => {
   if (!STUCK_STARTUP_STATUSES.has(currentStartupStatus())) return;
   releaseLogin();
@@ -65,6 +82,7 @@ window.addEventListener("volt:startup-status", (event) => {
 });
 
 try {
+  await revalidateCriticalModules();
   await import(`./app.js?v=${BOOTSTRAP_BUILD}`);
 } catch (error) {
   stopRecoveryGuard();
@@ -78,7 +96,7 @@ try {
 }
 
 try {
-  await import(`./src/pwa-update.js?v=${BOOTSTRAP_BUILD}`);
+  await import(`./src/pwa-update.js?v=${UPDATE_BUILD}`);
 } catch (error) {
   console.warn("VOLT update manager unavailable", error);
 }

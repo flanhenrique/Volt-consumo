@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.4";
+const UPDATE_BUILD = "20260815.5";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -32,6 +32,16 @@ function ensureMeta(name, content) {
   return meta;
 }
 
+function preferredChromeColor() {
+  const theme = document.documentElement.dataset.theme;
+  const dark = theme === "dark" || (!theme && window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+  return dark ? "#000000" : "#eaf4f0";
+}
+
+function syncMobileChromeColor() {
+  ensureMeta("theme-color", preferredChromeColor());
+}
+
 function configureMobileWebAppShell() {
   const viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) {
@@ -42,6 +52,10 @@ function configureMobileWebAppShell() {
   ensureMeta("apple-mobile-web-app-capable", "yes");
   ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
   ensureMeta("apple-mobile-web-app-title", "Volt");
+  syncMobileChromeColor();
+
+  const chromeObserver = new MutationObserver(syncMobileChromeColor);
+  chromeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
   document.documentElement.dataset.displayMode = standalone ? "standalone" : "browser";

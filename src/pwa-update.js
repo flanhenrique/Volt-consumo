@@ -7,9 +7,15 @@ const SAFE_STARTUP_STATUSES = new Set(["SIGNED_OUT", "MFA_REQUIRED", "READY", "E
 let registration = null;
 let banner = null;
 let updateButton = null;
+let progressRegion = null;
+let progressTrack = null;
+let progressFill = null;
+let progressStatus = null;
+let progressPercent = null;
 let lastCheckAt = 0;
 let applyingUpdate = false;
 let initializationScheduled = false;
+let reloadScheduled = false;
 
 schedulePwaUpdateManager();
 
@@ -93,7 +99,9 @@ function observeRegistration(activeRegistration) {
     const worker = activeRegistration.installing;
     if (!worker) return;
     worker.addEventListener("statechange", () => {
-      if (worker.state === "installed" && navigator.serviceWorker.controller) void checkForUpdate(true);
+      if (worker.state === "installed" && navigator.serviceWorker.controller && !applyingUpdate) {
+        void checkForUpdate(true);
+      }
     });
   });
 }
@@ -105,7 +113,6 @@ async function checkForUpdate(force = false) {
 
   try {
     registration ||= await ensureRegistration();
-    await registration.update().catch(() => undefined);
 
     const response = await fetch(`${VERSION_URL}?t=${now}`, {
       cache: "no-store",
@@ -132,6 +139,7 @@ async function checkForUpdate(force = false) {
 
 function showUpdateBanner(remoteVersion = {}) {
   if (!banner) createUpdateBanner();
+  if (!applyingUpdate) resetUpdateProgress();
   const detail = banner.querySelector("[data-update-detail]");
   if (detail) {
     detail.textContent = remoteVersion?.message || "Melhorias e correções estão prontas para instalar.";
@@ -141,7 +149,7 @@ function showUpdateBanner(remoteVersion = {}) {
 }
 
 function hideUpdateBanner() {
-  if (!banner) return;
+  if (!banner || applyingUpdate) return;
   delete banner.dataset.visible;
   window.setTimeout(() => {
     if (!banner?.dataset.visible) banner.hidden = true;
@@ -161,48 +169,107 @@ function createUpdateBanner() {
       <small data-update-detail>Melhorias e correções estão prontas para instalar.</small>
     </span>
     <button class="volt-update-action" type="button">Atualizar agora</button>
+    <div class="volt-update-progress" data-update-progress hidden>
+      <div class="volt-update-progress-copy">
+        <span data-update-progress-status>Preparando atualização…</span>
+        <strong data-update-progress-percent>0%</strong>
+      </div>
+      <div class="volt-update-progress-track" data-update-progress-track role="progressbar" aria-label="Progresso da atualização" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="volt-update-progress-fill" data-update-progress-fill></span>
+      </div>
+    </div>
   `;
   updateButton = banner.querySelector(".volt-update-action");
+  progressRegion = banner.querySelector("[data-update-progress]");
+  progressTrack = banner.querySelector("[data-update-progress-track]");
+  progressFill = banner.querySelector("[data-update-progress-fill]");
+  progressStatus = banner.querySelector("[data-update-progress-status]");
+  progressPercent = banner.querySelector("[data-update-progress-percent]");
   updateButton.addEventListener("click", () => void applyUpdate());
   document.body.append(banner);
+}
+
+function resetUpdateProgress() {
+  if (!banner) return;
+  delete banner.dataset.updating;
+  delete banner.dataset.complete;
+  if (updateButton) {
+    updateButton.hidden = false;
+    updateButton.disabled = false;
+    updateButton.textContent = "Atualizar agora";
+  }
+  if (progressRegion) progressRegion.hidden = true;
+  setUpdateProgress(0, "Preparando atualização…");
+}
+
+function setUpdateProgress(percent, status) {
+  const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  if (progressFill) progressFill.style.width = `${value}%`;
+  if (progressPercent) progressPercent.textContent = `${value}%`;
+  if (progressStatus && status) progressStatus.textContent = status;
+  if (progressTrack) {
+    progressTrack.setAttribute("aria-valuenow", String(value));
+    if (status) progressTrack.setAttribute("aria-valuetext", `${status} ${value}%`);
+  }
+}
+
+function beginUpdateProgress() {
+  if (!banner) createUpdateBanner();
+  banner.dataset.updating = "true";
+  delete banner.dataset.complete;
+  if (updateButton) {
+    updateButton.disabled = true;
+    updateButton.hidden = true;
+  }
+  if (progressRegion) progressRegion.hidden = false;
+  setUpdateProgress(4, "Preparando atualização…");
 }
 
 async function applyUpdate() {
   if (applyingUpdate) return;
   applyingUpdate = true;
-  if (updateButton) {
-    updateButton.disabled = true;
-    updateButton.textContent = "Atualizando…";
-  }
-
+  beginUpdateProgress();
   await clearUpdateBadge();
 
   try {
     registration ||= await ensureRegistration();
-    await registration.update().catch(() => undefined);
 
-    const candidate = registration.waiting || registration.installing;
+    setUpdateProgress(10, "Verificando nova versão…");
+    const waitingBeforeUpdate = registration.waiting;
+    if (!waitingBeforeUpdate) {
+      setUpdateProgress(14, "Baixando dados…");
+      await registration.update();
+    }
+
+    const candidate = registration.waiting || registration.installing || waitingBeforeUpdate;
     if (candidate) {
+      if (candidate.state === "installing") setUpdateProgress(18, "Baixando dados…");
       const worker = await waitUntilInstalled(candidate);
       if (worker?.state === "installed") {
+        setUpdateProgress(Math.max(currentProgress(), 78), "Instalando dados…");
         worker.postMessage({ type: "SKIP_WAITING" });
-        window.setTimeout(() => location.reload(), 1200);
         return;
       }
     }
 
-    // O Service Worker usa network-first para navegação e assets. Recarregar é
-    // suficiente para receber o novo bootstrap sem destruir o cache já instalado.
-    window.setTimeout(() => location.reload(), 120);
+    setUpdateProgress(92, "Aplicando atualização…");
+    finishUpdateAndReload();
   } catch {
-    location.reload();
+    setUpdateProgress(92, "Finalizando atualização…");
+    finishUpdateAndReload();
   }
+}
+
+function currentProgress() {
+  return Number(progressTrack?.getAttribute("aria-valuenow")) || 0;
 }
 
 function waitUntilInstalled(worker) {
   if (!worker || ["installed", "activated"].includes(worker.state)) return Promise.resolve(worker);
   return new Promise((resolve) => {
     const onStateChange = () => {
+      if (worker.state === "installing") setUpdateProgress(Math.max(currentProgress(), 22), "Baixando dados…");
+      if (worker.state === "installed") setUpdateProgress(Math.max(currentProgress(), 72), "Download concluído. Instalando dados…");
       if (["installed", "activated", "redundant"].includes(worker.state)) {
         worker.removeEventListener("statechange", onStateChange);
         resolve(worker);
@@ -212,13 +279,43 @@ function waitUntilInstalled(worker) {
   });
 }
 
+function finishUpdateAndReload() {
+  if (reloadScheduled) return;
+  reloadScheduled = true;
+  setUpdateProgress(100, "Atualização completa");
+  if (banner) banner.dataset.complete = "true";
+  window.setTimeout(() => location.reload(), 850);
+}
+
 function handleControllerChange() {
-  if (applyingUpdate) location.reload();
-  else void checkForUpdate(true);
+  if (applyingUpdate) {
+    setUpdateProgress(96, "Ativando nova versão…");
+    window.setTimeout(finishUpdateAndReload, 180);
+  } else {
+    void checkForUpdate(true);
+  }
 }
 
 function handleServiceWorkerMessage(event) {
-  if (event.data?.type === "VOLT_UPDATED" && !applyingUpdate) void checkForUpdate(true);
+  const payload = event.data || {};
+  if (payload.type === "VOLT_UPDATE_PROGRESS" && applyingUpdate) {
+    const progress = Math.max(currentProgress(), Number(payload.progress) || 0);
+    const status = payload.phase === "install"
+      ? "Instalando dados…"
+      : payload.phase === "complete"
+        ? "Atualização completa"
+        : "Baixando dados…";
+    setUpdateProgress(progress, status);
+    return;
+  }
+
+  if (payload.type === "VOLT_UPDATED") {
+    if (applyingUpdate) {
+      setUpdateProgress(96, "Ativando nova versão…");
+    } else {
+      void checkForUpdate(true);
+    }
+  }
 }
 
 async function setUpdateBadge() {

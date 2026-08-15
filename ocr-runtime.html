@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; connect-src https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; worker-src blob: https://cdn.jsdelivr.net; img-src data: blob:; style-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.voltconsumo.com.br https://voltconsumo.com.br https://flanhenrique.github.io http://127.0.0.1:4173 http://localhost:4173 https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; connect-src https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; worker-src blob: https://cdn.jsdelivr.net; img-src data: blob:; style-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>VOLT OCR</title>
 </head>
 <body>
+  <script src="./src/ocr-sandbox-compat.js?v=20260815.10"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js" crossorigin="anonymous"></script>
   <script src="./src/invoice-ocr-runtime.js?v=20260813.7"></script>
 </body>

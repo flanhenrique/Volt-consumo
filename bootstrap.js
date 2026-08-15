@@ -21,6 +21,7 @@ configureMobileWebAppShell();
 loadMobilePolish();
 loadDialogFix();
 loadDesktopAuthLayout();
+loadEasterEggStyle();
 
 function ensureMeta(name, content) {
   let meta = document.querySelector(`meta[name="${name}"]`);
@@ -86,6 +87,15 @@ function loadDesktopAuthLayout() {
   link.rel = "stylesheet";
   link.href = `./styles/auth-desktop.css?v=${UPDATE_BUILD}`;
   link.dataset.voltAuthDesktop = "";
+  document.head.append(link);
+}
+
+function loadEasterEggStyle() {
+  if (document.querySelector("link[data-volt-easter-egg]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/easter-egg.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltEasterEgg = "";
   document.head.append(link);
 }
 

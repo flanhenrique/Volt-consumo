@@ -12,10 +12,25 @@ on:
       - "bootstrap.js"
       - "sw.js"
       - ".github/workflows/widgetkit-ios-gate.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "native/ios-widgetkit/**"
+      - "src/volt-widget-bridge.js"
+      - "src/widget-snapshot-adapter.mjs"
+      - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
+      - ".github/workflows/widgetkit-ios-gate.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: volt-widgetkit-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   core-tests:
@@ -72,6 +87,7 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM='' \
             build | tee widgetkit-xcodebuild.log
 
       - name: Upload Xcode build log

@@ -1,6 +1,6 @@
 {
-  "release": "20260815.1",
-  "build": "20260815.1",
-  "releasedAt": "2026-08-15T16:55:00Z",
-  "message": "Correção da leitura automática do medidor no iPhone/PWA: o VOLT agora usa OCR compatível como fallback, prioriza valores em kWh ou m³ e evita confundir números de série com a leitura do visor."
+  "release": "20260815.2",
+  "build": "20260815.2",
+  "releasedAt": "2026-08-15T17:04:00Z",
+  "message": "Novo fluxo de atualização: ao tocar em Atualizar agora, o VOLT mostra uma barra de progresso com download, instalação, ativação e conclusão antes de abrir a nova versão."
 }

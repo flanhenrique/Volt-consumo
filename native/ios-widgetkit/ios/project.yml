@@ -24,6 +24,9 @@ targets:
         product: VoltWidgetCore
       - target: VOLTWidgets
         embed: true
+    scheme:
+      testTargets:
+        - VOLTUITests
   VOLTWidgets:
     type: app-extension
     platform: iOS
@@ -41,3 +44,15 @@ targets:
     dependencies:
       - package: VoltWidgetCore
         product: VoltWidgetCore
+  VOLTUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 6.0
+    dependencies:
+      - target: VOLT

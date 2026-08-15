@@ -46,6 +46,16 @@
   font-weight: 800;
   line-height: 1;
   box-shadow: var(--glass-shadow-control, 0 6px 18px rgba(35, 78, 66, .08));
+  transition: transform var(--duration-normal, 240ms) var(--ease-standard, ease), background var(--duration-normal, 240ms) var(--ease-standard, ease);
+}
+
+.volt-update-banner[data-updating="true"] .volt-update-icon {
+  animation: volt-update-pulse 1.15s ease-in-out infinite;
+}
+
+.volt-update-banner[data-complete="true"] .volt-update-icon {
+  animation: none;
+  transform: scale(1.04);
 }
 
 .volt-update-copy {
@@ -89,6 +99,61 @@
   cursor: progress;
 }
 
+.volt-update-progress {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .42rem;
+  padding-top: .12rem;
+}
+
+.volt-update-progress[hidden] {
+  display: none !important;
+}
+
+.volt-update-progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  color: var(--text-secondary, #506761);
+  font-size: var(--font-size-xs, .75rem);
+  line-height: 1.3;
+}
+
+.volt-update-progress-copy strong {
+  color: var(--text-primary, #10251f);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.volt-update-progress-track {
+  position: relative;
+  width: 100%;
+  height: .56rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface-muted, rgba(117, 153, 142, .17));
+  box-shadow: inset 0 0 0 1px var(--glass-border, rgba(117, 153, 142, .14));
+}
+
+.volt-update-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--volt-accent-strong, #007f60);
+  transition: width 320ms var(--ease-standard, ease);
+}
+
+.volt-update-banner[data-complete="true"] .volt-update-progress-fill {
+  background: var(--volt-accent, #00a878);
+}
+
+@keyframes volt-update-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(.92); }
+}
+
 @media (max-width: 520px) {
   .volt-update-banner {
     grid-template-columns: auto minmax(0, 1fr);
@@ -102,7 +167,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .volt-update-banner {
+  .volt-update-banner,
+  .volt-update-icon,
+  .volt-update-progress-fill {
     transition: none;
+  }
+
+  .volt-update-banner[data-updating="true"] .volt-update-icon {
+    animation: none;
   }
 }

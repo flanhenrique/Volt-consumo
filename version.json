@@ -1,6 +1,6 @@
 {
-  "release": "20260815.2",
-  "build": "20260815.2",
-  "releasedAt": "2026-08-15T17:04:00Z",
-  "message": "Novo fluxo de atualização: ao tocar em Atualizar agora, o VOLT mostra uma barra de progresso com download, instalação, ativação e conclusão antes de abrir a nova versão."
+  "release": "20260815.3",
+  "build": "20260815.3",
+  "releasedAt": "2026-08-15T17:27:00Z",
+  "message": "Interface refinada para iPhone: tela cheia, login fixo sem zoom, navegação vertical e tema noturno preto com iluminação Liquid Glass."
 }

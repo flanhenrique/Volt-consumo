@@ -37,7 +37,6 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
-          xcrun simctl list runtimes available
 
       - name: Swift package tests
         working-directory: native/ios-widgetkit
@@ -45,6 +44,15 @@ jobs:
 
       - name: JavaScript widget bridge tests
         run: node --test tests/widget-snapshot-adapter.test.mjs
+
+      - name: Validate native identifiers and App Group
+        run: |
+          set -euo pipefail
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app$' native/ios-widgetkit/ios/project.yml
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app.widgets$' native/ios-widgetkit/ios/project.yml
+          grep -q 'group.br.com.voltconsumo.shared' native/ios-widgetkit/ios/Config/VOLT.entitlements
+          grep -q 'group.br.com.voltconsumo.shared' native/ios-widgetkit/ios/Config/VOLTWidgets.entitlements
+          grep -q 'appGroup = "group.br.com.voltconsumo.shared"' native/ios-widgetkit/ios/Shared/VOLTWidgetShared.swift
 
       - name: Verify VOLT web endpoint
         run: curl --fail --location --silent --show-error --max-time 20 https://www.voltconsumo.com.br/ --output /dev/null

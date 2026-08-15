@@ -48,7 +48,8 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
       loginOverflow: getComputedStyle(login).overflow,
       consumptionCopyDisplay: consumptionCopy ? getComputedStyle(consumptionCopy).display : "missing",
       moreEyebrowDisplay: moreEyebrow ? getComputedStyle(moreEyebrow).display : "missing",
-      moreCloseWidth: moreClose ? getComputedStyle(moreClose).width : "missing",
+      moreCloseWidth: moreClose ? parseFloat(getComputedStyle(moreClose).width) : 0,
+      moreCloseHeight: moreClose ? parseFloat(getComputedStyle(moreClose).height) : 0,
       loginHeadingCopyDisplay: loginHeadingCopy ? getComputedStyle(loginHeadingCopy).display : "missing",
       loginHeadingPosition: loginHeading ? getComputedStyle(loginHeading).position : "missing",
       loginBrandWidth: loginBrandSymbol ? parseFloat(getComputedStyle(loginBrandSymbol).width) : 0
@@ -78,5 +79,6 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
   expect(metrics.loginFormTop).toBeLessThan(metrics.innerHeight * .58);
   expect(metrics.consumptionCopyDisplay).toBe("none");
   expect(metrics.moreEyebrowDisplay).toBe("none");
-  expect(metrics.moreCloseWidth).toBe("48px");
+  expect(metrics.moreCloseWidth).toBeGreaterThanOrEqual(44);
+  expect(metrics.moreCloseHeight).toBeGreaterThanOrEqual(44);
 });

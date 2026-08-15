@@ -9,6 +9,7 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
   await expect(page.locator("#login-screen")).toBeVisible();
 
   await expect.poll(async () => page.locator('meta[name="viewport"]').getAttribute("content")).toContain("user-scalable=no");
+  await expect(page.locator('link[data-volt-mobile-polish]')).toHaveAttribute("href", /mobile-polish\.css\?v=20260815\.4/);
 
   const metrics = await page.evaluate(() => {
     const login = document.getElementById("login-screen");
@@ -16,6 +17,9 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
     const viewport = document.querySelector('meta[name="viewport"]');
     const statusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     const capable = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
+    const consumptionCopy = document.querySelector("#page-consumption .page-header-copy > .supporting-copy");
+    const moreEyebrow = document.querySelector("#more-dialog .dialog-heading .eyebrow");
+    const moreClose = document.querySelector("#more-dialog .dialog-heading .icon-button");
     const rect = login.getBoundingClientRect();
 
     return {
@@ -30,7 +34,10 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
       bodyTouchAction: getComputedStyle(document.body).touchAction,
       loginTouchAction: getComputedStyle(login).touchAction,
       inputFontSize: getComputedStyle(email).fontSize,
-      loginOverflow: getComputedStyle(login).overflow
+      loginOverflow: getComputedStyle(login).overflow,
+      consumptionCopyDisplay: consumptionCopy ? getComputedStyle(consumptionCopy).display : "missing",
+      moreEyebrowDisplay: moreEyebrow ? getComputedStyle(moreEyebrow).display : "missing",
+      moreCloseWidth: moreClose ? getComputedStyle(moreClose).width : "missing"
     };
   });
 
@@ -50,4 +57,7 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
   expect(metrics.loginTouchAction).toBe("none");
   expect(metrics.inputFontSize).toBe("16px");
   expect(metrics.loginOverflow).toBe("hidden");
+  expect(metrics.consumptionCopyDisplay).toBe("none");
+  expect(metrics.moreEyebrowDisplay).toBe("none");
+  expect(metrics.moreCloseWidth).toBe("48px");
 });

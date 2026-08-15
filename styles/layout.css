@@ -108,11 +108,12 @@
 
 :root[data-theme="dark"] .auth-branding {
   background:
-    radial-gradient(circle at 68% 44%, color-mix(in srgb, var(--volt-accent) 32%, transparent), transparent 22rem),
-    linear-gradient(145deg, #00130d, color-mix(in srgb, var(--volt-accent) 17%, #031a13));
-  color: #f2fff9;
+    radial-gradient(circle at 70% 42%, color-mix(in srgb, var(--volt-accent) 28%, transparent), transparent 21rem),
+    radial-gradient(circle at 16% 88%, color-mix(in srgb, var(--volt-water) 12%, transparent), transparent 24rem),
+    linear-gradient(145deg, #080909, #000000 72%);
+  color: #f5f7f6;
 }
-:root[data-theme="dark"] .auth-copy p { color: rgba(235, 255, 247, .72); }
+:root[data-theme="dark"] .auth-copy p { color: rgba(235, 238, 237, .72); }
 
 .dashboard { min-height: 100vh; min-height: 100dvh; }
 .app-frame {

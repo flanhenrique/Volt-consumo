@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.3";
+const UPDATE_BUILD = "20260815.4";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -18,6 +18,7 @@ let recoveryInterval = null;
 let recoveryActive = false;
 
 configureMobileWebAppShell();
+loadMobilePolish();
 loadDesktopAuthLayout();
 
 function ensureMeta(name, content) {
@@ -44,6 +45,15 @@ function configureMobileWebAppShell() {
 
   const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
   document.documentElement.dataset.displayMode = standalone ? "standalone" : "browser";
+}
+
+function loadMobilePolish() {
+  if (document.querySelector("link[data-volt-mobile-polish]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/mobile-polish.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltMobilePolish = "";
+  document.head.append(link);
 }
 
 function loadDesktopAuthLayout() {

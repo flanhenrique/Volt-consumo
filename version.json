@@ -1,6 +1,6 @@
 {
-  "release": "20260815.3",
-  "build": "20260815.3",
-  "releasedAt": "2026-08-15T17:27:00Z",
-  "message": "Interface refinada para iPhone: tela cheia, login fixo sem zoom, navegação vertical e tema noturno preto com iluminação Liquid Glass."
+  "release": "20260815.4",
+  "build": "20260815.4",
+  "releasedAt": "2026-08-15T17:35:00Z",
+  "message": "Ajuste visual mobile: cabeçalho Mais mais compacto e tela de Consumo sem texto introdutório, com os cards mais altos na tela."
 }

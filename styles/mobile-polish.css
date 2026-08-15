@@ -1,0 +1,76 @@
+/* Mobile visual refinements requested after the iOS fullscreen release.
+   Loaded with UPDATE_BUILD so installed PWAs receive the change immediately. */
+
+@media (max-width: 767px) {
+  /* Consumption: remove explanatory copy and bring data above the fold. */
+  #page-consumption {
+    gap: .75rem;
+  }
+
+  #page-consumption .page-header {
+    min-height: 0;
+    margin-bottom: 0;
+    align-items: flex-start;
+    gap: .65rem;
+  }
+
+  #page-consumption .page-header-copy > .supporting-copy {
+    display: none;
+  }
+
+  #page-consumption .page-header-actions {
+    gap: .5rem;
+  }
+
+  #page-consumption .analytics-grid {
+    margin-top: 0;
+  }
+
+  /* More sheet: match the compact header rhythm used across the app. */
+  #more-dialog .dialog-card {
+    padding-top: .8rem;
+  }
+
+  #more-dialog .dialog-heading {
+    min-height: 3rem;
+    padding-bottom: .6rem;
+    align-items: center;
+  }
+
+  #more-dialog .dialog-heading > div {
+    display: flex;
+    align-items: center;
+  }
+
+  #more-dialog .dialog-heading .eyebrow {
+    display: none;
+  }
+
+  #more-dialog .dialog-heading h2 {
+    margin: 0;
+    font-size: clamp(1.5rem, 6.6vw, 1.8rem);
+    line-height: 1;
+    letter-spacing: -.035em;
+  }
+
+  #more-dialog .dialog-heading .icon-button {
+    width: 3rem;
+    min-height: 3rem;
+    border-radius: 1rem;
+  }
+
+  #more-dialog .sheet-profile {
+    margin-top: .2rem;
+    margin-bottom: .75rem;
+  }
+
+  #more-dialog .sheet-menu {
+    gap: .55rem;
+  }
+
+  #more-dialog .sheet-menu .nav-button {
+    min-height: 3.45rem;
+    padding: .68rem 1rem;
+    border-radius: 1.1rem;
+  }
+}

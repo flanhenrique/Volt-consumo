@@ -21,11 +21,11 @@
 
   #more-dialog .dialog-heading [data-close-dialog],
   #signup-dialog .dialog-heading [data-close-dialog] {
-    width: 2.625rem !important;
-    min-width: 2.625rem !important;
-    height: 2.625rem !important;
-    min-height: 2.625rem !important;
-    flex: 0 0 2.625rem !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 1px solid var(--glass-border-strong) !important;
@@ -61,7 +61,7 @@
     min-width: 0;
     display: flex !important;
     align-items: center !important;
-    min-height: 2.625rem;
+    min-height: 44px;
   }
 
   #more-dialog .dialog-heading .eyebrow {

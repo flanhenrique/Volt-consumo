@@ -90,8 +90,30 @@ jobs:
           node-version: "24"
       - name: Install test runtime
         run: npm install --no-audit --no-fund
+      - name: Install browser system dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300s npx playwright install-deps chromium webkit
       - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
+        shell: bash
+        run: |
+          set -euo pipefail
+          for browser in chromium webkit; do
+            installed=0
+            for attempt in 1 2; do
+              if timeout 240s npx playwright install "$browser"; then
+                installed=1
+                break
+              fi
+              echo "Playwright install for $browser failed or timed out (attempt $attempt/2)." >&2
+              sleep 5
+            done
+            if [ "$installed" -ne 1 ]; then
+              echo "Unable to install $browser after two attempts." >&2
+              exit 1
+            fi
+          done
       - name: Run browser acceptance suite
         run: npm run test:browser
       - name: Upload Liquid Glass screenshots

@@ -19,9 +19,9 @@ export default defineConfig({
     reuseExistingServer: false
   },
   projects: [
-    { name: "chromium-desktop", testIgnore: /sw\.spec\.mjs/, use: { ...devices["Desktop Chrome"], serviceWorkers: "allow" } },
-    { name: "webkit-desktop", testIgnore: [/sw\.spec\.mjs/, /visual\.spec\.mjs/], use: { ...devices["Desktop Safari"], serviceWorkers: "allow" } },
-    { name: "chromium-mobile", testIgnore: [/sw\.spec\.mjs/, /visual\.spec\.mjs/], use: { ...devices["Pixel 7"], serviceWorkers: "allow" } },
+    { name: "chromium-desktop", testIgnore: /sw\.spec\.mjs/, use: { ...devices["Desktop Chrome"] } },
+    { name: "webkit-desktop", testIgnore: [/sw\.spec\.mjs/, /visual\.spec\.mjs/], use: { ...devices["Desktop Safari"] } },
+    { name: "chromium-mobile", testIgnore: [/sw\.spec\.mjs/, /visual\.spec\.mjs/], use: { ...devices["Pixel 7"] } },
     { name: "webkit-iphone", testMatch: /mobile-shell\.spec\.mjs/, use: { ...devices["iPhone 14 Pro"] } },
     { name: "chromium-service-worker", testMatch: /sw\.spec\.mjs/, use: { ...devices["Desktop Chrome"], serviceWorkers: "allow" } }
   ]

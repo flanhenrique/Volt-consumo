@@ -35,14 +35,11 @@ concurrency:
 jobs:
   core-tests:
     name: Swift core tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
 
       - name: Toolchain
         run: |
@@ -58,14 +55,11 @@ jobs:
 
   ios-simulator-build:
     name: iPhone runtime + widgets
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
 
       - name: Toolchain
         run: |

@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.2";
+const UPDATE_BUILD = "20260815.3";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -17,7 +17,34 @@ const loginMessage = document.getElementById("login-message");
 let recoveryInterval = null;
 let recoveryActive = false;
 
+configureMobileWebAppShell();
 loadDesktopAuthLayout();
+
+function ensureMeta(name, content) {
+  let meta = document.querySelector(`meta[name="${name}"]`);
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = name;
+    document.head.append(meta);
+  }
+  meta.content = content;
+  return meta;
+}
+
+function configureMobileWebAppShell() {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+  }
+
+  ensureMeta("mobile-web-app-capable", "yes");
+  ensureMeta("apple-mobile-web-app-capable", "yes");
+  ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+  ensureMeta("apple-mobile-web-app-title", "Volt");
+
+  const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+  document.documentElement.dataset.displayMode = standalone ? "standalone" : "browser";
+}
 
 function loadDesktopAuthLayout() {
   if (document.querySelector("link[data-volt-auth-desktop]")) return;

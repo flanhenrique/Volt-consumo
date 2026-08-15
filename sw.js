@@ -89,6 +89,8 @@ const CORE_ASSETS = [
   updateAsset("./src/home-dashboard-sustainability.js"),
   updateAsset("./src/pwa-update.js"),
   updateAsset("./src/easter-egg.js"),
+  updateAsset("./src/volt-widget-bridge.js"),
+  updateAsset("./src/widget-snapshot-adapter.mjs"),
   updateAsset("./styles/pwa-update.css"),
   updateAsset("./src/admin-user-view.js"),
   updateAsset("./src/admin-billing-context.js"),

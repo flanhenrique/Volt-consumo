@@ -1,0 +1,162 @@
+name: VOLT WidgetKit iOS Gate
+
+on:
+  push:
+    branches:
+      - agent/widgetkit-reading-actions
+    paths:
+      - "native/ios-widgetkit/**"
+      - "src/volt-widget-bridge.js"
+      - "src/widget-snapshot-adapter.mjs"
+      - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
+      - ".github/workflows/widgetkit-ios-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: volt-widgetkit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  widgetkit-gate:
+    name: Xcode 26 iPhone + WidgetKit gate
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.3
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Swift package tests
+        working-directory: native/ios-widgetkit
+        run: swift test
+
+      - name: JavaScript widget bridge tests
+        run: node --test tests/widget-snapshot-adapter.test.mjs
+
+      - name: Validate native identifiers and App Group
+        run: |
+          set -euo pipefail
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app$' native/ios-widgetkit/ios/project.yml
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app.widgets$' native/ios-widgetkit/ios/project.yml
+          grep -q 'group.br.com.voltconsumo.shared' native/ios-widgetkit/ios/Config/VOLT.entitlements
+          grep -q 'group.br.com.voltconsumo.shared' native/ios-widgetkit/ios/Config/VOLTWidgets.entitlements
+          grep -q 'appGroup = "group.br.com.voltconsumo.shared"' native/ios-widgetkit/ios/Shared/VOLTWidgetShared.swift
+
+      - name: Verify VOLT web endpoint
+        run: curl --fail --location --silent --show-error --max-time 20 https://www.voltconsumo.com.br/ --output /dev/null
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: native/ios-widgetkit/ios
+        run: xcodegen generate --spec project.yml
+
+      - name: List schemes
+        working-directory: native/ios-widgetkit/ios
+        run: xcodebuild -project VOLT.xcodeproj -list
+
+      - name: Build app and WidgetKit extension for iOS Simulator
+        working-directory: native/ios-widgetkit/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project VOLT.xcodeproj \
+            -scheme VOLT \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM='' \
+            build | tee widgetkit-xcodebuild.log
+
+      - name: Verify embedded Widget Extension
+        working-directory: native/ios-widgetkit/ios
+        run: |
+          test -d DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app
+          test -d DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/PlugIns/VOLTWidgets.appex
+          plutil -p DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/Info.plist
+          plutil -p DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/PlugIns/VOLTWidgets.appex/Info.plist
+
+      - name: Select newest iPhone Simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; data=json.load(sys.stdin).get("devices",{}); ranked=[]
+          for runtime, devices in data.items():
+              match=re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if match:
+                  ranked.append(((int(match.group(1)), int(match.group(2))), runtime, devices))
+          ranked.sort(reverse=True)
+          for _, runtime, devices in ranked:
+              iphones=[d for d in devices if d.get("isAvailable", True) and "iPhone" in d.get("name", "")]
+              if iphones:
+                  print(iphones[0]["udid"]); break')"
+          if [ -z "$UDID" ]; then
+            RUNTIME="$(xcrun simctl list runtimes available -j | python3 -c 'import json,re,sys; items=[]
+          for r in json.load(sys.stdin).get("runtimes",[]):
+              m=re.search(r"iOS (\d+)\.(\d+)", r.get("name", ""))
+              if r.get("isAvailable", True) and m: items.append(((int(m.group(1)),int(m.group(2))),r["identifier"]))
+          items.sort(reverse=True); print(items[0][1] if items else "")')"
+            DEVICE_TYPE="$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; items=[d for d in json.load(sys.stdin).get("devicetypes",[]) if "iPhone" in d.get("name","")]; preferred=[d for d in items if d.get("name") in {"iPhone 17 Pro","iPhone 16 Pro"}]; print((preferred or items)[0]["identifier"] if items else "")')"
+            test -n "$RUNTIME"
+            test -n "$DEVICE_TYPE"
+            UDID="$(xcrun simctl create 'VOLT CI iPhone' "$DEVICE_TYPE" "$RUNTIME")"
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $UDID"
+
+      - name: Run native UI automation
+        working-directory: native/ios-widgetkit/ios
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          rm -rf VOLTUITests.xcresult
+          xcodebuild \
+            -project VOLT.xcodeproj \
+            -scheme VOLT \
+            -configuration Debug \
+            -destination "id=$SIMULATOR_UDID" \
+            -derivedDataPath UITestDerivedData \
+            -resultBundlePath VOLTUITests.xcresult \
+            -only-testing:VOLTUITests \
+            test | tee widgetkit-uitest.log
+
+      - name: Capture final runtime logs
+        if: always()
+        working-directory: native/ios-widgetkit/ios
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          if [ -n "${SIMULATOR_UDID:-}" ]; then
+            xcrun simctl spawn "$SIMULATOR_UDID" log show --style compact --last 10m --predicate 'subsystem == "br.com.voltconsumo.app"' > volt-runtime-final.log 2>/dev/null || true
+          fi
+
+      - name: Upload iOS gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widgetkit-ios-gate-evidence
+          path: |
+            native/ios-widgetkit/ios/widgetkit-xcodebuild.log
+            native/ios-widgetkit/ios/widgetkit-uitest.log
+            native/ios-widgetkit/ios/volt-runtime-final.log
+            native/ios-widgetkit/ios/VOLTUITests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,6 +1,6 @@
 {
-  "release": "20260813.7",
-  "build": "20260814.15",
-  "releasedAt": "2026-08-14T16:38:00Z",
-  "message": "Correção do aviso repetitivo de atualização: o VOLT agora compara a versão instalada real com a versão publicada e não reexibe o mesmo update após atualizar."
+  "release": "20260815.1",
+  "build": "20260815.1",
+  "releasedAt": "2026-08-15T16:55:00Z",
+  "message": "Correção da leitura automática do medidor no iPhone/PWA: o VOLT agora usa OCR compatível como fallback, prioriza valores em kWh ou m³ e evita confundir números de série com a leitura do visor."
 }

@@ -53,9 +53,9 @@ jobs:
           NODE
 
   ios-shell:
-    name: iPhone WebKit fullscreen shell
+    name: WebKit Safari and iPhone shell
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -65,13 +65,13 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Install WebKit
         run: npx playwright install --with-deps webkit
-      - name: Validate iPhone viewport and gestures
-        run: npx playwright test tests/e2e/mobile-shell.spec.mjs --project=webkit-iphone
-      - name: Upload iPhone trace on failure
+      - name: Validate Safari desktop and iPhone shell
+        run: npx playwright test --project=webkit-desktop --project=webkit-iphone
+      - name: Upload WebKit trace on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: volt-iphone-shell-trace
+          name: volt-webkit-trace
           path: |
             playwright-report
             test-results
@@ -79,7 +79,7 @@ jobs:
           retention-days: 7
 
   browser:
-    name: Browser startup and Service Worker
+    name: Chromium startup, mobile and Service Worker
     needs: static
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -90,32 +90,25 @@ jobs:
           node-version: "24"
       - name: Install test runtime
         run: npm install --no-audit --no-fund
-      - name: Install browser system dependencies
+      - name: Install Chromium and system dependencies
         shell: bash
         run: |
           set -euo pipefail
-          timeout 300s npx playwright install-deps chromium webkit
-      - name: Install Chromium and WebKit
-        shell: bash
-        run: |
-          set -euo pipefail
-          for browser in chromium webkit; do
-            installed=0
-            for attempt in 1 2; do
-              if timeout 240s npx playwright install "$browser"; then
-                installed=1
-                break
-              fi
-              echo "Playwright install for $browser failed or timed out (attempt $attempt/2)." >&2
-              sleep 5
-            done
-            if [ "$installed" -ne 1 ]; then
-              echo "Unable to install $browser after two attempts." >&2
-              exit 1
+          installed=0
+          for attempt in 1 2; do
+            if timeout 480s npx playwright install --with-deps chromium; then
+              installed=1
+              break
             fi
+            echo "Playwright Chromium install failed or timed out (attempt $attempt/2)." >&2
+            sleep 5
           done
-      - name: Run browser acceptance suite
-        run: npm run test:browser
+          if [ "$installed" -ne 1 ]; then
+            echo "Unable to install Chromium after two attempts." >&2
+            exit 1
+          fi
+      - name: Run Chromium acceptance suite
+        run: npx playwright test --project=chromium-desktop --project=chromium-mobile --project=chromium-service-worker
       - name: Upload Liquid Glass screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -124,7 +117,7 @@ jobs:
           path: test-results/**/visual-*.png
           if-no-files-found: ignore
           retention-days: 14
-      - name: Upload traces on failure
+      - name: Upload Chromium traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:

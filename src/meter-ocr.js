@@ -115,7 +115,7 @@ function ensureRuntimeFrame() {
     const frame = document.createElement("iframe");
     frame.hidden = true;
     frame.title = "Processador OCR local do VOLT";
-    frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    frame.setAttribute("sandbox", "allow-scripts");
     frame.referrerPolicy = "no-referrer";
     frame.src = OCR_RUNTIME_URL;
     const timer = setTimeout(() => {

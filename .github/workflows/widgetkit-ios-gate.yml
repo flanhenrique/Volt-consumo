@@ -3,7 +3,18 @@ name: VOLT WidgetKit iOS Gate
 on:
   push:
     branches:
-      - agent/widgetkit-reading-actions
+      - agent/widgetkit-final
+    paths:
+      - "native/ios-widgetkit/**"
+      - "src/volt-widget-bridge.js"
+      - "src/widget-snapshot-adapter.mjs"
+      - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
+      - ".github/workflows/widgetkit-ios-gate.yml"
+  pull_request:
+    branches:
+      - main
     paths:
       - "native/ios-widgetkit/**"
       - "src/volt-widget-bridge.js"

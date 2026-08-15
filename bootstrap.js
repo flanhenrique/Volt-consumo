@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.2";
+const UPDATE_BUILD = "20260815.3";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -93,6 +93,12 @@ try {
   if (loginMessage) loginMessage.textContent = "O Volt não conseguiu iniciar. Recarregue a página.";
   document.documentElement.dataset.startupStatus = "ERROR";
   console.error("VOLT bootstrap failed", error);
+}
+
+try {
+  await import(`./src/volt-widget-bridge.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT native widget bridge unavailable", error);
 }
 
 try {

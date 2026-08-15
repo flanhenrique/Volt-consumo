@@ -1,0 +1,43 @@
+name: VOLT
+options:
+  bundleIdPrefix: br.com.voltconsumo
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  VoltWidgetCore:
+    path: ..
+targets:
+  VOLT:
+    type: application
+    platform: iOS
+    sources:
+      - path: Host
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app
+        INFOPLIST_FILE: Config/VOLT-Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/VOLT.entitlements
+        SWIFT_VERSION: 6.0
+    dependencies:
+      - package: VoltWidgetCore
+        product: VoltWidgetCore
+      - target: VOLTWidgets
+        embed: true
+  VOLTWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.voltconsumo.app.widgets
+        INFOPLIST_FILE: Config/VOLTWidgets-Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/VOLTWidgets.entitlements
+        SWIFT_VERSION: 6.0
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: VoltWidgetCore
+        product: VoltWidgetCore

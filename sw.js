@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260815.2";
+const CACHE_REVISION = "20260815.3";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260814.11";
-const UPDATE_BUILD = "20260815.2";
+const UPDATE_BUILD = "20260815.3";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260815.2",
   "volt-app-v4-atomic-20260815.1",
   "volt-app-v4-atomic-20260814.17",
   "volt-app-v4-atomic-20260814.16",
@@ -71,6 +72,8 @@ const CORE_ASSETS = [
   updateAsset("./src/home-dashboard-v2.js"),
   updateAsset("./src/home-dashboard-sustainability.js"),
   updateAsset("./src/pwa-update.js"),
+  updateAsset("./src/volt-widget-bridge.js"),
+  updateAsset("./src/widget-snapshot-adapter.mjs"),
   updateAsset("./styles/pwa-update.css"),
   updateAsset("./src/admin-user-view.js"),
   updateAsset("./src/admin-billing-context.js"),

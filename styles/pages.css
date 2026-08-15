@@ -200,3 +200,73 @@
   .utility-card-details { gap: var(--space-2); }
   .reading-type-grid { grid-template-columns: 1fr; }
 }
+
+/* VOLT HELP EXPERIENCE 20260815.8 */
+.volt-help-page { padding-bottom: calc(5.5rem + var(--safe-bottom)); }
+.help-shell { width: min(100%, 48rem); margin: 0 auto; display: grid; gap: var(--space-5); }
+.help-product-header { position: relative; display: grid; min-height: 4.75rem; place-items: center; }
+.help-product-title { display: grid; gap: .1rem; text-align: center; }
+.help-product-title h1 { margin: 0; font-size: clamp(1.55rem, 3vw, 2rem); letter-spacing: -.035em; }
+.help-product-title p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.help-back-button { position: absolute; left: 0; top: 50%; display: grid; width: 3rem; height: 3rem; place-items: center; transform: translateY(-50%); border: 1px solid var(--glass-border-strong); border-radius: 50%; background: var(--glass-control); color: var(--text-primary); box-shadow: var(--glass-shadow-control), inset 0 1px 0 var(--glass-highlight); }
+.help-back-button .icon { width: 1.35rem; height: 1.35rem; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.volt-help-hero { position: relative; width: min(22rem, 78vw); aspect-ratio: 1; margin: -.35rem auto -.75rem; display: grid; place-items: center; }
+.help-orbit { position: absolute; border: 1px solid color-mix(in srgb, var(--text-tertiary) 24%, transparent); border-radius: 50%; opacity: .7; }
+.help-orbit-one { inset: 12%; }
+.help-orbit-two { inset: 24%; border-style: dashed; }
+.help-strike { position: absolute; top: -7%; left: 50%; width: 4.3rem; height: 58%; transform: translateX(-50%); overflow: visible; filter: drop-shadow(0 0 9px color-mix(in srgb, var(--volt-accent) 70%, transparent)); }
+.help-strike-path { fill: none; stroke: var(--volt-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 240; stroke-dashoffset: 240; animation: volt-help-strike 760ms cubic-bezier(.18,.88,.28,1) 120ms forwards; }
+.help-core { position: relative; display: grid; width: 7.7rem; height: 7.7rem; place-items: center; border: 1px solid color-mix(in srgb, var(--volt-accent) 34%, var(--glass-border)); border-radius: 2.25rem; background: linear-gradient(145deg, color-mix(in srgb, var(--volt-accent-soft) 72%, var(--glass-3)), var(--glass-2)); box-shadow: 0 22px 60px color-mix(in srgb, var(--volt-accent) 13%, transparent), inset 0 1px 0 var(--glass-highlight); opacity: 0; transform: scale(.9); animation: volt-help-core 520ms var(--ease-standard) 650ms forwards; }
+.help-core-mark { width: 3.8rem; height: 3.8rem; fill: color-mix(in srgb, var(--volt-accent) 26%, transparent); stroke: var(--volt-accent-strong); stroke-width: 1.8; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--volt-accent) 35%, transparent)); }
+.help-core-glow { position: absolute; width: 2.4rem; height: .55rem; bottom: .7rem; border-radius: 50%; background: color-mix(in srgb, var(--volt-accent) 62%, transparent); filter: blur(9px); animation: volt-help-pulse 2.4s ease-in-out 1.1s infinite; }
+.help-orbit-icon { position: absolute; display: grid; width: 3.1rem; height: 3.1rem; place-items: center; border: 1px solid color-mix(in srgb, var(--glass-border-strong) 78%, transparent); border-radius: 1rem; background: color-mix(in srgb, var(--glass-control) 68%, transparent); color: var(--text-tertiary); opacity: 0; transform: scale(.82); animation: volt-help-icon-in 420ms var(--ease-standard) forwards; }
+.help-orbit-icon .icon { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.75; }
+.help-orbit-water { top: 19%; left: 9%; color: var(--volt-water-strong); animation-delay: 760ms; }
+.help-orbit-energy { top: 18%; right: 9%; color: var(--volt-energy-strong); animation-delay: 820ms; }
+.help-orbit-reading { top: 48%; right: 2%; animation-delay: 880ms; }
+.help-orbit-shield { bottom: 13%; left: 14%; color: var(--volt-accent-strong); animation-delay: 940ms; }
+.help-orbit-help { bottom: 8%; right: 22%; color: var(--volt-accent-strong); animation-delay: 1000ms; }
+.help-indicators { display: flex; justify-content: center; gap: .55rem; margin-top: -1.15rem; }
+.help-indicators span { width: .52rem; height: .52rem; border-radius: 50%; background: color-mix(in srgb, var(--text-tertiary) 42%, transparent); }
+.help-indicators span:first-child { background: var(--volt-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--volt-accent) 35%, transparent); }
+.help-menu { overflow: hidden; border: 1px solid var(--glass-border); border-radius: var(--radius-xl); box-shadow: var(--glass-shadow-soft); opacity: 0; transform: translateY(1rem); animation: volt-help-menu-in 520ms var(--ease-standard) forwards; }
+.help-menu-primary { animation-delay: 1020ms; }
+.help-menu-secondary { animation-delay: 1130ms; }
+.help-menu-row { display: grid; min-height: 4.8rem; padding: .9rem 1.05rem; align-items: center; gap: .9rem; color: inherit; text-decoration: none; grid-template-columns: auto minmax(0,1fr) auto; background: color-mix(in srgb, var(--glass-2) 88%, transparent); transition: background var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard); }
+.help-menu-row + .help-menu-row { border-top: 1px solid var(--glass-border); }
+.help-menu-row:hover { background: var(--glass-control); }
+.help-menu-row:active { transform: scale(.995); }
+.help-menu-icon { display: grid; width: 2.55rem; height: 2.55rem; place-items: center; border-radius: .9rem; background: var(--volt-accent-soft); color: var(--volt-accent-strong); }
+.help-menu-icon .icon { width: 1.28rem; height: 1.28rem; fill: none; stroke: currentColor; stroke-width: 1.85; }
+.help-menu-copy { min-width: 0; display: grid; gap: .08rem; }
+.help-menu-copy strong { font-size: clamp(1rem, 2vw, 1.12rem); }
+.help-menu-copy small { color: var(--text-secondary); line-height: 1.3; }
+.help-chevron { width: 1.2rem; height: 1.2rem; fill: none; stroke: var(--text-tertiary); stroke-width: 2; }
+.help-inline-panel { display: none; padding: var(--space-5); gap: var(--space-4); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); scroll-margin-top: 1rem; }
+.help-inline-panel:target { display: grid; animation: volt-help-menu-in 360ms var(--ease-standard) both; }
+.help-inline-heading h2 { margin: .1rem 0 0; }
+.help-inline-heading .eyebrow { margin: 0; }
+.help-inline-panel a { color: var(--volt-accent-strong); }
+.help-legal-footer { display: grid; justify-items: center; gap: .05rem; padding: .35rem 1rem calc(.5rem + var(--safe-bottom)); color: var(--text-tertiary); text-align: center; font-size: .78rem; line-height: 1.45; opacity: 0; animation: volt-help-menu-in 420ms var(--ease-standard) 1240ms forwards; }
+.help-legal-footer p { margin: 0; }
+@keyframes volt-help-strike { to { stroke-dashoffset: 0; } }
+@keyframes volt-help-core { to { opacity: 1; transform: scale(1); } }
+@keyframes volt-help-icon-in { to { opacity: .9; transform: scale(1); } }
+@keyframes volt-help-menu-in { to { opacity: 1; transform: translateY(0); } }
+@keyframes volt-help-pulse { 0%,100% { opacity: .32; transform: scale(.86); } 50% { opacity: .78; transform: scale(1.15); } }
+@media (max-width: 720px) {
+  .volt-help-page { padding-top: .2rem; }
+  .help-shell { gap: .9rem; }
+  .help-product-header { min-height: 3.85rem; }
+  .help-back-button { width: 2.75rem; height: 2.75rem; }
+  .volt-help-hero { width: min(18.5rem, 76vw); margin-top: -.7rem; margin-bottom: -1.25rem; }
+  .help-core { width: 6.45rem; height: 6.45rem; border-radius: 1.85rem; }
+  .help-core-mark { width: 3.15rem; height: 3.15rem; }
+  .help-orbit-icon { width: 2.65rem; height: 2.65rem; border-radius: .82rem; }
+  .help-orbit-icon .icon { width: 1.18rem; height: 1.18rem; }
+  .help-menu { border-radius: 1.55rem; }
+  .help-menu-row { min-height: 4.45rem; padding: .75rem .9rem; gap: .72rem; }
+  .help-menu-icon { width: 2.35rem; height: 2.35rem; }
+  .help-legal-footer { font-size: .72rem; }
+}
+/* END VOLT HELP EXPERIENCE 20260815.8 */

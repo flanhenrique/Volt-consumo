@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.3";
+const UPDATE_BUILD = "20260815.9";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -18,6 +18,8 @@ let recoveryInterval = null;
 let recoveryActive = false;
 
 configureMobileWebAppShell();
+loadMobilePolish();
+loadDialogFix();
 loadDesktopAuthLayout();
 
 function ensureMeta(name, content) {
@@ -31,6 +33,16 @@ function ensureMeta(name, content) {
   return meta;
 }
 
+function preferredChromeColor() {
+  const theme = document.documentElement.dataset.theme;
+  const dark = theme === "dark" || (!theme && window.matchMedia?.("(prefers-color-scheme: dark)")?.matches);
+  return dark ? "#000000" : "#eaf4f0";
+}
+
+function syncMobileChromeColor() {
+  ensureMeta("theme-color", preferredChromeColor());
+}
+
 function configureMobileWebAppShell() {
   const viewport = document.querySelector('meta[name="viewport"]');
   if (viewport) {
@@ -41,9 +53,31 @@ function configureMobileWebAppShell() {
   ensureMeta("apple-mobile-web-app-capable", "yes");
   ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
   ensureMeta("apple-mobile-web-app-title", "Volt");
+  syncMobileChromeColor();
+
+  const chromeObserver = new MutationObserver(syncMobileChromeColor);
+  chromeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
   document.documentElement.dataset.displayMode = standalone ? "standalone" : "browser";
+}
+
+function loadMobilePolish() {
+  if (document.querySelector("link[data-volt-mobile-polish]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/mobile-polish.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltMobilePolish = "";
+  document.head.append(link);
+}
+
+function loadDialogFix() {
+  if (document.querySelector("link[data-volt-dialog-fix]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/dialog-fix.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltDialogFix = "";
+  document.head.append(link);
 }
 
 function loadDesktopAuthLayout() {

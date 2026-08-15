@@ -242,11 +242,91 @@
               </div>
             </section>
 
-            <section id="page-help" class="page" data-page="help" aria-labelledby="help-title" hidden>
-              <header class="page-header"><div class="page-header-copy"><p class="eyebrow">CENTRAL DE AJUDA</p><h1 id="help-title">Como podemos ajudar?</h1><p class="supporting-copy">Orientações objetivas sobre leituras, cálculos, privacidade e canais oficiais do Volt.</p></div></header>
-              <div class="help-grid"><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-reading"></use></svg></span><div><h2>Primeira leitura</h2><p class="supporting-copy">Veja como escolher o medidor e revisar o valor.</p></div><button class="text-button" type="button" data-action="open-reading">Registrar leitura</button></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-chart"></use></svg></span><div><h2>Como calculamos</h2><p class="supporting-copy">Entenda metas, consumo e estimativas.</p></div><button class="text-button" type="button" data-nav="consumption">Abrir consumo</button></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-shield"></use></svg></span><div><h2>Privacidade</h2><p class="supporting-copy">Saiba como seus dados são tratados.</p></div><a class="text-button" href="./privacy.html">Ler política</a></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-mail"></use></svg></span><div><h2>Contato</h2><p class="supporting-copy">Dúvidas gerais, parcerias e assuntos institucionais.</p></div><a class="text-button" href="mailto:contato@voltconsumo.com.br">contato@voltconsumo.com.br</a></article><article class="help-topic card glass-level-2"><span class="utility-icon"><svg class="icon icon-lg"><use href="#icon-help"></use></svg></span><div><h2>Suporte</h2><p class="supporting-copy">Problemas de acesso, leituras, cálculos ou funcionamento do aplicativo.</p></div><a class="text-button" href="mailto:suporte@voltconsumo.com.br">suporte@voltconsumo.com.br</a></article></div>
-              <section class="card glass-level-3"><div class="card-header"><div><p class="eyebrow">DÚVIDAS FREQUENTES</p><h2>FAQ</h2></div></div><div class="faq-list"><details><summary>Como registrar uma nova leitura?</summary><p>Escolha Energia ou Água, tire uma foto ou informe o valor manualmente, revise e confirme.</p></details><details><summary>Como a estimativa é calculada?</summary><p>O Volt usa o consumo do ciclo e as tarifas configuradas. O resultado é uma estimativa, não uma fatura.</p></details><details><summary>Por que preciso revisar o valor da foto?</summary><p>Reflexos e visores podem reduzir a precisão. O Volt nunca salva um valor extraído sem sua confirmação.</p></details><details><summary>Onde altero minha meta?</summary><p>Abra Configurações e ajuste a meta na seção Energia ou Água.</p></details></div></section>
-            </section>
+            <section id="page-help" class="page volt-help-page" data-page="help" aria-labelledby="help-title" hidden>
+    <div class="help-shell">
+      <header class="help-product-header">
+        <button class="help-back-button" type="button" data-nav="home" aria-label="Voltar ao início">
+          <svg class="icon" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+        </button>
+        <div class="help-product-title">
+          <h1 id="help-title">VOLT</h1>
+          <p>Versão 1.0.0</p>
+        </div>
+      </header>
+
+      <div class="volt-help-hero" aria-label="Energia e água conectadas pelo VOLT">
+        <div class="help-orbit help-orbit-one" aria-hidden="true"></div>
+        <div class="help-orbit help-orbit-two" aria-hidden="true"></div>
+        <svg class="help-strike" viewBox="0 0 84 190" aria-hidden="true">
+          <path class="help-strike-path" d="M46 2 43 42 31 55 44 68 34 84 47 99 36 116 44 130 39 154 42 184"></path>
+        </svg>
+        <span class="help-orbit-icon help-orbit-water" aria-hidden="true"><svg class="icon"><use href="#icon-water"></use></svg></span>
+        <span class="help-orbit-icon help-orbit-energy" aria-hidden="true"><svg class="icon"><use href="#icon-bolt"></use></svg></span>
+        <span class="help-orbit-icon help-orbit-reading" aria-hidden="true"><svg class="icon"><use href="#icon-reading"></use></svg></span>
+        <span class="help-orbit-icon help-orbit-shield" aria-hidden="true"><svg class="icon"><use href="#icon-shield"></use></svg></span>
+        <span class="help-orbit-icon help-orbit-help" aria-hidden="true"><svg class="icon"><use href="#icon-help"></use></svg></span>
+        <div class="help-core" aria-hidden="true">
+          <span class="help-core-glow"></span>
+          <svg class="help-core-mark"><use href="#icon-bolt"></use></svg>
+        </div>
+      </div>
+
+      <div class="help-indicators" aria-hidden="true"><span></span><span></span><span></span></div>
+
+      <div class="help-menu help-menu-primary glass-level-2">
+        <a class="help-menu-row" href="#help-faq">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-help"></use></svg></span>
+          <span class="help-menu-copy"><strong>Central de ajuda</strong><small>Dúvidas frequentes e suporte</small></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+        <a class="help-menu-row" href="mailto:suporte@voltconsumo.com.br?subject=Feedback%20VOLT">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-mail"></use></svg></span>
+          <span class="help-menu-copy"><strong>Enviar feedback</strong><small>Sugestões e problemas técnicos</small></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+      </div>
+
+      <div class="help-menu help-menu-secondary glass-level-2">
+        <a class="help-menu-row" href="./terms.html">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-reading"></use></svg></span>
+          <span class="help-menu-copy"><strong>Termos de uso</strong></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+        <a class="help-menu-row" href="./privacy.html">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-shield"></use></svg></span>
+          <span class="help-menu-copy"><strong>Política de privacidade</strong></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+        <a class="help-menu-row" href="./licenses.html">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-reading"></use></svg></span>
+          <span class="help-menu-copy"><strong>Licenças</strong></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+        <a class="help-menu-row" href="./about.html">
+          <span class="help-menu-icon"><svg class="icon"><use href="#icon-help"></use></svg></span>
+          <span class="help-menu-copy"><strong>Sobre o VOLT</strong></span>
+          <svg class="icon help-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+        </a>
+      </div>
+
+      <section id="help-faq" class="help-inline-panel glass-level-2" aria-labelledby="help-faq-title">
+        <div class="help-inline-heading"><p class="eyebrow">CENTRAL DE AJUDA</p><h2 id="help-faq-title">Dúvidas frequentes</h2></div>
+        <div class="faq-list">
+          <details><summary>Como registrar uma nova leitura?</summary><p>Escolha Energia ou Água, tire uma foto ou informe o valor manualmente, revise e confirme.</p></details>
+          <details><summary>Como a estimativa é calculada?</summary><p>O VOLT usa o consumo do ciclo e as tarifas configuradas. O resultado é uma estimativa e não substitui a fatura da concessionária.</p></details>
+          <details><summary>Por que preciso revisar o valor da foto?</summary><p>Reflexos e visores podem reduzir a precisão. O VOLT só registra o valor após sua confirmação.</p></details>
+          <details><summary>Preciso de suporte?</summary><p>Envie um e-mail para <a href="mailto:suporte@voltconsumo.com.br">suporte@voltconsumo.com.br</a>.</p></details>
+        </div>
+      </section>
+
+      <footer class="help-legal-footer">
+        <p>© 2026 HRX SOLUTIONS</p>
+        <p>CNPJ 68.588.217/0001-06</p>
+        <p>Todos os direitos reservados.</p>
+        <p>Desenvolvido com amor em Manaus, AM, Brasil</p>
+      </footer>
+    </div>
+  </section>
           </main>
         </div>
       </div>

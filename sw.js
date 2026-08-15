@@ -1,10 +1,16 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260815.3";
+const CACHE_REVISION = "20260815.9";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260814.11";
-const UPDATE_BUILD = "20260815.3";
+const UPDATE_BUILD = "20260815.9";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260815.8",
+  "volt-app-v4-atomic-20260815.7",
+  "volt-app-v4-atomic-20260815.6",
+  "volt-app-v4-atomic-20260815.5",
+  "volt-app-v4-atomic-20260815.4",
+  "volt-app-v4-atomic-20260815.3",
   "volt-app-v4-atomic-20260815.2",
   "volt-app-v4-atomic-20260815.1",
   "volt-app-v4-atomic-20260814.17",
@@ -42,11 +48,18 @@ const CORE_ASSETS = [
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
   updateAsset("./styles/auth-desktop.css"),
+  updateAsset("./styles/mobile-polish.css"),
+  updateAsset("./styles/dialog-fix.css"),
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),
   "./manifest.webmanifest",
   "./version.json",
+  "./styles.css",
+  "./terms.html",
+  "./privacy.html",
+  "./licenses.html",
+  "./about.html",
   "./icon.svg",
   "./icon-192.png",
   "./icon-512.png",

@@ -1,0 +1,140 @@
+/* Final mobile dialog overrides.
+   Loaded after the shared styles to neutralize legacy focus rings and sheet header rules. */
+
+@media (max-width: 767px) {
+  #more-dialog .dialog-card,
+  #signup-dialog .dialog-card {
+    padding: 1rem 1.1rem calc(1.35rem + var(--safe-bottom)) !important;
+  }
+
+  #more-dialog .dialog-heading,
+  #signup-dialog .dialog-heading {
+    position: static !important;
+    top: auto !important;
+    min-height: 2.75rem !important;
+    margin: 0 !important;
+    padding: 0 0 .65rem !important;
+    align-items: flex-start !important;
+    gap: .85rem !important;
+    background: transparent !important;
+  }
+
+  #more-dialog .dialog-heading [data-close-dialog],
+  #signup-dialog .dialog-heading [data-close-dialog] {
+    width: 2.625rem !important;
+    min-width: 2.625rem !important;
+    height: 2.625rem !important;
+    min-height: 2.625rem !important;
+    flex: 0 0 2.625rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--glass-border-strong) !important;
+    border-radius: .82rem !important;
+    outline: none !important;
+    outline-offset: 0 !important;
+    background: color-mix(in srgb, var(--glass-control) 72%, transparent) !important;
+    box-shadow: inset 0 1px 0 var(--glass-highlight) !important;
+    -webkit-tap-highlight-color: transparent !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+  }
+
+  #more-dialog .dialog-heading [data-close-dialog]:focus,
+  #more-dialog .dialog-heading [data-close-dialog]:focus-visible,
+  #more-dialog .dialog-heading [data-close-dialog]:active,
+  #signup-dialog .dialog-heading [data-close-dialog]:focus,
+  #signup-dialog .dialog-heading [data-close-dialog]:focus-visible,
+  #signup-dialog .dialog-heading [data-close-dialog]:active {
+    outline: none !important;
+    outline-offset: 0 !important;
+    box-shadow: inset 0 1px 0 var(--glass-highlight) !important;
+  }
+
+  #more-dialog .dialog-heading [data-close-dialog] .icon,
+  #signup-dialog .dialog-heading [data-close-dialog] .icon {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    stroke-width: 1.65 !important;
+  }
+
+  #more-dialog .dialog-heading > div {
+    min-width: 0;
+    display: flex !important;
+    align-items: center !important;
+    min-height: 2.625rem;
+  }
+
+  #more-dialog .dialog-heading .eyebrow {
+    display: none !important;
+  }
+
+  #more-dialog .dialog-heading h2 {
+    margin: 0 !important;
+    font-size: 1.62rem !important;
+    line-height: 1 !important;
+    letter-spacing: -.035em !important;
+  }
+
+  #more-dialog .sheet-profile {
+    margin: .15rem 0 .7rem !important;
+  }
+
+  #more-dialog .sheet-menu {
+    gap: .52rem !important;
+  }
+
+  #more-dialog .sheet-menu .nav-button {
+    min-height: 3.35rem !important;
+    padding: .62rem .95rem !important;
+    border-radius: 1rem !important;
+  }
+
+  #signup-dialog .dialog-card {
+    gap: .8rem !important;
+  }
+
+  #signup-dialog .dialog-heading > div {
+    min-width: 0;
+    display: grid !important;
+    gap: .12rem !important;
+  }
+
+  #signup-dialog .dialog-heading .eyebrow {
+    margin: 0 !important;
+    font-size: .69rem !important;
+    line-height: 1 !important;
+    letter-spacing: .17em !important;
+  }
+
+  #signup-dialog .dialog-heading h2 {
+    margin: 0 !important;
+    max-width: 13ch !important;
+    font-size: 1.65rem !important;
+    line-height: 1.02 !important;
+    letter-spacing: -.04em !important;
+  }
+
+  #signup-dialog > .dialog-card,
+  #signup-dialog #signup-form {
+    padding-top: .9rem !important;
+  }
+
+  #signup-dialog .supporting-copy {
+    margin: 0 0 .1rem !important;
+    font-size: .9rem !important;
+    line-height: 1.4 !important;
+  }
+
+  #signup-dialog label {
+    gap: .35rem !important;
+  }
+
+  #signup-dialog input {
+    min-height: 3.05rem !important;
+  }
+
+  #signup-dialog .primary-button {
+    min-height: 3.15rem !important;
+    margin-top: .05rem !important;
+  }
+}

@@ -114,6 +114,11 @@ async function checkForUpdate(force = false) {
   try {
     registration ||= await ensureRegistration();
 
+    // Não confie apenas no número do bootstrap: em PWA o HTML/JS pode chegar
+    // pela rede antes de o Service Worker novo estar efetivamente instalado.
+    // Forçar update() garante que um worker novo apareça como installing/waiting.
+    await registration.update().catch(() => undefined);
+
     const response = await fetch(`${VERSION_URL}?t=${now}`, {
       cache: "no-store",
       headers: { Accept: "application/json" }
@@ -123,7 +128,10 @@ async function checkForUpdate(force = false) {
     const remoteVersion = await response.json();
     const remoteBuild = String(remoteVersion?.build || "").trim();
     const currentBuild = installedBuild();
-    const hasNewBuild = Boolean(remoteBuild && currentBuild && remoteBuild !== currentBuild);
+    const hasPendingWorker = Boolean(
+      navigator.serviceWorker.controller && (registration.waiting || registration.installing)
+    );
+    const hasNewBuild = hasPendingWorker || Boolean(remoteBuild && currentBuild && remoteBuild !== currentBuild);
 
     if (hasNewBuild) {
       showUpdateBanner(remoteVersion);

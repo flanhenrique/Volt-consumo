@@ -145,6 +145,8 @@ window.addEventListener("volt:startup-status", (event) => {
 try {
   await revalidateCriticalModules();
   await import(`./app.js?v=${BOOTSTRAP_BUILD}`);
+  await import(`./src/home-dashboard-v2.js?v=${UPDATE_BUILD}`);
+  await import(`./src/home-dashboard-sustainability.js?v=${UPDATE_BUILD}`);
 } catch (error) {
   stopRecoveryGuard();
   if (loginForm) {
@@ -154,6 +156,12 @@ try {
   if (loginMessage) loginMessage.textContent = "O Volt não conseguiu iniciar. Recarregue a página.";
   document.documentElement.dataset.startupStatus = "ERROR";
   console.error("VOLT bootstrap failed", error);
+}
+
+try {
+  await import(`./src/easter-egg.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT easter egg unavailable", error);
 }
 
 try {

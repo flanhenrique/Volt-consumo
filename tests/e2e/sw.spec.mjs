@@ -1,4 +1,10 @@
 import { expect, test } from "@playwright/test";
+import fs from "node:fs/promises";
+
+const swSource = await fs.readFile(new URL("../../sw.js", import.meta.url), "utf8");
+const cacheRevision = swSource.match(/const CACHE_REVISION = "([^"]+)";/)?.[1];
+if (!cacheRevision) throw new Error("CACHE_REVISION não encontrado em sw.js");
+const expectedCacheName = `volt-app-v4-atomic-${cacheRevision}`;
 
 test("Service Worker: ativação, asset 404, offline e retorno online", async ({ page, context }) => {
   const errors = [];
@@ -19,7 +25,7 @@ test("Service Worker: ativação, asset 404, offline e retorno online", async ({
   await expect.poll(
     async () => page.evaluate(async () => (await caches.keys()).sort()),
     { timeout: 20_000 }
-  ).toEqual(["another-product-cache", "volt-app-v4-atomic-20260813.7"]);
+  ).toEqual(["another-product-cache", expectedCacheName].sort());
   await page.goto("/");
   await expect(page.locator("#maintenance-screen")).toHaveCount(0);
   await expect(page.locator("#login-screen")).toBeVisible();

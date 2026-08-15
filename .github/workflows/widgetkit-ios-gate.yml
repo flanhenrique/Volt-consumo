@@ -22,33 +22,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  core-tests:
-    name: Swift core tests
+  widgetkit-gate:
+    name: Xcode 26 iPhone + WidgetKit gate
     runs-on: macos-15
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
-
-      - name: Toolchain
-        run: |
-          xcodebuild -version
-          swift --version
-
-      - name: Swift package tests
-        working-directory: native/ios-widgetkit
-        run: swift test
-
-      - name: JavaScript widget bridge tests
-        run: node --test tests/widget-snapshot-adapter.test.mjs
-
-  ios-simulator-build:
-    name: iPhone runtime + widgets
-    runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,6 +38,13 @@ jobs:
           xcodebuild -version
           swift --version
           xcrun simctl list runtimes available
+
+      - name: Swift package tests
+        working-directory: native/ios-widgetkit
+        run: swift test
+
+      - name: JavaScript widget bridge tests
+        run: node --test tests/widget-snapshot-adapter.test.mjs
 
       - name: Verify VOLT web endpoint
         run: curl --fail --location --silent --show-error --max-time 20 https://www.voltconsumo.com.br/ --output /dev/null

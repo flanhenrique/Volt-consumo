@@ -1,5 +1,5 @@
-import { getApplicationStateSnapshot } from './app-state.js';
-import { buildWidgetSnapshot, parseCycleProgress, parseLocaleNumber, parseNativeRoute } from './widget-snapshot-adapter.mjs';
+import { getApplicationStateSnapshot } from './app-state.js?v=20260813.7';
+import { buildWidgetSnapshot, parseCycleProgress, parseLocaleNumber, parseNativeRoute } from './widget-snapshot-adapter.mjs?v=20260815.9';
 
 const handler = () => globalThis.webkit?.messageHandlers?.voltWidget;
 const text = (id) => document.getElementById(id)?.textContent?.trim() || '';

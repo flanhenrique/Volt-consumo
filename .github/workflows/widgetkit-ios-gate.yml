@@ -1,0 +1,84 @@
+name: VOLT WidgetKit iOS Gate
+
+on:
+  push:
+    branches:
+      - agent/widgetkit-reading-actions
+    paths:
+      - "native/ios-widgetkit/**"
+      - "src/volt-widget-bridge.js"
+      - "src/widget-snapshot-adapter.mjs"
+      - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
+      - ".github/workflows/widgetkit-ios-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    name: Swift core tests
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Swift package tests
+        working-directory: native/ios-widgetkit
+        run: swift test
+
+      - name: JavaScript widget bridge tests
+        run: node --test tests/widget-snapshot-adapter.test.mjs
+
+  ios-simulator-build:
+    name: iOS Simulator app + widgets
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: native/ios-widgetkit/ios
+        run: xcodegen generate --spec project.yml
+
+      - name: List schemes
+        working-directory: native/ios-widgetkit/ios
+        run: xcodebuild -project VOLT.xcodeproj -list
+
+      - name: Build app and WidgetKit extension for iOS Simulator
+        working-directory: native/ios-widgetkit/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project VOLT.xcodeproj \
+            -scheme VOLT \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build | tee widgetkit-xcodebuild.log
+
+      - name: Upload Xcode build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widgetkit-xcodebuild-log
+          path: native/ios-widgetkit/ios/widgetkit-xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7

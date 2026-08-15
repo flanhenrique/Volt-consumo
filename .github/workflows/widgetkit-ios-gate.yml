@@ -118,7 +118,7 @@ jobs:
         env:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           rm -rf VOLTUITests.xcresult
           xcodebuild \
             -project VOLT.xcodeproj \
@@ -129,9 +129,6 @@ jobs:
             -resultBundlePath VOLTUITests.xcresult \
             -only-testing:VOLTUITests \
             test | tee widgetkit-uitest.log
-          if ! xcrun simctl io "$SIMULATOR_UDID" screenshot volt-after-uitests.png; then
-            echo "::warning::Unable to capture final simulator screenshot"
-          fi
 
       - name: Capture final runtime logs
         if: always()
@@ -152,7 +149,6 @@ jobs:
             native/ios-widgetkit/ios/widgetkit-xcodebuild.log
             native/ios-widgetkit/ios/widgetkit-uitest.log
             native/ios-widgetkit/ios/volt-runtime-final.log
-            native/ios-widgetkit/ios/volt-after-uitests.png
             native/ios-widgetkit/ios/VOLTUITests.xcresult
           if-no-files-found: ignore
           retention-days: 7

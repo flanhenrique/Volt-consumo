@@ -22,6 +22,10 @@ final class VOLTUITests: XCTestCase {
         XCTAssertEqual(result, .completed, "The VOLT WebView did not finish loading")
         XCTAssertFalse(app.otherElements["volt-web-error"].exists)
 
+        let webView = app.webViews.firstMatch
+        XCTAssertTrue(webView.waitForExistence(timeout: 10.0), "The WKWebView was not exposed to UI automation")
+        XCTAssertTrue(app.staticTexts["Entrar no Volt"].waitForExistence(timeout: 20.0), "The VOLT login UI was not rendered inside WKWebView")
+
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "VOLT WebView Ready"
         attachment.lifetime = .keepAlways

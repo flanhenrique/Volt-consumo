@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_ID = "20260813.7"
-BOOTSTRAP_BUILD = "20260814.11"
+BOOTSTRAP_BUILD = "20260815.10"
 failures = []
 
 

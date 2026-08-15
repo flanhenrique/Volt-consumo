@@ -1,6 +1,6 @@
 {
-  "release": "20260815.9",
-  "build": "20260815.9",
-  "releasedAt": "2026-08-15T18:13:00Z",
-  "message": "Consolidação da atualização: mantém a nova tela de Ajuda e aplica a correção definitiva dos modais Mais e Criar conta no iPhone, removendo o halo colorido do botão fechar e ajustando cabeçalhos e espaçamentos."
+  "release": "20260815.10",
+  "build": "20260815.10",
+  "releasedAt": "2026-08-15T23:22:00Z",
+  "message": "Correção do Dashboard no iPhone: garante o carregamento dos módulos da Home e refaz gráficos e estimativas quando a sessão fica pronta ou o PWA retorna ao primeiro plano."
 }

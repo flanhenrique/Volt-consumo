@@ -1,6 +1,6 @@
-const BOOTSTRAP_BUILD = "20260814.11";
+const BOOTSTRAP_BUILD = "20260815.10";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.9";
+const UPDATE_BUILD = "20260815.10";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -145,6 +145,8 @@ window.addEventListener("volt:startup-status", (event) => {
 try {
   await revalidateCriticalModules();
   await import(`./app.js?v=${BOOTSTRAP_BUILD}`);
+  await import(`./src/home-dashboard-v2.js?v=${UPDATE_BUILD}`);
+  await import(`./src/home-dashboard-sustainability.js?v=${UPDATE_BUILD}`);
 } catch (error) {
   stopRecoveryGuard();
   if (loginForm) {

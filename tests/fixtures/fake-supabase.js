@@ -35,6 +35,21 @@
     beta_water_settings: [{ rate: 8, goal: 15, sewer_percent: 100, fixed_fee: 0 }]
   };
 
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const requestUrl = typeof input === "string" || input instanceof URL ? String(input) : input?.url;
+    if (requestUrl) {
+      const url = new URL(requestUrl, location.href);
+      if (url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/rest/v1/")) {
+        return Promise.resolve(new Response("[]", {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }));
+      }
+    }
+    return nativeFetch(input, init);
+  };
+
   function query(table) {
     const builder = {
       select() { return builder; },

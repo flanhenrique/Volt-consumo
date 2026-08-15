@@ -1,6 +1,6 @@
 {
-  "release": "20260815.5",
-  "build": "20260815.5",
-  "releasedAt": "2026-08-15T17:43:00Z",
-  "message": "Tela de login mobile refinada: menos texto, caixa de acesso mais alta, logo reforçada e topo do iPhone integrado ao tema."
+  "release": "20260815.6",
+  "build": "20260815.6",
+  "releasedAt": "2026-08-15T17:52:00Z",
+  "message": "Correção da entrega de atualizações: o VOLT agora força a verificação do Service Worker e detecta versões pendentes mesmo quando o bootstrap mais novo já foi carregado pela rede."
 }

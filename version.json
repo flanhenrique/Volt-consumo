@@ -1,6 +1,6 @@
 {
-  "release": "20260815.6",
-  "build": "20260815.6",
-  "releasedAt": "2026-08-15T17:52:00Z",
-  "message": "Correção da entrega de atualizações: o VOLT agora força a verificação do Service Worker e detecta versões pendentes mesmo quando o bootstrap mais novo já foi carregado pela rede."
+  "release": "20260815.7",
+  "build": "20260815.7",
+  "releasedAt": "2026-08-15T18:07:00Z",
+  "message": "Refino dos modais mobile: botão de fechar menor e sem anel de foco excessivo, cabeçalho da tela Mais equilibrado e cadastro mais compacto e legível."
 }

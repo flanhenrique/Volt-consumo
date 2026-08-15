@@ -1,6 +1,6 @@
 {
-  "release": "20260815.4",
-  "build": "20260815.4",
-  "releasedAt": "2026-08-15T17:35:00Z",
-  "message": "Ajuste visual mobile: cabeçalho Mais mais compacto e tela de Consumo sem texto introdutório, com os cards mais altos na tela."
+  "release": "20260815.5",
+  "build": "20260815.5",
+  "releasedAt": "2026-08-15T17:43:00Z",
+  "message": "Tela de login mobile refinada: menos texto, caixa de acesso mais alta, logo reforçada e topo do iPhone integrado ao tema."
 }

@@ -1,4 +1,4 @@
-const BOOTSTRAP_BUILD = "20260814.15";
+const BOOTSTRAP_BUILD = "20260815.2";
 globalThis.__VOLT_BUILD__ = BOOTSTRAP_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -75,4 +75,10 @@ try {
   if (loginMessage) loginMessage.textContent = "O Volt não conseguiu iniciar. Recarregue a página.";
   document.documentElement.dataset.startupStatus = "ERROR";
   console.error("VOLT bootstrap failed", error);
+}
+
+try {
+  await import(`./src/pwa-update.js?v=${BOOTSTRAP_BUILD}`);
+} catch (error) {
+  console.warn("VOLT update manager unavailable", error);
 }

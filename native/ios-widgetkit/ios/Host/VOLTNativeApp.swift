@@ -28,9 +28,17 @@ struct VOLTNativeApp: App {
                 VStack(spacing: 0) {
                     Text(webState.accessibilityState)
                         .accessibilityIdentifier("volt-web-state")
+                    if let loadedURL = webState.lastFinishedURL?.absoluteString {
+                        Text(loadedURL)
+                            .accessibilityIdentifier("volt-web-url")
+                    }
                     if let route = router.lastReceivedPath {
                         Text(route)
                             .accessibilityIdentifier("volt-native-route")
+                    }
+                    if let route = router.lastDispatchedPath {
+                        Text(route)
+                            .accessibilityIdentifier("volt-native-route-dispatched")
                     }
                 }
                 .font(.system(size: 1))
@@ -48,6 +56,7 @@ struct VOLTNativeApp: App {
 final class VoltNavigationRouter: ObservableObject {
     @Published private(set) var pendingPath: String?
     @Published private(set) var lastReceivedPath: String?
+    @Published private(set) var lastDispatchedPath: String?
 
     func handle(_ url: URL) {
         guard url.scheme?.lowercased() == "volt" else { return }
@@ -57,11 +66,13 @@ final class VoltNavigationRouter: ObservableObject {
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let normalized = path.isEmpty ? "home" : path
         lastReceivedPath = normalized
+        lastDispatchedPath = nil
         pendingPath = normalized
         voltWebLogger.info("VOLT_NATIVE_ROUTE_RECEIVED \(normalized, privacy: .public)")
     }
 
     func markDispatched(_ path: String) {
+        lastDispatchedPath = path
         if pendingPath == path { pendingPath = nil }
     }
 }
@@ -71,6 +82,7 @@ final class VoltWebLoadState: ObservableObject {
     @Published var isLoading = true
     @Published var didFinish = false
     @Published var errorMessage: String?
+    @Published private(set) var lastFinishedURL: URL?
 
     var accessibilityState: String {
         if errorMessage != nil { return "error" }
@@ -81,18 +93,21 @@ final class VoltWebLoadState: ObservableObject {
         isLoading = true
         didFinish = false
         errorMessage = nil
+        lastFinishedURL = nil
     }
 
-    func finished() {
+    func finished(url: URL?) {
         isLoading = false
         didFinish = true
         errorMessage = nil
+        lastFinishedURL = url
     }
 
     func failed(_ error: Error) {
         isLoading = false
         didFinish = false
         errorMessage = "Não foi possível carregar o VOLT. Verifique sua conexão e tente novamente."
+        lastFinishedURL = nil
         voltWebLogger.error("VOLT_WEB_DID_FAIL \(error.localizedDescription, privacy: .public)")
     }
 }
@@ -164,7 +179,7 @@ struct VoltWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webReady = true
-            webState.finished()
+            webState.finished(url: webView.url)
             voltWebLogger.info("VOLT_WEB_DID_FINISH \(webView.url?.absoluteString ?? "unknown", privacy: .public)")
             dispatchPendingRoute(in: webView)
         }

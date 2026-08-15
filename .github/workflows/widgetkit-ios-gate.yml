@@ -129,7 +129,9 @@ jobs:
             -resultBundlePath VOLTUITests.xcresult \
             -only-testing:VOLTUITests \
             test | tee widgetkit-uitest.log
-          xcrun simctl io "$SIMULATOR_UDID" screenshot volt-after-uitests.png
+          if ! xcrun simctl io "$SIMULATOR_UDID" screenshot volt-after-uitests.png; then
+            echo "::warning::Unable to capture final simulator screenshot"
+          fi
 
       - name: Capture final runtime logs
         if: always()

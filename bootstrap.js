@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260814.11";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.7";
+const UPDATE_BUILD = "20260815.8";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -19,6 +19,7 @@ let recoveryActive = false;
 
 configureMobileWebAppShell();
 loadMobilePolish();
+loadDialogFix();
 loadDesktopAuthLayout();
 
 function ensureMeta(name, content) {
@@ -67,6 +68,15 @@ function loadMobilePolish() {
   link.rel = "stylesheet";
   link.href = `./styles/mobile-polish.css?v=${UPDATE_BUILD}`;
   link.dataset.voltMobilePolish = "";
+  document.head.append(link);
+}
+
+function loadDialogFix() {
+  if (document.querySelector("link[data-volt-dialog-fix]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/dialog-fix.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltDialogFix = "";
   document.head.append(link);
 }
 

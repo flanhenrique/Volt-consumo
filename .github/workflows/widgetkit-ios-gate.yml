@@ -56,7 +56,7 @@ jobs:
   ios-simulator-build:
     name: iOS Simulator app + widgets
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,16 +85,67 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM='' \
             build | tee widgetkit-xcodebuild.log
 
-      - name: Upload Xcode build log
+      - name: Verify embedded Widget Extension
+        working-directory: native/ios-widgetkit/ios
+        run: |
+          test -d DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app
+          test -d DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/PlugIns/VOLTWidgets.appex
+          plutil -p DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/Info.plist
+          plutil -p DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app/PlugIns/VOLTWidgets.appex/Info.plist
+
+      - name: Select iPhone Simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin).get("devices",{}); matches=[d["udid"] for runtime, devices in data.items() if "iOS" in runtime for d in devices if d.get("isAvailable", True) and "iPhone" in d.get("name","")]; print(matches[0] if matches else "")')"
+          if [ -z "$UDID" ]; then
+            RUNTIME="$(xcrun simctl list runtimes available -j | python3 -c 'import json,sys; items=[r for r in json.load(sys.stdin).get("runtimes",[]) if r.get("isAvailable", True) and r.get("platform") == "iOS"]; print(items[-1]["identifier"] if items else "")')"
+            DEVICE_TYPE="$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; items=[d for d in json.load(sys.stdin).get("devicetypes",[]) if "iPhone" in d.get("name","")]; preferred=[d for d in items if d.get("name") == "iPhone 16 Pro"]; print((preferred or items)[0]["identifier"] if items else "")')"
+            test -n "$RUNTIME"
+            test -n "$DEVICE_TYPE"
+            UDID="$(xcrun simctl create 'VOLT CI iPhone' "$DEVICE_TYPE" "$RUNTIME")"
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $UDID"
+
+      - name: Boot, install and launch VOLT
+        working-directory: native/ios-widgetkit/ios
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl install "$SIMULATOR_UDID" DerivedData/Build/Products/Debug-iphonesimulator/VOLT.app
+          xcrun simctl launch "$SIMULATOR_UDID" br.com.voltconsumo.app
+          sleep 4
+          xcrun simctl io "$SIMULATOR_UDID" screenshot volt-home.png
+
+      - name: Validate reading deep link
+        working-directory: native/ios-widgetkit/ios
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          xcrun simctl openurl "$SIMULATOR_UDID" 'volt://reading/energy'
+          sleep 3
+          xcrun simctl io "$SIMULATOR_UDID" screenshot volt-reading-energy.png
+
+      - name: Upload iOS gate evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: widgetkit-xcodebuild-log
-          path: native/ios-widgetkit/ios/widgetkit-xcodebuild.log
+          name: widgetkit-ios-gate-evidence
+          path: |
+            native/ios-widgetkit/ios/widgetkit-xcodebuild.log
+            native/ios-widgetkit/ios/volt-home.png
+            native/ios-widgetkit/ios/volt-reading-energy.png
           if-no-files-found: ignore
           retention-days: 7

@@ -59,7 +59,7 @@ function snapshotInput() {
 
 function openReadingRoute(service, readingStep) {
   const trigger = document.querySelector('[data-action="open-reading"]');
-  if (!trigger) return;
+  if (!trigger) return false;
   trigger.click();
 
   queueMicrotask(() => {
@@ -74,19 +74,30 @@ function openReadingRoute(service, readingStep) {
       queueMicrotask(() => document.getElementById('reading-value')?.focus());
     });
   });
+  return true;
 }
 
 function applyNativeRoute(path) {
   const route = parseNativeRoute(path);
+  let applied = false;
+
   if (route.page === 'reading') {
-    openReadingRoute(route.service, route.readingStep);
-    return;
+    applied = openReadingRoute(route.service, route.readingStep);
+  } else {
+    const navigation = document.querySelector(`[data-nav="${route.page}"]`);
+    if (navigation) {
+      navigation.click();
+      applied = true;
+      if (route.page === 'consumption' && route.service) {
+        queueMicrotask(() => document.querySelector(`[data-consumption-type="${route.service}"]`)?.click());
+      }
+    }
   }
 
-  document.querySelector(`[data-nav="${route.page}"]`)?.click();
-  if (route.page === 'consumption' && route.service) {
-    queueMicrotask(() => document.querySelector(`[data-consumption-type="${route.service}"]`)?.click());
+  if (applied && globalThis.__VOLT_PENDING_NATIVE_ROUTE__ === path) {
+    delete globalThis.__VOLT_PENDING_NATIVE_ROUTE__;
   }
+  return applied;
 }
 
 export function syncVoltWidgets() {
@@ -108,18 +119,35 @@ function scheduleSync() {
   }, 80);
 }
 
+function consumePendingNativeRoute() {
+  const path = globalThis.__VOLT_PENDING_NATIVE_ROUTE__;
+  if (typeof path !== 'string' || !path) return false;
+  return applyNativeRoute(path);
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('volt:startup-status', (event) => {
     if (event.detail?.status === 'SIGNED_OUT') {
       handler()?.postMessage?.({ command: 'clear' });
+      consumePendingNativeRoute();
       return;
     }
-    if (event.detail?.status === 'READY') scheduleSync();
+    if (event.detail?.status === 'READY') {
+      scheduleSync();
+      consumePendingNativeRoute();
+    }
   });
-  window.addEventListener('volt:native-route', (event) => applyNativeRoute(event.detail?.path));
+  window.addEventListener('volt:native-route', (event) => {
+    const path = event.detail?.path;
+    if (typeof path === 'string' && path) {
+      globalThis.__VOLT_PENDING_NATIVE_ROUTE__ = path;
+      applyNativeRoute(path);
+    }
+  });
   window.addEventListener('volt:regulatory-context', scheduleSync);
   window.addEventListener('volt:widget-sync', scheduleSync);
   document.addEventListener('change', (event) => {
     if (event.target?.id && ['energy-flag', 'energy-rate', 'lighting-fee'].includes(event.target.id)) scheduleSync();
   });
+  queueMicrotask(consumePendingNativeRoute);
 }

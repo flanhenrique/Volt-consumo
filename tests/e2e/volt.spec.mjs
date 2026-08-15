@@ -50,7 +50,8 @@ test("A — usuário deslogado vê somente Login", async ({ page }) => {
   await expect(page.locator("#login-screen")).toBeVisible();
   await expect(page.locator("#dashboard")).toBeHidden();
   await expect(page.locator("#boot-screen")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Entrar no Volt" })).toBeVisible();
+  await expect(page.locator("#login-form")).toBeVisible();
+  await expect(page.locator("#login-form").getByRole("button", { name: "Entrar" })).toBeVisible();
 });
 
 test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) => {
@@ -92,7 +93,7 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   expect(restoreTransitions.length).toBeGreaterThan(0);
   expect(restoreTransitions.every(({ visible }) => visible.length === 1 && visible[0] === "login-screen")).toBe(true);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.7",
+    "/app.js": "20260814.11",
     "/src/app-state.js": "20260813.7",
     "/src/renderer.js": "20260813.7",
     "/src/volt-service.js": "20260813.7"
@@ -113,7 +114,7 @@ test("C/I — login e logout seguem uma única transição", async ({ page }) =>
 });
 
 test("Login permanece visível até a Home estar pronta", async ({ page }) => {
-  await page.goto("/?dataDelay=180");
+  await page.goto("/?dataDelay=500");
   await page.evaluate(() => {
     window.__voltTransitionSurfaces = [];
     window.addEventListener("volt:startup-status", (event) => {
@@ -157,25 +158,48 @@ test("E — registrar leitura preserva a Home", async ({ page }) => {
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "readings");
   await page.locator("#page-readings [data-action='open-reading']").first().click();
-  await page.locator("#reading-type").selectOption("energy");
+  const dialog = page.locator("#reading-dialog");
+  await expect(dialog).toHaveAttribute("open", "");
+  await expect(dialog.locator("[data-reading-type='energy']")).toHaveAttribute("aria-pressed", "true");
+  await dialog.locator("[data-reading-panel='type']").getByRole("button", { name: "Continuar" }).click();
+  await expect(dialog.locator("[data-reading-panel='capture']")).toBeVisible();
+  await dialog.locator("[data-reading-panel='capture']").getByRole("button", { name: "Continuar" }).click();
+  await expect(dialog.locator("[data-reading-panel='review']")).toBeVisible();
   await page.locator("#reading-value").fill("1130");
   await page.locator("#reading-date").fill("2026-08-10T12:00");
   await page.locator("#reading-reviewed").check();
   await page.locator("#reading-form").getByRole("button", { name: "Confirmar leitura" }).click();
-  await expect(page.locator("#reading-dialog")).not.toHaveAttribute("open", "");
+  await expect(dialog.locator("[data-reading-panel='done']")).toBeVisible();
+  await dialog.locator("[data-reading-panel='done']").getByRole("button", { name: "Concluir" }).click();
+  await expect(dialog).not.toHaveAttribute("open", "");
   await navigateTo(page, "home");
   await expect(page.locator("#home-energy-consumption")).not.toHaveText("");
   await expect(page.locator("#dashboard")).toBeVisible();
 });
 
 test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => {
+  const meterOcrRequests = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/src/meter-ocr.js") meterOcrRequests.push(url.pathname);
+  });
+  await page.route("**/ocr-runtime.html*", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: `<!doctype html><meta charset="utf-8"><script>addEventListener("message",(event)=>{const port=event.ports&&event.ports[0];if(event.data&&event.data.type==="volt-ocr-analyze"&&port){port.postMessage({type:"result",ok:true,text:"",engine:"e2e"});}});<\/script>`
+  }));
   await page.goto("/?session=user");
   await assertMaintenanceRemoved(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await page.locator("[data-action='open-reading']:visible").first().click();
+  const dialog = page.locator("#reading-dialog");
+  expect(meterOcrRequests).toHaveLength(0);
+  await dialog.locator("[data-reading-panel='type']").getByRole("button", { name: "Continuar" }).click();
+  await expect(dialog.locator("[data-reading-panel='capture']")).toBeVisible();
   await page.locator("#reading-photo").setInputFiles({ name: "medidor.png", mimeType: "image/png", buffer: onePixelPng });
   await expect(page.locator("#meter-preview")).toBeVisible();
-  await expect(page.locator("#ocr-message")).toContainText(/revise|Digite|disponível/i);
+  await expect.poll(() => meterOcrRequests.length).toBeGreaterThan(0);
+  await expect(page.locator("#ocr-message")).toContainText(/processada|confiável|revise|manualmente/i);
   await expect(page.locator("#reading-value")).toHaveValue("");
   await expect(page.locator("#reading-reviewed")).not.toBeChecked();
 });
@@ -219,13 +243,14 @@ test("G — Usuários aparece por permissão e reabre sem destruir DOM", async (
   await expect(page.locator("#page-users")).toHaveAttribute("data-ownership-probe", "same-node");
 });
 
-test("H — Relatórios existe e permanece vazio", async ({ page }) => {
+test("H — Relatórios exibe o relatório consolidado", async ({ page }) => {
   await page.goto("/?session=user");
   await assertMaintenanceRemoved(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "reports");
   await expect(page.locator("#page-reports")).toBeVisible();
-  await expect(page.locator("#page-reports")).toBeEmpty();
+  await expect(page.locator("#consumption-report-general")).toBeVisible();
+  await expect(page.locator("#consumption-report-general").getByRole("heading", { name: "Visão geral" })).toBeVisible();
 });
 
 test("Consumo, Alertas e Ajuda navegam com um único outlet", async ({ page }) => {

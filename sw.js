@@ -1,9 +1,10 @@
-const RELEASE_ID = "20260815.1";
-const CACHE_REVISION = "20260815.1";
+const RELEASE_ID = "20260815.2";
+const CACHE_REVISION = "20260815.2";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
-const BOOTSTRAP_BUILD = "20260815.1";
+const BOOTSTRAP_BUILD = "20260815.2";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260815.1",
   "volt-app-v4-atomic-20260814.17",
   "volt-app-v4-atomic-20260814.16",
   "volt-app-v4-atomic-20260814.15",
@@ -75,12 +76,29 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheApplicationShell().then(() => self.skipWaiting()));
+  event.waitUntil(cacheApplicationShell());
 });
+
+async function notifyClients(message) {
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  clients.forEach((client) => client.postMessage(message));
+}
 
 async function cacheApplicationShell() {
   const cache = await caches.open(CACHE_NAME);
-  for (const asset of CORE_ASSETS) await cache.add(asset);
+  const total = CORE_ASSETS.length;
+  let completed = 0;
+
+  await notifyClients({ type: "VOLT_UPDATE_PROGRESS", phase: "download", progress: 12, completed, total });
+
+  for (const asset of CORE_ASSETS) {
+    await cache.add(asset);
+    completed += 1;
+    const progress = 12 + Math.round((completed / total) * 58);
+    await notifyClients({ type: "VOLT_UPDATE_PROGRESS", phase: "download", progress, completed, total });
+  }
+
+  await notifyClients({ type: "VOLT_UPDATE_PROGRESS", phase: "install", progress: 74, completed, total });
 }
 
 self.addEventListener("activate", (event) => {
@@ -92,9 +110,13 @@ self.addEventListener("activate", (event) => {
           .map((name) => caches.delete(name))
       ))
       .then(async () => {
+        await notifyClients({ type: "VOLT_UPDATE_PROGRESS", phase: "install", progress: 92 });
         await self.clients.claim();
         const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        clients.forEach((client) => client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: BOOTSTRAP_BUILD }));
+        clients.forEach((client) => {
+          client.postMessage({ type: "VOLT_UPDATE_PROGRESS", phase: "complete", progress: 100 });
+          client.postMessage({ type: "VOLT_UPDATED", release: RELEASE_ID, build: BOOTSTRAP_BUILD });
+        });
       })
   );
 });

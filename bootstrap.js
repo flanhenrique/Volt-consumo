@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260815.10";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260815.10";
+const UPDATE_BUILD = "20260815.11";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -21,6 +21,7 @@ configureMobileWebAppShell();
 loadMobilePolish();
 loadDialogFix();
 loadDesktopAuthLayout();
+loadEasterEggStyle();
 
 function ensureMeta(name, content) {
   let meta = document.querySelector(`meta[name="${name}"]`);
@@ -86,6 +87,15 @@ function loadDesktopAuthLayout() {
   link.rel = "stylesheet";
   link.href = `./styles/auth-desktop.css?v=${UPDATE_BUILD}`;
   link.dataset.voltAuthDesktop = "";
+  document.head.append(link);
+}
+
+function loadEasterEggStyle() {
+  if (document.querySelector("link[data-volt-easter-egg]")) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `./styles/easter-egg.css?v=${UPDATE_BUILD}`;
+  link.dataset.voltEasterEgg = "";
   document.head.append(link);
 }
 
@@ -156,6 +166,12 @@ try {
   if (loginMessage) loginMessage.textContent = "O Volt não conseguiu iniciar. Recarregue a página.";
   document.documentElement.dataset.startupStatus = "ERROR";
   console.error("VOLT bootstrap failed", error);
+}
+
+try {
+  await import(`./src/easter-egg.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT easter egg unavailable", error);
 }
 
 try {

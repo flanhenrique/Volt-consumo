@@ -1,6 +1,6 @@
 {
-  "release": "20260815.10",
-  "build": "20260815.10",
-  "releasedAt": "2026-08-15T23:22:00Z",
-  "message": "Correção do Dashboard no iPhone: garante o carregamento dos módulos da Home e refaz gráficos e estimativas quando a sessão fica pronta ou o PWA retorna ao primeiro plano."
+  "release": "20260815.11",
+  "build": "20260815.11",
+  "releasedAt": "2026-08-15T23:29:00Z",
+  "message": "Teste do Easter Egg VOLT: sete toques no raio da marca, no dashboard autenticado, ativam uma sequência visual secreta com carga elétrica, assinatura de Manaus e identificação do build."
 }

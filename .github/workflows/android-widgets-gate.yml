@@ -98,32 +98,50 @@ jobs:
     name: Android emulator + WebView + deep link
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
       - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.5.0"
 
       - name: Install Android SDK and emulator
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+        run: sdkmanager "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
 
-      - name: Build debug APK
-        run: gradle -p native/android-widgets :app:assembleDebug --stacktrace
+      - name: Download tested APK
+        uses: actions/download-artifact@v4
+        with:
+          name: volt-android-widgets-debug-apk
+          path: native/android-widgets/app/build/outputs/apk/debug
+
+      - name: Enable emulator acceleration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          emulator -accel-check || true
 
       - name: Create and start emulator
         shell: bash
         run: |
           set -euo pipefail
           echo no | avdmanager create avd -n volt-ci -k "system-images;android-35;google_apis;x86_64" --force
-          nohup emulator -avd volt-ci -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
-          adb wait-for-device
-          until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done
+          nohup emulator -avd volt-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
+          if ! timeout 120 adb wait-for-device; then
+            cat emulator.log || true
+            exit 1
+          fi
+          booted=0
+          for _ in $(seq 1 90); do
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              booted=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$booted" != "1" ]; then
+            adb shell getprop || true
+            cat emulator.log || true
+            exit 1
+          fi
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
@@ -133,6 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           APK="native/android-widgets/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
           adb install -r "$APK"
           adb logcat -c
           adb shell am start -W -n br.com.voltconsumo.app/.MainActivity

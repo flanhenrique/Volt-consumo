@@ -1,8 +1,9 @@
-const REQUIRED_TAPS = 7;
-const TAP_WINDOW_MS = 3000;
+const REQUIRED_TAPS = 3;
+const TAP_WINDOW_MS = 1800;
 const AUTO_CLOSE_MS = 6200;
 const COOLDOWN_MS = 7000;
 const CONFETTI_COUNT = 64;
+const BRAND_SELECTOR = "#dashboard .brand-lockup";
 
 let tapCount = 0;
 let lastTapAt = 0;
@@ -10,17 +11,11 @@ let resetTimer = null;
 let closeTimer = null;
 let activeOverlay = null;
 let cooldownUntil = 0;
+let lastPointerActivationAt = 0;
 
 function dashboardIsVisible() {
   const dashboard = document.getElementById("dashboard");
   return Boolean(dashboard && !dashboard.hidden);
-}
-
-function isVoltBrandTrigger(target) {
-  if (!(target instanceof Element)) return null;
-  const symbol = target.closest("#dashboard .brand-lockup .brand-symbol");
-  if (!symbol) return null;
-  return symbol.closest(".brand-lockup");
 }
 
 function clearCharge(brand) {
@@ -171,10 +166,9 @@ function openEasterEgg() {
   closeTimer = window.setTimeout(closeEasterEgg, AUTO_CLOSE_MS);
 }
 
-document.addEventListener("click", (event) => {
+function registerBrandTap(brand) {
   if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
-  const brand = isVoltBrandTrigger(event.target);
-  if (!brand) return;
+  if (!(brand instanceof Element)) return;
 
   const now = Date.now();
   if (lastTapAt && now - lastTapAt > TAP_WINDOW_MS) tapCount = 0;
@@ -186,7 +180,33 @@ document.addEventListener("click", (event) => {
   if (tapCount < REQUIRED_TAPS) return;
   clearCharge(brand);
   openEasterEgg();
-});
+}
+
+function handleBrandActivation(event) {
+  const brand = event.currentTarget;
+  if (!(brand instanceof Element)) return;
+
+  if (event.type === "pointerup") {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    lastPointerActivationAt = performance.now();
+    registerBrandTap(brand);
+    return;
+  }
+
+  if (event.type === "click" && performance.now() - lastPointerActivationAt < 600) return;
+  registerBrandTap(brand);
+}
+
+function bindBrandTriggers() {
+  document.querySelectorAll(BRAND_SELECTOR).forEach((brand) => {
+    if (brand.dataset.easterBound === "true") return;
+    brand.dataset.easterBound = "true";
+    brand.addEventListener("pointerup", handleBrandActivation, { passive: true });
+    brand.addEventListener("click", handleBrandActivation);
+  });
+}
+
+bindBrandTriggers();
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && activeOverlay) closeEasterEgg();

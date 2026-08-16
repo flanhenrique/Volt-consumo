@@ -10,7 +10,8 @@ const AUXILIARY_MODULES = Object.freeze([
   "./src/pwa-update.js?v=20260814.15",
   "./src/admin-user-view.js?v=20260814.15",
   "./src/admin-billing-context.js?v=20260814.15",
-  "./src/canonical-billing-context.js?v=20260814.15"
+  "./src/canonical-billing-context.js?v=20260814.15",
+  "./src/notifications.js?v=20260816.3"
 ]);
 
 function loadAuxiliaryModules() {

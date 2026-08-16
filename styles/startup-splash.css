@@ -1,0 +1,126 @@
+#volt-startup-splash {
+  position: fixed;
+  z-index: 2147483000;
+  inset: 0;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    max(1.5rem, env(safe-area-inset-top, 0px))
+    max(1.5rem, env(safe-area-inset-right, 0px))
+    max(1.5rem, env(safe-area-inset-bottom, 0px))
+    max(1.5rem, env(safe-area-inset-left, 0px));
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, .14), transparent 14rem),
+    linear-gradient(155deg, #14a979 0%, #0f8a64 46%, #086447 100%);
+  color: #fff;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 260ms cubic-bezier(.2, .8, .2, 1),
+    visibility 260ms linear;
+  isolation: isolate;
+}
+
+#volt-startup-splash::before,
+#volt-startup-splash::after {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  content: "";
+  filter: blur(1px);
+  pointer-events: none;
+}
+
+#volt-startup-splash::before {
+  width: 17rem;
+  height: 17rem;
+  top: -8rem;
+  right: -7rem;
+}
+
+#volt-startup-splash::after {
+  width: 13rem;
+  height: 13rem;
+  bottom: -6rem;
+  left: -5rem;
+}
+
+.volt-startup-splash__content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: .35rem;
+  text-align: center;
+  animation: volt-startup-arrive 520ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.volt-startup-splash__mark {
+  position: relative;
+  display: grid;
+  width: 5.25rem;
+  height: 5.25rem;
+  margin-bottom: .65rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 1.55rem;
+  background: rgba(255, 255, 255, .1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .3),
+    0 1rem 3rem rgba(0, 55, 39, .24);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.volt-startup-splash__mark::before {
+  width: 2.35rem;
+  height: 3.2rem;
+  background: #fff;
+  content: "";
+  clip-path: polygon(56% 0, 17% 55%, 47% 55%, 39% 100%, 84% 40%, 54% 40%);
+  filter: drop-shadow(0 .25rem .55rem rgba(0, 55, 39, .18));
+}
+
+.volt-startup-splash__content strong {
+  font: 800 1.75rem/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .13em;
+  text-indent: .13em;
+}
+
+.volt-startup-splash__content small {
+  font: 700 .64rem/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .34em;
+  text-indent: .34em;
+  opacity: .74;
+}
+
+html[data-startup-splash="leaving"] #volt-startup-splash {
+  opacity: 0;
+  visibility: hidden;
+}
+
+html[data-startup-splash="done"] #volt-startup-splash {
+  display: none;
+}
+
+@keyframes volt-startup-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(.7rem) scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #volt-startup-splash,
+  .volt-startup-splash__content {
+    animation: none;
+    transition: none;
+  }
+}

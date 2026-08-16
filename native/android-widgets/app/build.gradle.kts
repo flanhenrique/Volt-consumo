@@ -37,5 +37,5 @@ dependencies {
     implementation("androidx.webkit:webkit:1.16.0")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.robolectric:robolectric:4.16.1")
 }

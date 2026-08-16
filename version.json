@@ -1,6 +1,6 @@
 {
-  "release": "20260815.15",
-  "build": "20260815.15",
-  "releasedAt": "2026-08-16T00:29:00Z",
-  "message": "Easter Egg no Android com área invisível ampliada: os três toques agora são reconhecidos pela posição física do toque em toda a marca VOLT, incluindo 16 px ao redor, sem alterar o layout."
+  "release": "20260815.16",
+  "build": "20260815.16",
+  "releasedAt": "2026-08-16T00:31:29Z",
+  "message": "Abertura Android/PWA refinada: fundo verde VOLT no manifest, ícone maskable com área segura e splash interna curta com transição suave para o aplicativo."
 }

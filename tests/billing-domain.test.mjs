@@ -67,9 +67,14 @@ test('catálogo SQL só prevê regra elegível e mantém Itaipu fora da previsã
     { consumer_unit_id: 'u1', rule_code: 'br_energy_itaipu_bonus', state: 'confirmed_on_bill', created_at: '2026-08-12T00:00:00Z' }
   ];
   const resolved = buildEnergyBillingRules({ rules, profiles, unit, cycle });
-  assert.equal(resolved.benefits.length, 1);
-  assert.equal(resolved.benefits[0].code, 'br_energy_tsee_80kwh');
+  assert.equal(resolved.benefits.length, 2);
+  assert.equal(resolved.benefits.filter((item) => item.forecastable !== false).length, 1);
+  assert.equal(resolved.benefits.find((item) => item.code === 'br_energy_tsee_80kwh').forecastable, true);
+  assert.equal(resolved.benefits.find((item) => item.code === 'br_energy_itaipu_bonus').forecastable, false);
   assert.equal(resolved.applied.find((item) => item.code === 'br_energy_itaipu_bonus').forecastable, false);
+
+  const forecast = forecastEnergyBill(400, resolved, { fallbackRate: 0.75, flagRate: 0, lightingFee: 0 });
+  assert.equal(forecast.items.some((item) => item.code === 'br_energy_itaipu_bonus'), false);
 });
 
 test('OCR estruturado extrai consumo, faixas, alíquota, benefício e total sem imagem persistida', () => {

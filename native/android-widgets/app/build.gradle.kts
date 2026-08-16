@@ -31,6 +31,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
     implementation("androidx.webkit:webkit:1.16.0")

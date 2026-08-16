@@ -1,6 +1,6 @@
 {
-  "release": "20260816.1",
-  "build": "20260816.1",
-  "releasedAt": "2026-08-16T16:27:00Z",
-  "message": "Tela de Ajuda simplificada: removidos os três pontos decorativos abaixo da animação que davam a impressão incorreta de existir um carrossel com três páginas."
+  "release": "20260816.2",
+  "build": "20260816.2",
+  "releasedAt": "2026-08-16T16:34:00Z",
+  "message": "Onboarding prioritário de instalação do VOLT: convite automático após autenticação, instalação nativa em navegadores compatíveis, instruções específicas para Safari no iPhone, cooldown de 7 dias e acesso permanente em Configurações."
 }

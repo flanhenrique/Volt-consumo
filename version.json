@@ -1,6 +1,6 @@
 {
-  "release": "20260815.14",
-  "build": "20260815.14",
-  "releasedAt": "2026-08-16T00:20:00Z",
-  "message": "Compatibilidade do Easter Egg no Android: o gatilho agora usa eventos de ponteiro diretamente na marca do VOLT, com fallback de clique, e ativa a celebração com três toques rápidos."
+  "release": "20260815.15",
+  "build": "20260815.15",
+  "releasedAt": "2026-08-16T00:29:00Z",
+  "message": "Easter Egg no Android com área invisível ampliada: os três toques agora são reconhecidos pela posição física do toque em toda a marca VOLT, incluindo 16 px ao redor, sem alterar o layout."
 }

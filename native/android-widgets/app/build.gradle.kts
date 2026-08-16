@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "br.com.voltconsumo.app"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.com.voltconsumo.app"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
     }

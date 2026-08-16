@@ -38,3 +38,14 @@ test('contrato de calibração preserva acertos e rejeições esperadas', () => 
   assert.deepEqual(contract.slice(0, 3).map(item => item.expected.value), [28425, 28431, 28490]);
   assert.deepEqual(contract.slice(3).map(item => item.expected.reason), ['wrong-register', 'test-screen', 'reflection']);
 });
+
+test('harness de validação cega aplica política de zero falso aceite sem upload', () => {
+  const harness = fs.readFileSync(new URL('../tools/ocr-blind-validation.html', import.meta.url), 'utf8');
+  assert.match(harness, /import \{ analyzeMeterImage \} from "\.\.\/src\/meter-ocr\.js"/);
+  assert.match(harness, /zero-false-accept/);
+  assert.match(harness, /FALHA CRÍTICA/);
+  assert.match(harness, /false-accept-wrong-reading/);
+  assert.match(harness, /false-accept-on-rejection-case/);
+  assert.equal(harness.includes('fetch('), false);
+  assert.equal(harness.includes('XMLHttpRequest'), false);
+});

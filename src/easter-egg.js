@@ -3,7 +3,6 @@ const TAP_WINDOW_MS = 1800;
 const AUTO_CLOSE_MS = 6200;
 const COOLDOWN_MS = 7000;
 const CONFETTI_COUNT = 64;
-const HIT_SLOP_PX = 16;
 const BRAND_SELECTOR = "#dashboard .brand-lockup";
 
 let tapCount = 0;
@@ -12,8 +11,6 @@ let resetTimer = null;
 let closeTimer = null;
 let activeOverlay = null;
 let cooldownUntil = 0;
-let lastPointerActivationAt = 0;
-let triggerObserver = null;
 
 function dashboardIsVisible() {
   const dashboard = document.getElementById("dashboard");
@@ -183,25 +180,6 @@ function registerBrandTap(brand) {
   openEasterEgg();
 }
 
-function brandAtPoint(clientX, clientY) {
-  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
-
-  for (const brand of document.querySelectorAll(BRAND_SELECTOR)) {
-    const rect = brand.getBoundingClientRect();
-    if (!rect.width || !rect.height) continue;
-    if (
-      clientX >= rect.left - HIT_SLOP_PX &&
-      clientX <= rect.right + HIT_SLOP_PX &&
-      clientY >= rect.top - HIT_SLOP_PX &&
-      clientY <= rect.bottom + HIT_SLOP_PX
-    ) {
-      return brand;
-    }
-  }
-
-  return null;
-}
-
 function prepareBrandTrigger(brand) {
   if (!(brand instanceof HTMLElement) || brand.dataset.easterPrepared === "true") return;
   brand.dataset.easterPrepared = "true";
@@ -210,53 +188,19 @@ function prepareBrandTrigger(brand) {
   brand.style.userSelect = "none";
   brand.style.webkitUserSelect = "none";
 
-  brand.querySelectorAll("svg, use, img, .brand-symbol, .brand-wordmark").forEach((child) => {
+  brand.querySelectorAll("svg, use, img, .brand-symbol, .brand-name").forEach((child) => {
     if (child instanceof HTMLElement || child instanceof SVGElement) child.style.pointerEvents = "none";
   });
 
   brand.addEventListener("click", (event) => {
-    if (performance.now() - lastPointerActivationAt < 650) return;
-    if (event.detail === 0) registerBrandTap(brand);
+    if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
+    event.preventDefault();
+    event.stopPropagation();
+    registerBrandTap(brand);
   });
 }
 
-function prepareBrandTriggers() {
-  document.querySelectorAll(BRAND_SELECTOR).forEach(prepareBrandTrigger);
-}
-
-function handlePointerActivation(event) {
-  if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
-  if (event.pointerType === "mouse" && event.button !== 0) return;
-
-  const brand = brandAtPoint(event.clientX, event.clientY);
-  if (!brand) return;
-
-  lastPointerActivationAt = performance.now();
-  registerBrandTap(brand);
-}
-
-function handleTouchActivation(event) {
-  if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
-  const touch = event.changedTouches?.[0];
-  if (!touch) return;
-  const brand = brandAtPoint(touch.clientX, touch.clientY);
-  if (!brand) return;
-  registerBrandTap(brand);
-}
-
-prepareBrandTriggers();
-
-if ("PointerEvent" in window) {
-  document.addEventListener("pointerup", handlePointerActivation, { passive: true, capture: true });
-} else {
-  document.addEventListener("touchend", handleTouchActivation, { passive: true, capture: true });
-}
-
-const dashboard = document.getElementById("dashboard");
-if (dashboard && "MutationObserver" in window) {
-  triggerObserver = new MutationObserver(prepareBrandTriggers);
-  triggerObserver.observe(dashboard, { childList: true, subtree: true });
-}
+document.querySelectorAll(BRAND_SELECTOR).forEach(prepareBrandTrigger);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && activeOverlay) closeEasterEgg();

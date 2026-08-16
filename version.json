@@ -1,6 +1,6 @@
 {
-  "release": "20260815.16",
-  "build": "20260815.16",
-  "releasedAt": "2026-08-16T00:31:29Z",
-  "message": "Abertura Android/PWA refinada: fundo verde VOLT no manifest, ícone maskable com área segura e splash interna curta com transição suave para o aplicativo."
+  "release": "20260815.17",
+  "build": "20260815.17",
+  "releasedAt": "2026-08-16T00:39:00Z",
+  "message": "Easter Egg corrigido no iOS e Android: o gatilho voltou a usar três cliques nativos diretamente na marca VOLT, sem depender de eventos de ponteiro ou toque específicos do navegador."
 }

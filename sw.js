@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260815.15";
+const CACHE_REVISION = "20260815.16";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260815.10";
-const UPDATE_BUILD = "20260815.15";
+const UPDATE_BUILD = "20260815.16";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260815.15",
   "volt-app-v4-atomic-20260815.14",
   "volt-app-v4-atomic-20260815.13",
   "volt-app-v4-atomic-20260815.12",
@@ -53,6 +54,7 @@ const CORE_ASSETS = [
   releaseAsset("./styles/components.css"),
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
+  updateAsset("./styles/startup-splash.css"),
   updateAsset("./styles/auth-desktop.css"),
   updateAsset("./styles/mobile-polish.css"),
   updateAsset("./styles/dialog-fix.css"),
@@ -68,6 +70,7 @@ const CORE_ASSETS = [
   "./licenses.html",
   "./about.html",
   "./icon.svg",
+  "./icon-maskable.svg",
   "./icon-192.png",
   "./icon-512.png",
   releaseAsset("./vendor/supabase/supabase.js"),

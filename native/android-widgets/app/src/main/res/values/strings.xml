@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">VOLT</string>
+    <string name="widget_energy_name">VOLT Energia</string>
+    <string name="widget_energy_description">Consumo, meta e projeção de energia.</string>
+    <string name="widget_water_name">VOLT Água</string>
+    <string name="widget_water_description">Consumo, meta e projeção de água.</string>
+    <string name="widget_summary_name">VOLT Resumo</string>
+    <string name="widget_summary_description">Resumo de energia, água e estimativa do ciclo.</string>
+    <string name="widget_reading_name">VOLT + Leitura</string>
+    <string name="widget_reading_description">Atalhos para nova leitura de luz ou água.</string>
+</resources>

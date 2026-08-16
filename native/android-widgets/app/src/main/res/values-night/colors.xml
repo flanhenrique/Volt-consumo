@@ -1,0 +1,10 @@
+<resources>
+    <color name="volt_widget_surface">#06130F</color>
+    <color name="volt_widget_surface_alt">#0B1D17</color>
+    <color name="volt_text_primary">#F4FFF9</color>
+    <color name="volt_text_secondary">#AFC7BD</color>
+    <color name="volt_accent">#39DFA9</color>
+    <color name="volt_energy">#FFC95D</color>
+    <color name="volt_water">#64C9F4</color>
+    <color name="volt_button_text">#06130F</color>
+</resources>

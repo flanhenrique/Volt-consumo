@@ -1,6 +1,6 @@
 {
-  "release": "20260816.2",
-  "build": "20260816.2",
-  "releasedAt": "2026-08-16T16:34:00Z",
-  "message": "Onboarding prioritário de instalação do VOLT: convite automático após autenticação, instalação nativa em navegadores compatíveis, instruções específicas para Safari no iPhone, cooldown de 7 dias e acesso permanente em Configurações."
+  "release": "20260816.3",
+  "build": "20260816.3",
+  "releasedAt": "2026-08-16T16:37:52Z",
+  "message": "Central de notificações do VOLT: alertas administrativos de novos usuários confirmados, resumo diário do proprietário, Web Push, contador no sino, preferências por usuário e identidade sonora interna para leituras e avisos."
 }

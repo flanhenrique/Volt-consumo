@@ -34,10 +34,20 @@ function loadCss() {
 }
 
 function observeHome() {
-  const home = $("page-home");
-  if (!home || observer) return;
+  if (observer) return;
+  const sources = [
+    $("home-energy-consumption"),
+    $("home-water-consumption"),
+    $("home-energy-goal"),
+    $("home-water-goal")
+  ].filter(Boolean);
+  if (!sources.length) return;
   observer = new MutationObserver(queue);
-  observer.observe(home, { childList: true, characterData: true, subtree: true });
+  sources.forEach((source) => observer.observe(source, {
+    childList: true,
+    characterData: true,
+    subtree: true
+  }));
 }
 
 function queue() {
@@ -141,14 +151,17 @@ function renderMeters() {
       track.setAttribute("aria-valuemax", "100");
       track.setAttribute("aria-valuenow", String(Math.round(percent)));
     }
-    if (copy) copy.textContent = `${formatNumber(percent, 0)}% da meta`;
+    if (copy) {
+    const nextCopy = `${formatNumber(percent, 0)}% da meta`;
+    if (copy.textContent !== nextCopy) copy.textContent = nextCopy;
+  }
     if (card) card.dataset.goalTone = percent > 100 ? "danger" : percent >= 90 ? "warning" : "success";
 
     const status = $(`home-${type}-status`);
     if (status && percent > 100) {
-      status.textContent = "Meta ultrapassada";
-      status.dataset.tone = "danger";
-    }
+    if (status.textContent !== "Meta ultrapassada") status.textContent = "Meta ultrapassada";
+    if (status.dataset.tone !== "danger") status.dataset.tone = "danger";
+  }
   });
 }
 

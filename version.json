@@ -1,6 +1,6 @@
 {
-  "release": "20260815.12",
-  "build": "20260815.12",
-  "releasedAt": "2026-08-15T23:38:00Z",
-  "message": "Easter Egg comemorativo do Caprichoso campeão de 2026: animação azul com boi estilizado, estrela e confetes, ativada por sete toques no raio do VOLT."
+  "release": "20260815.13",
+  "build": "20260815.13",
+  "releasedAt": "2026-08-16T00:14:00Z",
+  "message": "Correção da Home no iPhone: remove o ciclo de renderização causado pelo observador da interface e isola gráficos e composição para que um card não bloqueie os demais."
 }

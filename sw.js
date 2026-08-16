@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260816.1";
+const CACHE_REVISION = "20260816.2";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260815.10";
-const UPDATE_BUILD = "20260816.1";
+const UPDATE_BUILD = "20260816.2";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260816.1",
   "volt-app-v4-atomic-20260815.17",
   "volt-app-v4-atomic-20260815.16",
   "volt-app-v4-atomic-20260815.15",
@@ -61,6 +62,7 @@ const CORE_ASSETS = [
   updateAsset("./styles/mobile-polish.css"),
   updateAsset("./styles/dialog-fix.css"),
   updateAsset("./styles/easter-egg.css"),
+  updateAsset("./styles/pwa-install.css"),
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),
@@ -96,6 +98,7 @@ const CORE_ASSETS = [
   updateAsset("./src/consumption-reports.js"),
   updateAsset("./src/home-dashboard-v2.js"),
   updateAsset("./src/home-dashboard-sustainability.js"),
+  updateAsset("./src/pwa-install.js"),
   updateAsset("./src/pwa-update.js"),
   updateAsset("./src/easter-egg.js"),
   updateAsset("./styles/pwa-update.css"),

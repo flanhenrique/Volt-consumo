@@ -19,6 +19,7 @@ import androidx.glance.background
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.defaultWeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -33,7 +34,7 @@ import br.com.voltconsumo.app.R
 import java.text.NumberFormat
 import java.util.Locale
 
-private enum class WidgetMode { ENERGY, WATER, SUMMARY, READING }
+internal enum class WidgetMode { ENERGY, WATER, SUMMARY, READING }
 
 private val COMPACT = DpSize(110.dp, 110.dp)
 private val MEDIUM = DpSize(240.dp, 110.dp)

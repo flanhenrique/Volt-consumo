@@ -2,13 +2,14 @@ name: VOLT Android Widgets Gate
 
 on:
   push:
-    branches:
-      - agent/android-widgets
+    branches: [agent/android-widgets]
     paths:
       - "native/android-widgets/**"
       - "src/volt-widget-bridge.js"
       - "src/widget-snapshot-adapter.mjs"
       - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
       - ".github/workflows/android-widgets-gate.yml"
   pull_request:
     branches: [main]
@@ -17,6 +18,8 @@ on:
       - "src/volt-widget-bridge.js"
       - "src/widget-snapshot-adapter.mjs"
       - "tests/widget-snapshot-adapter.test.mjs"
+      - "bootstrap.js"
+      - "sw.js"
       - ".github/workflows/android-widgets-gate.yml"
   workflow_dispatch:
 
@@ -31,15 +34,13 @@ jobs:
   build:
     name: Kotlin + Glance + APK gate
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
@@ -66,7 +67,7 @@ jobs:
           set -euo pipefail
           APK="native/android-widgets/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$APK" AndroidManifest.xml > android-manifest.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > android-manifest.txt
           grep -q 'br.com.voltconsumo.app.widget.EnergyWidgetReceiver' android-manifest.txt
           grep -q 'br.com.voltconsumo.app.widget.WaterWidgetReceiver' android-manifest.txt
           grep -q 'br.com.voltconsumo.app.widget.SummaryWidgetReceiver' android-manifest.txt
@@ -100,42 +101,49 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.5.0"
 
-      - name: Build runtime APK
+      - name: Install Android SDK and emulator
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Build debug APK
         run: gradle -p native/android-widgets :app:assembleDebug --stacktrace
 
-      - name: Emulator runtime smoke test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          script: |
-            set -euo pipefail
-            APK="native/android-widgets/app/build/outputs/apk/debug/app-debug.apk"
-            adb install -r "$APK"
-            adb logcat -c
-            adb shell am start -W -n br.com.voltconsumo.app/.MainActivity
-            sleep 12
-            adb shell am start -W -a android.intent.action.VIEW -d 'volt://reading/energy' br.com.voltconsumo.app
-            sleep 6
-            adb logcat -d -s VOLTAndroid:I '*:S' > android-runtime.log
-            grep -q 'web-ready:https://www.voltconsumo.com.br/' android-runtime.log
-            grep -q 'bridge-ready' android-runtime.log
-            grep -q 'route-applied:reading/energy' android-runtime.log
-            adb exec-out screencap -p > android-runtime.png
+      - name: Create and start emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd -n volt-ci -k "system-images;android-35;google_apis;x86_64" --force
+          nohup emulator -avd volt-ci -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > emulator.log 2>&1 &
+          adb wait-for-device
+          until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ]; do sleep 2; done
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+      - name: Install, launch and verify deep link
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="native/android-widgets/app/build/outputs/apk/debug/app-debug.apk"
+          adb install -r "$APK"
+          adb logcat -c
+          adb shell am start -W -n br.com.voltconsumo.app/.MainActivity
+          sleep 8
+          adb shell am start -W -a android.intent.action.VIEW -d 'volt://reading/energy' br.com.voltconsumo.app
+          sleep 4
+          adb logcat -d > android-runtime.log
+          grep -q 'web-ready:https://www.voltconsumo.com.br/' android-runtime.log
+          grep -q 'bridge-ready' android-runtime.log
+          grep -q 'route-applied:reading/energy' android-runtime.log
+          adb exec-out screencap -p > android-runtime.png
 
       - name: Upload emulator evidence
         if: always()
@@ -145,5 +153,6 @@ jobs:
           path: |
             android-runtime.log
             android-runtime.png
+            emulator.log
           if-no-files-found: ignore
           retention-days: 7

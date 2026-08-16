@@ -11,7 +11,7 @@
   #signup-dialog .dialog-heading {
     position: static !important;
     top: auto !important;
-    min-height: 2.75rem !important;
+    min-height: 3rem !important;
     margin: 0 !important;
     padding: 0 0 .65rem !important;
     align-items: flex-start !important;
@@ -21,15 +21,15 @@
 
   #more-dialog .dialog-heading [data-close-dialog],
   #signup-dialog .dialog-heading [data-close-dialog] {
-    width: 2.625rem !important;
-    min-width: 2.625rem !important;
-    height: 2.625rem !important;
-    min-height: 2.625rem !important;
-    flex: 0 0 2.625rem !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    flex: 0 0 48px !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 1px solid var(--glass-border-strong) !important;
-    border-radius: .82rem !important;
+    border-radius: .95rem !important;
     outline: none !important;
     outline-offset: 0 !important;
     background: color-mix(in srgb, var(--glass-control) 72%, transparent) !important;
@@ -61,7 +61,7 @@
     min-width: 0;
     display: flex !important;
     align-items: center !important;
-    min-height: 2.625rem;
+    min-height: 48px;
   }
 
   #more-dialog .dialog-heading .eyebrow {

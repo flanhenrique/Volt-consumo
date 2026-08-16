@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260816.2";
+const CACHE_REVISION = "20260816.3";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260815.10";
-const UPDATE_BUILD = "20260816.2";
+const UPDATE_BUILD = "20260816.3";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260816.2",
   "volt-app-v4-atomic-20260816.1",
   "volt-app-v4-atomic-20260815.17",
   "volt-app-v4-atomic-20260815.16",
@@ -63,6 +64,7 @@ const CORE_ASSETS = [
   updateAsset("./styles/dialog-fix.css"),
   updateAsset("./styles/easter-egg.css"),
   updateAsset("./styles/pwa-install.css"),
+  updateAsset("./styles/notifications.css"),
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),
@@ -104,7 +106,8 @@ const CORE_ASSETS = [
   updateAsset("./styles/pwa-update.css"),
   updateAsset("./src/admin-user-view.js"),
   updateAsset("./src/admin-billing-context.js"),
-  updateAsset("./src/canonical-billing-context.js")
+  updateAsset("./src/canonical-billing-context.js"),
+  updateAsset("./src/notifications.js")
 ];
 
 self.addEventListener("install", (event) => {
@@ -172,6 +175,52 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "CLEAR_VOLT_CACHE") {
     event.waitUntil(Promise.all([...OWNED_CACHE_NAMES].map((name) => caches.delete(name))));
   }
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json?.() || {};
+  } catch {
+    payload = { body: event.data?.text?.() || "" };
+  }
+
+  const title = String(payload.title || "VOLT");
+  const options = {
+    body: String(payload.body || "Você tem uma nova notificação."),
+    icon: "./icon-192.png",
+    badge: "./icon-192.png",
+    tag: String(payload.tag || payload.id || "volt-notification"),
+    renotify: Boolean(payload.renotify),
+    silent: Boolean(payload.silent),
+    data: {
+      url: String(payload.url || "./"),
+      notificationId: payload.id || null
+    }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "./", self.registration.scope).href;
+
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const sameOriginClient = clients.find((client) => {
+      try { return new URL(client.url).origin === new URL(targetUrl).origin; }
+      catch { return false; }
+    });
+
+    if (sameOriginClient) {
+      if ("navigate" in sameOriginClient) await sameOriginClient.navigate(targetUrl);
+      await sameOriginClient.focus();
+      return;
+    }
+
+    await self.clients.openWindow(targetUrl);
+  })());
 });
 
 async function navigationResponse(request, event) {

@@ -1,0 +1,153 @@
+name: Repair VOLT dashboard render loop once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/repair-home-render-loop-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Repair dashboard observers and resilient rendering
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          # 1) Stop the sustainability module from observing and rewriting its own DOM.
+          path = Path('src/home-dashboard-sustainability.js')
+          text = path.read_text(encoding='utf-8')
+          old = '''function observeHome() {
+            const home = $("page-home");
+            if (!home || observer) return;
+            observer = new MutationObserver(queue);
+            observer.observe(home, { childList: true, characterData: true, subtree: true });
+          }'''
+          new = '''function observeHome() {
+            if (observer) return;
+            const sources = [
+              $("home-energy-consumption"),
+              $("home-water-consumption"),
+              $("home-energy-goal"),
+              $("home-water-goal")
+            ].filter(Boolean);
+            if (!sources.length) return;
+            observer = new MutationObserver(queue);
+            sources.forEach((source) => observer.observe(source, {
+              childList: true,
+              characterData: true,
+              subtree: true
+            }));
+          }'''
+          if old not in text:
+            raise SystemExit('observeHome antigo não encontrado')
+          text = text.replace(old, new, 1)
+          old = '    if (copy) copy.textContent = `${formatNumber(percent, 0)}% da meta`;'
+          new = '''    if (copy) {
+              const nextCopy = `${formatNumber(percent, 0)}% da meta`;
+              if (copy.textContent !== nextCopy) copy.textContent = nextCopy;
+            }'''
+          if old not in text:
+            raise SystemExit('escrita do indicador de meta não encontrada')
+          text = text.replace(old, new, 1)
+          old = '''    if (status && percent > 100) {
+              status.textContent = "Meta ultrapassada";
+              status.dataset.tone = "danger";
+            }'''
+          new = '''    if (status && percent > 100) {
+              if (status.textContent !== "Meta ultrapassada") status.textContent = "Meta ultrapassada";
+              if (status.dataset.tone !== "danger") status.dataset.tone = "danger";
+            }'''
+          if old not in text:
+            raise SystemExit('bloco de status de meta não encontrado')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 2) Make dashboard-v2 react only to renderer-owned source nodes and isolate failures.
+          path = Path('src/home-dashboard-v2.js')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('let queued=false,dashboardObserver=null;', 'let queued=false,dashboardObserver=null,sourceObserver=null;', 1)
+          old = 'function boot(){const start=()=>{loadCss();structure();observeDashboard();queue();window.addEventListener("volt:startup-status",e=>{if(e.detail?.status==="READY")queue()});'
+          new = 'function boot(){const start=()=>{loadCss();structure();observeDashboard();observeSources();queue();window.addEventListener("volt:startup-status",e=>{if(e.detail?.status==="READY")queue()});'
+          if old not in text:
+            raise SystemExit('boot do dashboard-v2 não encontrado')
+          text = text.replace(old, new, 1)
+          old = 'function observeDashboard(){const dashboard=$("dashboard");if(!dashboard||dashboardObserver)return;dashboardObserver=new MutationObserver(()=>{if(!dashboard.hidden)queue()});dashboardObserver.observe(dashboard,{attributes:true,attributeFilter:["hidden"]})}\n'
+          new = '''function observeDashboard(){const dashboard=$("dashboard");if(!dashboard||dashboardObserver)return;dashboardObserver=new MutationObserver(()=>{if(!dashboard.hidden)queue()});dashboardObserver.observe(dashboard,{attributes:true,attributeFilter:["hidden"]})}
+          function observeSources(){if(sourceObserver)return;const sources=[$("home-total-cost"),$("home-energy-cost"),$("home-water-cost"),$("home-energy-consumption"),$("consumption-chart")].filter(Boolean);if(!sources.length)return;sourceObserver=new MutationObserver(queue);sources.forEach(source=>sourceObserver.observe(source,{childList:true,characterData:true,subtree:true}))}
+          '''
+          if old not in text:
+            raise SystemExit('observeDashboard do dashboard-v2 não encontrado')
+          text = text.replace(old, new, 1)
+          old = 'function render(){if($("dashboard")?.hidden)return;flag();const s=series();daily(s);evolution(s);composition()}\n'
+          new = '''function render(){if($("dashboard")?.hidden)return;const s=series();safeRender("flag",flag);safeRender("daily",()=>daily(s));safeRender("evolution",()=>evolution(s));safeRender("composition",composition)}
+          function safeRender(part,task){try{task()}catch(error){console.warn(`VOLT home ${part} render failed`,error)}}
+          '''
+          if old not in text:
+            raise SystemExit('render do dashboard-v2 não encontrado')
+          text = text.replace(old, new, 1)
+          old = 'function flag(){const key=$("energy-flag")?.value||"green",{label,rate}=flagData(key),kwh=num($("home-energy-consumption")?.textContent),impact=kwh*rate;$("home-insight-title").textContent=`Bandeira ${label}`;$("home-insight-body").textContent=rate?`Adicional de ${money(rate*100)} a cada 100 kWh.`:"Sem cobrança adicional de bandeira sobre o consumo de energia.";$("home-flag-impact").textContent=rate?`Impacto estimado: +${money(impact)}`:"Impacto estimado: R$ 0,00";$("home-insight-title")?.closest(".overview-card.status")?.setAttribute("data-flag",key)}\n'
+          new = '''function flag(){const key=$("energy-flag")?.value||"green",{label,rate}=flagData(key),kwh=num($("home-energy-consumption")?.textContent),impact=kwh*rate,title=$("home-insight-title"),body=$("home-insight-body"),impactNode=$("home-flag-impact");if(title)title.textContent=`Bandeira ${label}`;if(body)body.textContent=rate?`Adicional de ${money(rate*100)} a cada 100 kWh.`:"Sem cobrança adicional de bandeira sobre o consumo de energia.";if(impactNode)impactNode.textContent=rate?`Impacto estimado: +${money(impact)}`:"Impacto estimado: R$ 0,00";title?.closest(".overview-card.status")?.setAttribute("data-flag",key)}
+          '''
+          if old not in text:
+            raise SystemExit('flag do dashboard-v2 não encontrado')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 3) Force installed PWAs to receive the fixed modules as a new build.
+          path = Path('bootstrap.js')
+          text = path.read_text(encoding='utf-8')
+          if 'const UPDATE_BUILD = "20260815.12";' not in text:
+            raise SystemExit('UPDATE_BUILD esperado não encontrado em bootstrap.js')
+          text = text.replace('const UPDATE_BUILD = "20260815.12";', 'const UPDATE_BUILD = "20260815.13";', 1)
+          path.write_text(text, encoding='utf-8')
+
+          path = Path('sw.js')
+          text = path.read_text(encoding='utf-8')
+          if 'const CACHE_REVISION = "20260815.12";' not in text or 'const UPDATE_BUILD = "20260815.12";' not in text:
+            raise SystemExit('build esperado não encontrado em sw.js')
+          text = text.replace('const CACHE_REVISION = "20260815.12";', 'const CACHE_REVISION = "20260815.13";', 1)
+          text = text.replace('const UPDATE_BUILD = "20260815.12";', 'const UPDATE_BUILD = "20260815.13";', 1)
+          marker = '  CACHE_NAME,\n'
+          if '"volt-app-v4-atomic-20260815.12"' not in text:
+            text = text.replace(marker, marker + '  "volt-app-v4-atomic-20260815.12",\n', 1)
+          path.write_text(text, encoding='utf-8')
+
+          Path('version.json').write_text(json.dumps({
+            'release': '20260815.13',
+            'build': '20260815.13',
+            'releasedAt': '2026-08-16T00:14:00Z',
+            'message': 'Correção definitiva da Home no iPhone: remove um ciclo de MutationObserver que podia manter o dashboard re-renderizando e torna gráficos e composição independentes de falhas em outros cards.'
+          }, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript and static contract
+        shell: bash
+        run: |
+          node --check src/home-dashboard-v2.js
+          node --check src/home-dashboard-sustainability.js
+          node --check bootstrap.js
+          node --check sw.js
+          python tests/quality_gate.py
+
+      - name: Commit fixed dashboard release
+        shell: bash
+        run: |
+          git config user.name "VOLT Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/repair-home-render-loop-once.yml
+          git add src/home-dashboard-v2.js src/home-dashboard-sustainability.js bootstrap.js sw.js version.json
+          git commit -m "fix: stop home render loop and harden dashboard"
+          git push origin main

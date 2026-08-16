@@ -117,14 +117,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-          emulator -accel-check || true
+          "$ANDROID_HOME/emulator/emulator" -accel-check || true
 
       - name: Create and start emulator
         shell: bash
         run: |
           set -euo pipefail
           echo no | avdmanager create avd -n volt-ci -k "system-images;android-35;google_apis;x86_64" --force
-          nohup emulator -avd volt-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
+          nohup "$ANDROID_HOME/emulator/emulator" -avd volt-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
           if ! timeout 120 adb wait-for-device; then
             cat emulator.log || true
             exit 1

@@ -1,4 +1,4 @@
-const INSTALL_BUILD = "20260816.2";
+const INSTALL_BUILD = "20260816.4";
 const INSTALLED_KEY = "volt-pwa-installed";
 const DISMISS_KEY_PREFIX = "volt-pwa-install-dismissed:";
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -9,6 +9,7 @@ let deferredInstallPrompt = null;
 let applicationReady = document.documentElement.dataset.startupStatus === "READY";
 let autoOpenTimer = null;
 let autoOpenRetries = 0;
+let iosInstallStage = "intro";
 
 loadInstallStyles();
 mountInstallUi();
@@ -165,6 +166,7 @@ function openInstallDialog(manual = false) {
     return;
   }
 
+  iosInstallStage = "intro";
   configureInstallDialog();
   autoOpenRetries = 0;
   dialog.showModal();
@@ -191,21 +193,40 @@ function configureInstallDialog() {
   }
 
   if (isIOS() && isSafari()) {
-    title.textContent = "Instale o VOLT no seu iPhone";
-    subtitle.textContent = "Adicione o VOLT à Tela de Início.";
-    description.textContent = "No iPhone, a instalação é concluída pelo próprio Safari.";
+    if (iosInstallStage === "intro") {
+      title.textContent = "Tenha o VOLT no seu iPhone";
+      subtitle.textContent = "Use o VOLT como um aplicativo.";
+      description.textContent = "Ele fica na sua Tela de Início e abre em tela própria, sem você precisar procurar pelo site no Safari.";
+      steps.hidden = true;
+      primary.textContent = "Entendi";
+      return;
+    }
+
+    title.textContent = "Instalar VOLT";
+    subtitle.textContent = "Agora adicione à Tela de Início.";
+    description.textContent = "O iPhone conclui a instalação pelo menu do Safari. Toque em “Instalar VOLT” para abrir a etapa de compartilhamento e procure “Adicionar à Tela de Início”.";
     steps.hidden = false;
-    primary.textContent = "Entendi";
+    note.textContent = "Se “Adicionar à Tela de Início” não aparecer na folha que abrir, use o botão Compartilhar do próprio Safari.";
+    primary.textContent = "Instalar VOLT";
     return;
   }
 
   if (isIOS()) {
+    if (iosInstallStage === "intro") {
+      title.textContent = "Instale o VOLT no seu iPhone";
+      subtitle.textContent = "A instalação é concluída pelo Safari.";
+      description.textContent = "Primeiro abra esta página no Safari. Depois o VOLT pode ser adicionado à Tela de Início como aplicativo.";
+      steps.hidden = true;
+      primary.textContent = "Entendi";
+      return;
+    }
+
     title.textContent = "Abra o VOLT no Safari";
-    subtitle.textContent = "O iPhone instala o VOLT pelo Safari.";
-    description.textContent = "Abra esta página no Safari e use a opção “Adicionar à Tela de Início”.";
+    subtitle.textContent = "Falta apenas concluir pelo Safari.";
+    description.textContent = "Abra esta mesma página no Safari e escolha “Adicionar à Tela de Início”.";
     steps.hidden = false;
-    note.textContent = "Chrome e Edge no iPhone não oferecem o mesmo fluxo de instalação de PWA.";
-    primary.textContent = "Entendi";
+    note.textContent = "No iPhone, navegadores como Chrome e Edge não conseguem abrir diretamente essa etapa do Safari.";
+    primary.textContent = "Fechar";
     return;
   }
 
@@ -219,6 +240,23 @@ function configureInstallDialog() {
 async function handlePrimaryInstallAction() {
   const primary = document.getElementById("pwa-install-primary");
   const note = document.getElementById("pwa-install-note");
+
+  if (!deferredInstallPrompt && isIOS()) {
+    if (iosInstallStage === "intro") {
+      iosInstallStage = "install";
+      configureInstallDialog();
+      primary.focus();
+      return;
+    }
+
+    if (isSafari()) {
+      await openIOSInstallShare(primary, note);
+      return;
+    }
+
+    closeInstallDialog(false);
+    return;
+  }
 
   if (!deferredInstallPrompt) {
     markDismissed();
@@ -249,6 +287,24 @@ async function handlePrimaryInstallAction() {
     primary.textContent = "Fechar";
   } finally {
     refreshInstallUi();
+  }
+}
+
+async function openIOSInstallShare(primary, note) {
+  note.textContent = "No menu que abrir, procure “Adicionar à Tela de Início”. Se a opção não aparecer, feche-o e use o botão Compartilhar do Safari.";
+
+  if (typeof window.navigator.share !== "function") {
+    primary.textContent = "Use Compartilhar no Safari";
+    return;
+  }
+
+  try {
+    const result = window.navigator.share({ title: "VOLT", url: window.location.href });
+    if (result && typeof result.then === "function") await result;
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      note.textContent = "O iPhone não abriu o compartilhamento. Use o botão Compartilhar do Safari e toque em “Adicionar à Tela de Início”.";
+    }
   }
 }
 
@@ -293,7 +349,7 @@ function refreshInstallUi() {
   if (isIOS() && isSafari()) {
     status.textContent = "Disponível no Safari";
     description.textContent = "No iPhone, use o Safari para adicionar o VOLT à Tela de Início.";
-    action.textContent = "Como instalar";
+    action.textContent = "Instalar VOLT";
     return;
   }
 

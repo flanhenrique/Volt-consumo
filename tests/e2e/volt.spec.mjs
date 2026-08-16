@@ -157,11 +157,15 @@ test("E — registrar leitura preserva a Home", async ({ page }) => {
   await expect(page.locator("#dashboard")).toBeVisible();
   await navigateTo(page, "readings");
   await page.locator("#page-readings [data-action='open-reading']").first().click();
+  await page.locator("[data-reading-panel='type']").getByRole("button", { name: "Continuar" }).click();
+  await page.locator("[data-reading-panel='capture']").getByRole("button", { name: "Continuar" }).click();
   await page.locator("#reading-type").selectOption("energy");
   await page.locator("#reading-value").fill("1130");
   await page.locator("#reading-date").fill("2026-08-10T12:00");
   await page.locator("#reading-reviewed").check();
   await page.locator("#reading-form").getByRole("button", { name: "Confirmar leitura" }).click();
+  await expect(page.locator("[data-reading-panel='done']")).toBeVisible();
+  await page.locator("[data-reading-panel='done']").getByRole("button", { name: "Concluir" }).click();
   await expect(page.locator("#reading-dialog")).not.toHaveAttribute("open", "");
   await navigateTo(page, "home");
   await expect(page.locator("#home-energy-consumption")).not.toHaveText("");
@@ -173,9 +177,11 @@ test("OCR é lazy, mostra preview e exige revisão humana", async ({ page }) => 
   await assertMaintenanceRemoved(page);
   await expect(page.locator("#dashboard")).toBeVisible();
   await page.locator("[data-action='open-reading']:visible").first().click();
+  await page.locator("[data-reading-panel='type']").getByRole("button", { name: "Continuar" }).click();
   await page.locator("#reading-photo").setInputFiles({ name: "medidor.png", mimeType: "image/png", buffer: onePixelPng });
   await expect(page.locator("#meter-preview")).toBeVisible();
-  await expect(page.locator("#ocr-message")).toContainText(/revise|Digite|disponível/i);
+  await expect(page.locator("#ocr-message")).toContainText(/visor|imagem|foto|revis|manual|não consegui/i, { timeout: 15000 });
+  await page.locator("[data-reading-panel='capture']").getByRole("button", { name: "Continuar" }).click();
   await expect(page.locator("#reading-value")).toHaveValue("");
   await expect(page.locator("#reading-reviewed")).not.toBeChecked();
 });

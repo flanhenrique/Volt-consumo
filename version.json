@@ -1,6 +1,6 @@
 {
-  "release": "20260816.4",
-  "build": "20260816.4",
-  "releasedAt": "2026-08-16T17:46:34Z",
-  "message": "Correção crítica no card de Impacto ambiental: a bandeira tarifária não sobrescreve mais o indicador de CO₂e. O card volta a exibir o impacto calculado pelo consumo de energia, e a informação de bandeira permanece no contexto financeiro."
+  "release": "20260816.5",
+  "build": "20260816.5",
+  "releasedAt": "2026-08-16T17:52:00Z",
+  "message": "Correção do mecanismo de atualização do VOLT e do card de Impacto ambiental. O build do aplicativo, o Service Worker e o manifesto de versão agora estão sincronizados para impedir atualizações que aparentam concluir, mas mantêm módulos antigos em cache."
 }

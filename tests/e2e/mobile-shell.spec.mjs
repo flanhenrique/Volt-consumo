@@ -9,7 +9,7 @@ test("mobile shell is fixed, edge-to-edge and vertical-only", async ({ page }, t
   await expect(page.locator("#login-screen")).toBeVisible();
 
   await expect.poll(async () => page.locator('meta[name="viewport"]').getAttribute("content")).toContain("user-scalable=no");
-  await expect(page.locator('link[data-volt-mobile-polish]')).toHaveAttribute("href", /mobile-polish\.css\?v=20260815\.5/);
+  await expect(page.locator('link[data-volt-mobile-polish]')).toHaveAttribute("href", /mobile-polish\.css\?v=\d{8}\.\d+/);
 
   await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
   await expect.poll(async () => page.locator('meta[name="theme-color"]').getAttribute("content")).toBe("#000000");

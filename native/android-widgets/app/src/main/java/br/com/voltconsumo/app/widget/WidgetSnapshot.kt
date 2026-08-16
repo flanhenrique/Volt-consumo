@@ -43,40 +43,70 @@ internal object SnapshotJson {
         if (raw.isNullOrBlank()) return WidgetSnapshot()
         return runCatching {
             val json = JSONObject(raw)
+            if (json.optInt("schemaVersion", 0) != 1) return WidgetSnapshot()
             WidgetSnapshot(
-                schemaVersion = json.optInt("schemaVersion", 1),
-                generatedAt = json.optNullableString("generatedAt"),
-                accountLabel = json.optNullableString("accountLabel"),
+                schemaVersion = 1,
+                generatedAt = json.optNullableString("generatedAt", 64),
+                accountLabel = json.optNullableString("accountLabel", 120),
                 energy = json.optJSONObject("energy")?.toService("energy"),
                 water = json.optJSONObject("water")?.toService("water"),
-                tariffFlagLabel = json.optNullableString("tariffFlagLabel"),
-                totalEstimatedCostBRL = json.optNullableDouble("totalEstimatedCostBRL"),
-                accent = json.optNullableString("accent") ?: "emerald",
-                preferredTheme = json.optNullableString("preferredTheme") ?: "system",
+                tariffFlagLabel = json.optNullableString("tariffFlagLabel", 64),
+                totalEstimatedCostBRL = json.optNullableDouble("totalEstimatedCostBRL")?.takeIf { it >= 0 },
+                accent = json.optNullableString("accent", 24) ?: "emerald",
+                preferredTheme = json.optNullableString("preferredTheme", 16) ?: "system",
             )
         }.getOrDefault(WidgetSnapshot())
     }
+
+    fun serialize(snapshot: WidgetSnapshot): String = JSONObject().apply {
+        put("schemaVersion", 1)
+        putNullable("generatedAt", snapshot.generatedAt?.take(64))
+        putNullable("accountLabel", snapshot.accountLabel?.take(120))
+        put("energy", snapshot.energy?.toJson() ?: JSONObject.NULL)
+        put("water", snapshot.water?.toJson() ?: JSONObject.NULL)
+        putNullable("tariffFlagLabel", snapshot.tariffFlagLabel?.take(64))
+        putNullable("totalEstimatedCostBRL", snapshot.totalEstimatedCostBRL?.takeIf { it.isFinite() && it >= 0 })
+        put("accent", snapshot.accent.take(24))
+        put("preferredTheme", snapshot.preferredTheme.take(16))
+    }.toString()
 
     private fun JSONObject.toService(fallbackKind: String): ServiceSnapshot? {
         if (!has("value") || isNull("value")) return null
         val value = optDouble("value", Double.NaN)
         if (!value.isFinite() || value < 0) return null
         return ServiceSnapshot(
-            kind = optNullableString("kind") ?: fallbackKind,
+            kind = fallbackKind,
             value = value,
-            unit = optNullableString("unit") ?: if (fallbackKind == "energy") "kWh" else "m³",
+            unit = if (fallbackKind == "energy") "kWh" else "m³",
             goal = optNullableDouble("goal")?.takeIf { it > 0 },
-            projectedValue = optNullableDouble("projectedValue"),
-            estimatedCostBRL = optNullableDouble("estimatedCostBRL"),
-            dailyAverage = optNullableDouble("dailyAverage"),
-            cycleElapsedDays = optNullableInt("cycleElapsedDays"),
-            cycleTotalDays = optNullableInt("cycleTotalDays"),
-            lastReadingAt = optNullableString("lastReadingAt"),
+            projectedValue = optNullableDouble("projectedValue")?.takeIf { it >= 0 },
+            estimatedCostBRL = optNullableDouble("estimatedCostBRL")?.takeIf { it >= 0 },
+            dailyAverage = optNullableDouble("dailyAverage")?.takeIf { it >= 0 },
+            cycleElapsedDays = optNullableInt("cycleElapsedDays")?.takeIf { it >= 0 },
+            cycleTotalDays = optNullableInt("cycleTotalDays")?.takeIf { it >= 0 },
+            lastReadingAt = optNullableString("lastReadingAt", 64),
         )
     }
 
-    private fun JSONObject.optNullableString(key: String): String? =
-        if (!has(key) || isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
+    private fun ServiceSnapshot.toJson(): JSONObject = JSONObject().apply {
+        put("kind", kind)
+        put("value", value)
+        put("unit", unit)
+        putNullable("goal", goal)
+        putNullable("projectedValue", projectedValue)
+        putNullable("estimatedCostBRL", estimatedCostBRL)
+        putNullable("dailyAverage", dailyAverage)
+        putNullable("cycleElapsedDays", cycleElapsedDays)
+        putNullable("cycleTotalDays", cycleTotalDays)
+        putNullable("lastReadingAt", lastReadingAt?.take(64))
+    }
+
+    private fun JSONObject.putNullable(key: String, value: Any?) {
+        put(key, value ?: JSONObject.NULL)
+    }
+
+    private fun JSONObject.optNullableString(key: String, maxLength: Int): String? =
+        if (!has(key) || isNull(key)) null else optString(key).trim().takeIf { it.isNotBlank() }?.take(maxLength)
 
     private fun JSONObject.optNullableDouble(key: String): Double? {
         if (!has(key) || isNull(key)) return null

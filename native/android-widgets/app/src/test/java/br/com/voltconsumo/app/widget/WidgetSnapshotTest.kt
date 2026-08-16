@@ -30,4 +30,28 @@ class WidgetSnapshotTest {
         assertTrue(snapshot.isStale(nowMillis = now, maxAgeHours = 1))
         assertFalse(snapshot.isStale(nowMillis = now, maxAgeHours = 100_000))
     }
+
+    @Test
+    fun serializationDropsUnknownSecretsAndNormalizesServiceIdentity() {
+        val raw = """{
+          "schemaVersion":1,
+          "generatedAt":"2026-08-15T23:00:00.123Z",
+          "accountLabel":"Casa",
+          "accessToken":"must-not-survive",
+          "energy":{
+            "kind":"forged",
+            "unit":"secret",
+            "value":218.0,
+            "goal":300.0,
+            "refreshToken":"must-not-survive"
+          }
+        }""".trimIndent()
+        val sanitized = SnapshotJson.serialize(SnapshotJson.parse(raw))
+        assertFalse(sanitized.contains("accessToken"))
+        assertFalse(sanitized.contains("refreshToken"))
+        assertFalse(sanitized.contains("forged"))
+        assertFalse(sanitized.contains("secret"))
+        assertTrue(sanitized.contains("\"kind\":\"energy\""))
+        assertTrue(sanitized.contains("\"unit\":\"kWh\""))
+    }
 }

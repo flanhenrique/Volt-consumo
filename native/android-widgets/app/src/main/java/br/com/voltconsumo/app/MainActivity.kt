@@ -3,7 +3,6 @@ package br.com.voltconsumo.app
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
@@ -19,6 +18,9 @@ import org.json.JSONObject
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private var pendingRoute: String? = null
+    private val bundledBridge: String by lazy {
+        assets.open(BRIDGE_ASSET).bufferedReader(Charsets.UTF_8).use { it.readText() }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,19 +106,17 @@ class MainActivity : Activity() {
     private fun loadBridgeAndDispatch(route: String?) {
         if (!::webView.isInitialized) return
         val quotedRoute = route?.let(JSONObject::quote) ?: "null"
-        val script = """
-            (() => {
-              const route = $quotedRoute;
-              import('./src/volt-widget-bridge.js?v=20260813.7')
-                .then(() => {
-                  window.dispatchEvent(new CustomEvent('volt:widget-sync'));
-                  if (route) {
-                    window.dispatchEvent(new CustomEvent('volt:native-route', { detail: { path: route } }));
-                  }
-                })
-                .catch((error) => console.warn('VOLT Android widget bridge unavailable', error));
-            })();
-        """.trimIndent()
+        val script = buildString {
+            append(bundledBridge)
+            appendLine()
+            appendLine("Promise.resolve(globalThis.__VOLT_ANDROID_BRIDGE_PROMISE__)")
+            appendLine("  .then(() => {")
+            appendLine("    globalThis.__voltAndroidSyncWidgets?.();")
+            appendLine("    const route = $quotedRoute;")
+            appendLine("    if (route) globalThis.__voltAndroidDispatchRoute?.(route);")
+            appendLine("  })")
+            appendLine("  .catch((error) => console.warn('VOLT Android widget bridge unavailable', error));")
+        }
         webView.evaluateJavascript(script) {
             if (route != null) {
                 Log.i(TAG, "route-dispatched:$route")
@@ -131,5 +131,6 @@ class MainActivity : Activity() {
         private const val TRUSTED_ORIGIN = "https://www.voltconsumo.com.br"
         private const val WEB_URL = "$TRUSTED_ORIGIN/"
         private const val BRIDGE_OBJECT = "voltAndroidWidget"
+        private const val BRIDGE_ASSET = "volt-android-bridge.js"
     }
 }

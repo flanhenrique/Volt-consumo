@@ -50,7 +50,9 @@ function hardenSupabaseAuthLock() {
           lock: runWithoutBrowserWebLock
         }
       });
-      return hardenAuthClient(client);
+      const hardenedClient = hardenAuthClient(client);
+      globalThis.__VOLT_SUPABASE_CLIENT__ = hardenedClient;
+      return hardenedClient;
     }
   });
 

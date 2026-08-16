@@ -34,13 +34,13 @@ import br.com.voltconsumo.app.R
 import java.text.NumberFormat
 import java.util.Locale
 
-internal enum class WidgetMode { ENERGY, WATER, SUMMARY, READING }
+private enum class WidgetMode { ENERGY, WATER, SUMMARY, READING }
 
 private val COMPACT = DpSize(110.dp, 110.dp)
 private val MEDIUM = DpSize(240.dp, 110.dp)
 private val LARGE = DpSize(300.dp, 220.dp)
 
-internal abstract class VoltBaseWidget(
+private abstract class VoltBaseWidget(
     private val mode: WidgetMode,
 ) : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(setOf(COMPACT, MEDIUM, LARGE))
@@ -79,10 +79,10 @@ internal abstract class VoltBaseWidget(
     }
 }
 
-internal class EnergyWidget : VoltBaseWidget(WidgetMode.ENERGY)
-internal class WaterWidget : VoltBaseWidget(WidgetMode.WATER)
-internal class SummaryWidget : VoltBaseWidget(WidgetMode.SUMMARY)
-internal class ReadingWidget : VoltBaseWidget(WidgetMode.READING)
+private class EnergyWidget : VoltBaseWidget(WidgetMode.ENERGY)
+private class WaterWidget : VoltBaseWidget(WidgetMode.WATER)
+private class SummaryWidget : VoltBaseWidget(WidgetMode.SUMMARY)
+private class ReadingWidget : VoltBaseWidget(WidgetMode.READING)
 
 class EnergyWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = EnergyWidget()

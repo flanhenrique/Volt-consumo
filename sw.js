@@ -65,6 +65,7 @@ const CORE_ASSETS = [
   updateAsset("./styles/easter-egg.css"),
   updateAsset("./styles/pwa-install.css"),
   updateAsset("./styles/notifications.css"),
+  updateAsset("./styles/feedback.css"),
   bootstrapAsset("./bootstrap.js"),
   bootstrapAsset("./app.js"),
   releaseAsset("./config.js"),
@@ -107,7 +108,9 @@ const CORE_ASSETS = [
   updateAsset("./src/admin-user-view.js"),
   updateAsset("./src/admin-billing-context.js"),
   updateAsset("./src/canonical-billing-context.js"),
-  updateAsset("./src/notifications.js")
+  updateAsset("./src/notifications.js"),
+  releaseAsset("./src/shake-detector.js"),
+  updateAsset("./src/feedback.js")
 ];
 
 self.addEventListener("install", (event) => {

@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260815.10";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260816.2";
+const UPDATE_BUILD = "20260816.3";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -243,4 +243,10 @@ try {
   await import(`./src/pwa-update.js?v=${UPDATE_BUILD}`);
 } catch (error) {
   console.warn("VOLT update manager unavailable", error);
+}
+
+try {
+  await import(`./src/feedback.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT feedback unavailable", error);
 }

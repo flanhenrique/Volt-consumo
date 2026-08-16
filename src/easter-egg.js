@@ -3,6 +3,7 @@ const TAP_WINDOW_MS = 1800;
 const AUTO_CLOSE_MS = 6200;
 const COOLDOWN_MS = 7000;
 const CONFETTI_COUNT = 64;
+const HIT_SLOP_PX = 16;
 const BRAND_SELECTOR = "#dashboard .brand-lockup";
 
 let tapCount = 0;
@@ -12,6 +13,7 @@ let closeTimer = null;
 let activeOverlay = null;
 let cooldownUntil = 0;
 let lastPointerActivationAt = 0;
+let triggerObserver = null;
 
 function dashboardIsVisible() {
   const dashboard = document.getElementById("dashboard");
@@ -49,7 +51,6 @@ function buildBull() {
   wrap.setAttribute("aria-hidden", "true");
 
   const svg = svgElement("svg", { viewBox: "0 0 260 230", role: "img" });
-
   const glow = svgElement("circle", { cx: "130", cy: "116", r: "94", class: "caprichoso-bull-glow" });
 
   const leftHorn = svgElement("path", {
@@ -182,31 +183,80 @@ function registerBrandTap(brand) {
   openEasterEgg();
 }
 
-function handleBrandActivation(event) {
-  const brand = event.currentTarget;
-  if (!(brand instanceof Element)) return;
+function brandAtPoint(clientX, clientY) {
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
 
-  if (event.type === "pointerup") {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    lastPointerActivationAt = performance.now();
-    registerBrandTap(brand);
-    return;
+  for (const brand of document.querySelectorAll(BRAND_SELECTOR)) {
+    const rect = brand.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    if (
+      clientX >= rect.left - HIT_SLOP_PX &&
+      clientX <= rect.right + HIT_SLOP_PX &&
+      clientY >= rect.top - HIT_SLOP_PX &&
+      clientY <= rect.bottom + HIT_SLOP_PX
+    ) {
+      return brand;
+    }
   }
 
-  if (event.type === "click" && performance.now() - lastPointerActivationAt < 600) return;
-  registerBrandTap(brand);
+  return null;
 }
 
-function bindBrandTriggers() {
-  document.querySelectorAll(BRAND_SELECTOR).forEach((brand) => {
-    if (brand.dataset.easterBound === "true") return;
-    brand.dataset.easterBound = "true";
-    brand.addEventListener("pointerup", handleBrandActivation, { passive: true });
-    brand.addEventListener("click", handleBrandActivation);
+function prepareBrandTrigger(brand) {
+  if (!(brand instanceof HTMLElement) || brand.dataset.easterPrepared === "true") return;
+  brand.dataset.easterPrepared = "true";
+  brand.style.touchAction = "manipulation";
+  brand.style.webkitTapHighlightColor = "transparent";
+  brand.style.userSelect = "none";
+  brand.style.webkitUserSelect = "none";
+
+  brand.querySelectorAll("svg, use, img, .brand-symbol, .brand-wordmark").forEach((child) => {
+    if (child instanceof HTMLElement || child instanceof SVGElement) child.style.pointerEvents = "none";
+  });
+
+  brand.addEventListener("click", (event) => {
+    if (performance.now() - lastPointerActivationAt < 650) return;
+    if (event.detail === 0) registerBrandTap(brand);
   });
 }
 
-bindBrandTriggers();
+function prepareBrandTriggers() {
+  document.querySelectorAll(BRAND_SELECTOR).forEach(prepareBrandTrigger);
+}
+
+function handlePointerActivation(event) {
+  if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+
+  const brand = brandAtPoint(event.clientX, event.clientY);
+  if (!brand) return;
+
+  lastPointerActivationAt = performance.now();
+  registerBrandTap(brand);
+}
+
+function handleTouchActivation(event) {
+  if (!dashboardIsVisible() || activeOverlay || Date.now() < cooldownUntil) return;
+  const touch = event.changedTouches?.[0];
+  if (!touch) return;
+  const brand = brandAtPoint(touch.clientX, touch.clientY);
+  if (!brand) return;
+  registerBrandTap(brand);
+}
+
+prepareBrandTriggers();
+
+if ("PointerEvent" in window) {
+  document.addEventListener("pointerup", handlePointerActivation, { passive: true, capture: true });
+} else {
+  document.addEventListener("touchend", handleTouchActivation, { passive: true, capture: true });
+}
+
+const dashboard = document.getElementById("dashboard");
+if (dashboard && "MutationObserver" in window) {
+  triggerObserver = new MutationObserver(prepareBrandTriggers);
+  triggerObserver.observe(dashboard, { childList: true, subtree: true });
+}
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && activeOverlay) closeEasterEgg();

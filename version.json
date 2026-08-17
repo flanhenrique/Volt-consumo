@@ -1,6 +1,6 @@
 {
-  "release": "20260816.5",
-  "build": "20260816.5",
-  "releasedAt": "2026-08-16T17:52:00Z",
-  "message": "Correção do mecanismo de atualização do VOLT e do card de Impacto ambiental. O build do aplicativo, o Service Worker e o manifesto de versão agora estão sincronizados para impedir atualizações que aparentam concluir, mas mantêm módulos antigos em cache."
+  "release": "20260817.1",
+  "build": "20260817.1",
+  "releasedAt": "2026-08-17T17:20:00Z",
+  "message": "Fechamento detalhado da fatura de energia e relatório financeiro completo. O VOLT agora registra consumo faturado, tarifa, impostos e alíquotas, iluminação pública, bandeira, descontos, benefícios, encargos e a participação de cada item no total da fatura, mantendo compatibilidade com ciclos antigos fechados apenas com o total."
 }

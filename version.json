@@ -1,6 +1,6 @@
 {
-  "release": "20260817.1",
-  "build": "20260817.1",
-  "releasedAt": "2026-08-17T17:20:00Z",
-  "message": "Correção do cálculo de energia para a transição Amazonas Energia → Âmbar Amazonas, proteção contra dupla cobrança de bandeira em tarifa manual e leitura da fatura Âmbar com bandeira informativa, COSIP e Bônus Itaipu conciliados corretamente."
+  "release": "20260817.2",
+  "build": "20260817.2",
+  "releasedAt": "2026-08-17T17:34:12Z",
+  "message": "Fechamento detalhado da fatura de energia e relatório financeiro completo. O VOLT agora registra consumo faturado, tarifa, impostos e alíquotas, iluminação pública, bandeira, descontos, benefícios e encargos, concilia a composição com o total oficial e permite completar ciclos antigos registrados apenas com o valor total."
 }

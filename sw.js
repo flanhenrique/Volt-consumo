@@ -1,10 +1,11 @@
 const RELEASE_ID = "20260813.7";
-const CACHE_REVISION = "20260817.1";
+const CACHE_REVISION = "20260817.2";
 const CACHE_NAME = `volt-app-v4-atomic-${CACHE_REVISION}`;
 const BOOTSTRAP_BUILD = "20260815.10";
-const UPDATE_BUILD = "20260817.1";
+const UPDATE_BUILD = "20260817.2";
 const OWNED_CACHE_NAMES = new Set([
   CACHE_NAME,
+  "volt-app-v4-atomic-20260817.1",
   "volt-app-v4-atomic-20260816.5",
   "volt-app-v4-atomic-20260816.4",
   "volt-app-v4-atomic-20260816.3",
@@ -61,6 +62,7 @@ const CORE_ASSETS = [
   releaseAsset("./styles/components.css"),
   releaseAsset("./styles/pages.css"),
   releaseAsset("./styles/billing-workflow.css"),
+  updateAsset("./styles/energy-invoice-detail.css"),
   updateAsset("./styles/startup-splash.css"),
   updateAsset("./styles/auth-desktop.css"),
   updateAsset("./styles/mobile-polish.css"),
@@ -100,6 +102,7 @@ const CORE_ASSETS = [
   "./ocr-runtime.html",
   releaseAsset("./src/invoice-ocr-runtime.js"),
   releaseAsset("./src/executive-pdf.js"),
+  updateAsset("./src/energy-invoice-detail.js"),
   updateAsset("./src/consumption-reports.js"),
   updateAsset("./src/home-dashboard-v2.js"),
   updateAsset("./src/home-dashboard-sustainability.js"),

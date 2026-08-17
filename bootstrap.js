@@ -1,6 +1,6 @@
 const BOOTSTRAP_BUILD = "20260815.10";
 const ATOMIC_RELEASE = "20260813.7";
-const UPDATE_BUILD = "20260816.5";
+const UPDATE_BUILD = "20260817.1";
 globalThis.__VOLT_BUILD__ = UPDATE_BUILD;
 
 const STUCK_STARTUP_STATUSES = new Set(["BOOTING", "RESTORING_SESSION"]);
@@ -231,6 +231,12 @@ try {
   if (loginMessage) loginMessage.textContent = "O Volt não conseguiu iniciar. Recarregue a página.";
   document.documentElement.dataset.startupStatus = "ERROR";
   console.error("VOLT bootstrap failed", error);
+}
+
+try {
+  await import(`./src/energy-invoice-detail.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT energy invoice detail unavailable", error);
 }
 
 try {

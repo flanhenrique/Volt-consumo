@@ -1,0 +1,36 @@
+.volt-energy-detail-form{display:grid;gap:14px;padding:14px;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--surface-subtle)}
+.volt-energy-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.volt-energy-detail-heading h3,.volt-energy-detail-section legend,.volt-energy-report-heading h2{margin:2px 0 0}
+.volt-energy-detail-section{display:grid;gap:10px;margin:0;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);min-width:0}
+.volt-energy-detail-section legend{padding:0 6px;font-weight:700}
+.volt-energy-detail-section>.supporting-copy{margin:0 0 2px}
+.volt-energy-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.volt-energy-detail-grid>label,.volt-energy-percent-pair>label{display:grid;gap:6px;min-width:0}
+.volt-energy-detail-grid label>span,.volt-energy-percent-pair label>span{font-size:.78rem;color:var(--text-muted)}
+.volt-energy-detail-grid input,.volt-energy-detail-grid select,.volt-energy-percent-pair input{width:100%;min-width:0}
+.volt-energy-percent-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1}
+.volt-energy-composition{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-subtle)}
+.volt-energy-composition>div{display:grid;gap:3px;min-width:0}
+.volt-energy-composition small,.volt-energy-report-metrics small,.volt-energy-report-totals small{color:var(--text-muted);font-size:.74rem}
+.volt-energy-composition strong,.volt-energy-report-metrics strong,.volt-energy-report-totals strong{overflow-wrap:anywhere}
+.volt-energy-composition[data-tone="danger"]{border-color:color-mix(in srgb,var(--danger,#d64747) 38%,var(--border-subtle))}
+.volt-energy-composition[data-tone="warning"]{border-color:color-mix(in srgb,var(--warning,#b88716) 38%,var(--border-subtle))}
+.volt-energy-invoice-report{display:grid;gap:16px;margin-top:18px}
+.volt-energy-report-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.volt-energy-invoice-report-row{display:grid;gap:12px;padding-top:14px;border-top:1px solid var(--border-subtle)}
+.volt-energy-invoice-report-row>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.volt-energy-invoice-report-row>header>div{display:grid;gap:3px}
+.volt-energy-invoice-report-row>header small{color:var(--text-muted)}
+.volt-energy-report-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.volt-energy-report-metrics>div,.volt-energy-report-totals>div{display:grid;gap:3px;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-subtle)}
+.volt-energy-component-list{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.volt-energy-component-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 14px;padding:10px 0;border-bottom:1px solid var(--border-subtle)}
+.volt-energy-component-list li:last-child{border-bottom:0}
+.volt-energy-component-list li>div{display:grid;gap:3px;min-width:0}
+.volt-energy-component-list small{color:var(--text-muted);font-size:.75rem}
+.volt-energy-component-list .is-credit{font-variant-numeric:tabular-nums}
+.volt-energy-report-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.volt-energy-report-message{display:grid;gap:5px;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-subtle)}
+.volt-energy-report-message p{margin:0}
+@media(max-width:760px){.volt-energy-detail-heading,.volt-energy-report-heading,.volt-energy-invoice-report-row>header{align-items:flex-start}.volt-energy-detail-grid{grid-template-columns:1fr}.volt-energy-percent-pair{grid-template-columns:1fr}.volt-energy-composition,.volt-energy-report-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.volt-energy-report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.volt-energy-detail-form .primary-button{width:100%}}
+@media(max-width:430px){.volt-energy-detail-heading{display:grid}.volt-energy-detail-heading .status-pill{width:max-content;max-width:100%}.volt-energy-composition,.volt-energy-report-metrics,.volt-energy-report-totals{grid-template-columns:1fr}.volt-energy-component-list li{grid-template-columns:1fr;gap:4px}.volt-energy-component-list li>strong{text-align:left}}

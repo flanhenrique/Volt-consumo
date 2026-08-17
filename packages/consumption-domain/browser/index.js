@@ -131,12 +131,11 @@ export function calculateEnergyEstimate(consumption, input) {
         };
     }
     const baseCost = safeConsumption * nonNegative(input.rate);
-    const flagCost = safeConsumption * nonNegative(input.flagRate);
     return {
         baseCost,
-        flagCost,
-        totalCost: baseCost + flagCost + nonNegative(input.lightingFee),
-        engine: "legacy-linear",
+        flagCost: 0,
+        totalCost: baseCost + nonNegative(input.lightingFee),
+        engine: "manual-rate-no-unverified-flag",
         breakdown: []
     };
 }

@@ -4,9 +4,9 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-08-17T10:07:10.804Z",
+  "generatedAt": "2026-08-24T10:22:57.945Z",
   "mode": "aneel-weekly",
-  "automaticRules": 101
+  "automaticRules": 99
 });
 
 export const NATIONAL_ENERGY_CATALOG = Object.freeze([
@@ -227,31 +227,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.536, DE 23 DE SETEMBRO DE 2025",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "celesc-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "CELESC",
-    "providerAliases": [
-      "CELESC"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-21",
-    "ratePerKwh": 0.69568,
-    "components": {
-      "tusdPerMwh": 373.75,
-      "tePerMwh": 321.93
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.511, DE 19 DE AGOSTO DE 2025",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2477,31 +2452,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.590, DE 16 DE JUNHO DE 2026",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "sulgipe-b1-residencial-convencional-2026-05-22",
-    "utility": "energy",
-    "provider": "SULGIPE",
-    "providerAliases": [
-      "SULGIPE"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-05-22",
-    "validUntil": "2027-05-21",
-    "ratePerKwh": 0.75461,
-    "components": {
-      "tusdPerMwh": 482.8,
-      "tePerMwh": 271.81
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 1.837, DE 20 DE MAIO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

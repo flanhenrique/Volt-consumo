@@ -8,6 +8,9 @@ on:
     branches: [main]
     paths:
       - "scripts/update-national-energy-tariffs.mjs"
+      - "scripts/validate-national-energy-catalog-transition.mjs"
+      - "tests/*tariff*.test.mjs"
+      - "tests/billing-domain.test.mjs"
       - ".github/workflows/update-national-tariffs.yml"
 
 permissions:
@@ -37,7 +40,7 @@ jobs:
       - name: Gerar catálogo nacional B1 residencial
         run: node scripts/update-national-energy-tariffs.mjs
 
-      - name: Validar catálogo gerado
+      - name: Validar integridade do catálogo gerado
         run: |
           node --input-type=module <<'NODE'
           const mod = await import(`./data/national-energy-catalog.js?${Date.now()}`)
@@ -49,11 +52,17 @@ jobs:
           console.log(`Regras automáticas validadas: ${mod.NATIONAL_ENERGY_CATALOG.length}`)
           NODE
 
-      - name: Commitar atualização quando houver mudança
+      - name: Bloquear perda silenciosa de cobertura
+        run: node scripts/validate-national-energy-catalog-transition.mjs
+
+      - name: Validar domínio tarifário e faturamento
+        run: node --test tests/*.test.mjs
+
+      - name: Commitar atualização quando houver mudança material
         run: |
           set -euo pipefail
           if git diff --quiet -- data/national-energy-catalog.js; then
-            echo "Sem alteração tarifária."
+            echo "Sem alteração tarifária material."
             exit 0
           fi
           git config user.name "volt-tariff-bot"

@@ -1,6 +1,6 @@
 {
-  "release": "20260825.1",
-  "build": "20260825.1",
-  "releasedAt": "2026-08-25T21:09:00Z",
-  "message": "Histórico de leituras atualizado: agora cada usuário pode editar ou apagar as próprias leituras com validação de sequência, confirmação de exclusão e recálculo automático do consumo, gráficos e previsões."
+  "release": "20260825.2",
+  "build": "20260825.2",
+  "releasedAt": "2026-08-25T22:59:00Z",
+  "message": "Ações do histórico refinadas: botões Editar e Apagar agora usam acabamento Liquid Glass, ícones próprios, hierarquia visual mais elegante, estados de toque/foco e melhor adaptação ao mobile."
 }

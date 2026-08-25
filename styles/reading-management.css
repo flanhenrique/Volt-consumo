@@ -1,0 +1,206 @@
+.reading-item[data-reading-management] {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 1fr) auto minmax(8rem, 9.2rem);
+  align-items: center;
+  gap: clamp(.65rem, 2vw, 1rem);
+  overflow: hidden;
+}
+
+.reading-item[data-reading-management]::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .045), transparent 38%, color-mix(in srgb, var(--volt-accent) 7%, transparent));
+  content: "";
+}
+
+.reading-item[data-reading-management] > div:first-child,
+.reading-item[data-reading-management] > .chip,
+.reading-item[data-reading-management] > .reading-management-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.reading-item[data-reading-management] > div:first-child {
+  min-width: 0;
+}
+
+.reading-item[data-reading-management] > .chip {
+  justify-self: center;
+}
+
+.reading-item[data-reading-management] .reading-management-actions {
+  display: grid !important;
+  width: auto !important;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  justify-self: end;
+  gap: .48rem !important;
+  border: 0 !important;
+  grid-template-columns: 1fr;
+}
+
+.reading-item[data-reading-management] .reading-management-button {
+  --reading-action-accent: var(--volt-accent);
+  position: relative;
+  display: inline-grid !important;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.8rem !important;
+  padding: .58rem .9rem !important;
+  align-items: center;
+  justify-content: center;
+  gap: .52rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--reading-action-accent) 54%, var(--glass-border-strong)) !important;
+  border-radius: var(--radius-pill) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .015)),
+    color-mix(in srgb, var(--glass-control) 88%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .13),
+    inset 0 -1px 0 rgba(0, 0, 0, .12),
+    0 8px 22px color-mix(in srgb, var(--reading-action-accent) 9%, transparent) !important;
+  color: var(--text-primary) !important;
+  font: inherit;
+  font-size: clamp(.83rem, 2.5vw, .96rem) !important;
+  font-weight: 720 !important;
+  letter-spacing: -.01em;
+  line-height: 1;
+  cursor: pointer;
+  grid-template-columns: 1.05rem auto;
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+  transition: transform var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reading-item[data-reading-management] .reading-management-button::before {
+  width: 1.05rem;
+  height: 1.05rem;
+  background: currentColor;
+  content: "";
+  opacity: .9;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.reading-item[data-reading-management] .reading-management-button:not(.reading-management-danger)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z'/%3E%3C/svg%3E");
+}
+
+.reading-item[data-reading-management] .reading-management-button::after {
+  position: absolute;
+  top: 0;
+  right: 14%;
+  left: 14%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .42), transparent);
+  content: "";
+  opacity: .72;
+}
+
+.reading-item[data-reading-management] .reading-management-button:not(.reading-management-danger) {
+  border-color: color-mix(in srgb, var(--volt-accent) 62%, var(--glass-border-strong)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .16),
+    inset 0 -1px 0 rgba(0, 0, 0, .12),
+    0 8px 22px color-mix(in srgb, var(--volt-accent) 11%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--volt-accent) 6%, transparent) !important;
+}
+
+.reading-item[data-reading-management] .reading-management-danger {
+  --reading-action-accent: #d77b82;
+  border-color: color-mix(in srgb, #d77b82 54%, var(--glass-border-strong)) !important;
+  background:
+    linear-gradient(180deg, rgba(215, 123, 130, .055), rgba(255, 255, 255, .012)),
+    color-mix(in srgb, var(--glass-control) 90%, transparent) !important;
+  color: color-mix(in srgb, #e39aa0 72%, var(--text-primary)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .10),
+    inset 0 -1px 0 rgba(0, 0, 0, .12),
+    0 7px 18px rgba(115, 36, 44, .08) !important;
+}
+
+.reading-item[data-reading-management] .reading-management-danger::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5M14 11v5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5M14 11v5'/%3E%3C/svg%3E");
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reading-item[data-reading-management] .reading-management-button:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--reading-action-accent) 82%, var(--glass-border-strong)) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .105), rgba(255, 255, 255, .022)),
+      color-mix(in srgb, var(--glass-control) 84%, transparent) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .18),
+      0 10px 26px color-mix(in srgb, var(--reading-action-accent) 15%, transparent) !important;
+  }
+}
+
+.reading-item[data-reading-management] .reading-management-button:active {
+  transform: scale(.975);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .16), 0 4px 12px color-mix(in srgb, var(--reading-action-accent) 8%, transparent) !important;
+}
+
+.reading-item[data-reading-management] .reading-management-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--reading-action-accent) 76%, white);
+  outline-offset: 3px;
+}
+
+.reading-item[data-reading-management] .reading-management-button:disabled {
+  transform: none;
+  opacity: .48 !important;
+  cursor: wait;
+  filter: saturate(.55);
+}
+
+@media (max-width: 620px) {
+  .reading-item[data-reading-management] {
+    grid-template-columns: minmax(5.8rem, 1fr) auto minmax(7.55rem, 8.7rem);
+    gap: clamp(.45rem, 1.8vw, .75rem);
+  }
+
+  .reading-item[data-reading-management] .reading-management-actions {
+    width: auto !important;
+  }
+
+  .reading-item[data-reading-management] .reading-management-actions .reading-management-button {
+    flex: none !important;
+    min-height: 2.65rem !important;
+    padding: .54rem .72rem !important;
+  }
+}
+
+@media (max-width: 370px) {
+  .reading-item[data-reading-management] {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .reading-item[data-reading-management] > .chip {
+    justify-self: end;
+  }
+
+  .reading-item[data-reading-management] .reading-management-actions {
+    grid-column: 1 / -1;
+    width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reading-item[data-reading-management] .reading-management-button {
+    transition: none;
+  }
+}

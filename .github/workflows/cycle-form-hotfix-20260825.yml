@@ -16,83 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch renderer and add regression test
+      - name: Patch renderer
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-
           renderer = Path('src/renderer.js')
           text = renderer.read_text(encoding='utf-8')
           old = '  Object.entries(fields).forEach(([id, value]) => setInputValue(byId(id), value));\n'
-          new = '''  const cycleFieldIds = new Set([\n    "energy-cycle-start", "energy-cycle-end", "water-cycle-start", "water-cycle-end"\n  ]);\n  const cycleFormEditing = Boolean(document.getElementById("cycles-form")?.matches(":focus-within"));\n  Object.entries(fields).forEach(([id, value]) => {\n    if (cycleFormEditing && cycleFieldIds.has(id)) return;\n    setInputValue(byId(id), value);\n  });\n'''
+          new = '  const cycleFieldIds = new Set([\n    "energy-cycle-start", "energy-cycle-end", "water-cycle-start", "water-cycle-end"\n  ]);\n  const cycleFormEditing = Boolean(document.getElementById("cycles-form")?.matches(":focus-within"));\n  Object.entries(fields).forEach(([id, value]) => {\n    if (cycleFormEditing && cycleFieldIds.has(id)) return;\n    setInputValue(byId(id), value);\n  });\n'
           if old not in text:
               raise SystemExit('renderer patch target not found')
           renderer.write_text(text.replace(old, new, 1), encoding='utf-8')
-
-          test_file = Path('tests/e2e/cycle-form.spec.mjs')
-          test_file.write_text(r'''import { expect, test } from "@playwright/test";
-import fs from "node:fs/promises";
-
-const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
-
-test.beforeEach(async ({ page }) => {
-  const failures = [];
-  page.on("console", (message) => { if (message.type() === "error") failures.push(`console.error: ${message.text()}`); });
-  page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
-  await page.addInitScript(() => {
-    window.__voltUnhandled = [];
-    window.addEventListener("unhandledrejection", (event) => window.__voltUnhandled.push(String(event.reason)));
-  });
-  await page.route("**/vendor/supabase/supabase.js*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
-  page.__voltFailures = failures;
-});
-
-test.afterEach(async ({ page }) => {
-  const unhandled = await page.evaluate(() => window.__voltUnhandled || []).catch(() => []);
-  expect([...page.__voltFailures, ...unhandled], "zero console.error, pageerror e unhandledrejection").toEqual([]);
-});
-
-async function signIn(page) {
-  await page.goto("/");
-  await page.locator("#login-email").fill("ana@volt.test");
-  await page.locator("#login-password").fill("senha-segura-123");
-  await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
-  await expect(page.locator("#dashboard")).toBeVisible();
-}
-
-async function navigateToSettings(page) {
-  const direct = page.locator('[data-nav="settings"]:visible').first();
-  if (await direct.count()) {
-    await direct.click();
-    return;
-  }
-  await page.locator("[data-action='open-more']:visible").click();
-  await page.locator('#more-dialog [data-nav="settings"]:visible').click();
-}
-
-test("ciclo 22 para 21 atravessa o mês sem ser sobrescrito durante renderização", async ({ page }) => {
-  await signIn(page);
-  await navigateToSettings(page);
-
-  const start = page.locator("#energy-cycle-start");
-  const end = page.locator("#energy-cycle-end");
-  await start.fill("22");
-  await end.fill("21");
-
-  await page.evaluate(() => document.querySelector('[data-accent-choice="azure"]')?.click());
-
-  await expect(start).toHaveValue("22");
-  await expect(end).toHaveValue("21");
-
-  await page.locator("#cycles-form button[type='submit']").click();
-  await expect(page.locator("#cycles-message")).toHaveText("Ciclos atualizados.");
-
-  const saved = await page.evaluate(() => window.__voltFake.getSession().user.user_metadata.cycles.energy);
-  expect(saved).toEqual({ start: 22, end: 21 });
-});
-''', encoding='utf-8')
           PY
+
+      - name: Add regression test
+        shell: bash
+        run: |
+          echo 'aW1wb3J0IHsgZXhwZWN0LCB0ZXN0IH0gZnJvbSAiQHBsYXl3cmlnaHQvdGVzdCI7CmltcG9ydCBmcyBmcm9tICJub2RlOmZzL3Byb21pc2VzIjsKCmNvbnN0IGZha2VTdXBhYmFzZSA9IGF3YWl0IGZzLnJlYWRGaWxlKG5ldyBVUkwoIi4uL2ZpeHR1cmVzL2Zha2Utc3VwYWJhc2UuanMiLCBpbXBvcnQubWV0YS51cmwpLCAidXRmOCIpOwoKdGVzdC5iZWZvcmVFYWNoKGFzeW5jICh7IHBhZ2UgfSkgPT4gewogIGNvbnN0IGZhaWx1cmVzID0gW107CiAgcGFnZS5vbigiY29uc29sZSIsIChtZXNzYWdlKSA9PiB7IGlmIChtZXNzYWdlLnR5cGUoKSA9PT0gImVycm9yIikgZmFpbHVyZXMucHVzaChgY29uc29sZS5lcnJvcjogJHttZXNzYWdlLnRleHQoKX1gKTsgfSk7CiAgcGFnZS5vbigicGFnZWVycm9yIiwgKGVycm9yKSA9PiBmYWlsdXJlcy5wdXNoKGBwYWdlZXJyb3I6ICR7ZXJyb3IubWVzc2FnZX1gKSk7CiAgYXdhaXQgcGFnZS5hZGRJbml0U2NyaXB0KCgpID0+IHsKICAgIHdpbmRvdy5fX3ZvbHRVbmhhbmRsZWQgPSBbXTsKICAgIHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCJ1bmhhbmRsZWRyZWplY3Rpb24iLCAoZXZlbnQpID0+IHdpbmRvdy5fX3ZvbHRVbmhhbmRsZWQucHVzaChTdHJpbmcoZXZlbnQucmVhc29uKSkpOwogIH0pOwogIGF3YWl0IHBhZ2Uucm91dGUoIioqL3ZlbmRvci9zdXBhYmFzZS9zdXBhYmFzZS5qcyoiLCAocm91dGUpID0+IHJvdXRlLmZ1bGZpbGwoeyBzdGF0dXM6IDIwMCwgY29udGVudFR5cGU6ICJhcHBsaWNhdGlvbi9qYXZhc2NyaXB0IiwgYm9keTogZmFrZVN1cGFiYXNlIH0pKTsKICBwYWdlLl9fdm9sdEZhaWx1cmVzID0gZmFpbHVyZXM7Cn0pOwoKdGVzdC5hZnRlckVhY2goYXN5bmMgKHsgcGFnZSB9KSA9PiB7CiAgY29uc3QgdW5oYW5kbGVkID0gYXdhaXQgcGFnZS5ldmFsdWF0ZSgoKSA9PiB3aW5kb3cuX192b2x0VW5oYW5kbGVkIHx8IFtdKS5jYXRjaCgoKSA9PiBbXSk7CiAgZXhwZWN0KFsuLi5wYWdlLl9fdm9sdEZhaWx1cmVzLCAuLi51bmhhbmRsZWRdLCAiemVybyBjb25zb2xlLmVycm9yLCBwYWdlZXJyb3IgZSB1bmhhbmRsZWRyZWplY3Rpb24iKS50b0VxdWFsKFtdKTsKfSk7Cgphc3luYyBmdW5jdGlvbiBzaWduSW4ocGFnZSkgewogIGF3YWl0IHBhZ2UuZ290bygiLyIpOwogIGF3YWl0IHBhZ2UubG9jYXRvcigiI2xvZ2luLWVtYWlsIikuZmlsbCgiYW5hQHZvbHQudGVzdCIpOwogIGF3YWl0IHBhZ2UubG9jYXRvcigiI2xvZ2luLXBhc3N3b3JkIikuZmlsbCgic2VuaGEtc2VndXJhLTEyMyIpOwogIGF3YWl0IHBhZ2UubG9jYXRvcigiI2xvZ2luLWZvcm0iKS5nZXRCeVJvbGUoImJ1dHRvbiIsIHsgbmFtZTogIkVudHJhciIgfSkuY2xpY2soKTsKICBhd2FpdCBleHBlY3QocGFnZS5sb2NhdG9yKCIjZGFzaGJvYXJkIikpLnRvQmVWaXNpYmxlKCk7Cn0KCmFzeW5jIGZ1bmN0aW9uIG5hdmlnYXRlVG9TZXR0aW5ncyhwYWdlKSB7CiAgY29uc3QgZGlyZWN0ID0gcGFnZS5sb2NhdG9yKCdbZGF0YS1uYXY9InNldHRpbmdzIl06dmlzaWJsZScpLmZpcnN0KCk7CiAgaWYgKGF3YWl0IGRpcmVjdC5jb3VudCgpKSB7CiAgICBhd2FpdCBkaXJlY3QuY2xpY2soKTsKICAgIHJldHVybjsKICB9CiAgYXdhaXQgcGFnZS5sb2NhdG9yKCJbZGF0YS1hY3Rpb249J29wZW4tbW9yZSddOnZpc2libGUiKS5jbGljaygpOwogIGF3YWl0IHBhZ2UubG9jYXRvcignI21vcmUtZGlhbG9nIFtkYXRhLW5hdj0ic2V0dGluZ3MiXTp2aXNpYmxlJykuY2xpY2soKTsKfQoKdGVzdCgiY2ljbG8gMjIgcGFyYSAyMSBhdHJhdmVzc2EgbyBtw6pzIHNlbSBzZXIgc29icmVzY3JpdG8gZHVyYW50ZSByZW5kZXJpemHDp8OjbyIsIGFzeW5jICh7IHBhZ2UgfSkgPT4gewogIGF3YWl0IHNpZ25JbihwYWdlKTsKICBhd2FpdCBuYXZpZ2F0ZVRvU2V0dGluZ3MocGFnZSk7CgogIGNvbnN0IHN0YXJ0ID0gcGFnZS5sb2NhdG9yKCIjZW5lcmd5LWN5Y2xlLXN0YXJ0Iik7CiAgY29uc3QgZW5kID0gcGFnZS5sb2NhdG9yKCIjZW5lcmd5LWN5Y2xlLWVuZCIpOwogIGF3YWl0IHN0YXJ0LmZpbGwoIjIyIik7CiAgYXdhaXQgZW5kLmZpbGwoIjIxIik7CgogIGF3YWl0IHBhZ2UuZXZhbHVhdGUoKCkgPT4gZG9jdW1lbnQucXVlcnlTZWxlY3RvcignW2RhdGEtYWNjZW50LWNob2ljZT0iYXp1cmUiXScpPy5jbGljaygpKTsKCiAgYXdhaXQgZXhwZWN0KHN0YXJ0KS50b0hhdmVWYWx1ZSgiMjIiKTsKICBhd2FpdCBleHBlY3QoZW5kKS50b0hhdmVWYWx1ZSgiMjEiKTsKCiAgYXdhaXQgcGFnZS5sb2NhdG9yKCIjY3ljbGVzLWZvcm0gYnV0dG9uW3R5cGU9J3N1Ym1pdCddIikuY2xpY2soKTsKICBhd2FpdCBleHBlY3QocGFnZS5sb2NhdG9yKCIjY3ljbGVzLW1lc3NhZ2UiKSkudG9IYXZlVGV4dCgiQ2ljbG9zIGF0dWFsaXphZG9zLiIpOwoKICBjb25zdCBzYXZlZCA9IGF3YWl0IHBhZ2UuZXZhbHVhdGUoKCkgPT4gd2luZG93Ll9fdm9sdEZha2UuZ2V0U2Vzc2lvbigpLnVzZXIudXNlcl9tZXRhZGF0YS5jeWNsZXMuZW5lcmd5KTsKICBleHBlY3Qoc2F2ZWQpLnRvRXF1YWwoeyBzdGFydDogMjIsIGVuZDogMjEgfSk7Cn0pOwo=' | base64 -d > tests/e2e/cycle-form.spec.mjs
 
       - name: Install dependencies
         run: npm ci

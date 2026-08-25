@@ -3,6 +3,9 @@ export const VOLT_CONFIG = Object.freeze({
   publishableKey: "sb_publishable_Y6iBS989R-miV65onlQWew_Gof7GIqp"
 });
 
+const APPLICATION_BUILD = "20260825.1";
+globalThis.__VOLT_BUILD__ = APPLICATION_BUILD;
+
 const AUXILIARY_MODULES = Object.freeze([
   "./src/consumption-reports.js?v=20260814.15",
   "./src/home-dashboard-v2.js?v=20260814.15",
@@ -11,7 +14,8 @@ const AUXILIARY_MODULES = Object.freeze([
   "./src/admin-user-view.js?v=20260814.15",
   "./src/admin-billing-context.js?v=20260814.15",
   "./src/canonical-billing-context.js?v=20260814.15",
-  "./src/notifications.js?v=20260816.3"
+  "./src/notifications.js?v=20260816.3",
+  `./src/reading-management.js?v=${APPLICATION_BUILD}`
 ]);
 
 function loadAuxiliaryModules() {

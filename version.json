@@ -1,6 +1,6 @@
 {
-  "release": "20260817.2",
-  "build": "20260817.2",
-  "releasedAt": "2026-08-17T17:34:12Z",
-  "message": "Fechamento detalhado da fatura de energia e relatório financeiro completo. O VOLT agora registra consumo faturado, tarifa, impostos e alíquotas, iluminação pública, bandeira, descontos, benefícios e encargos, concilia a composição com o total oficial e permite completar ciclos antigos registrados apenas com o valor total."
+  "release": "20260825.1",
+  "build": "20260825.1",
+  "releasedAt": "2026-08-25T21:09:00Z",
+  "message": "Histórico de leituras atualizado: agora cada usuário pode editar ou apagar as próprias leituras com validação de sequência, confirmação de exclusão e recálculo automático do consumo, gráficos e previsões."
 }

@@ -1,1 +1,116 @@
-placeholder
+name: Cycle form hotfix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/cycle-form-hotfix-20260825.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch renderer and add regression test
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          renderer = Path('src/renderer.js')
+          text = renderer.read_text(encoding='utf-8')
+          old = '  Object.entries(fields).forEach(([id, value]) => setInputValue(byId(id), value));\n'
+          new = '''  const cycleFieldIds = new Set([\n    "energy-cycle-start", "energy-cycle-end", "water-cycle-start", "water-cycle-end"\n  ]);\n  const cycleFormEditing = Boolean(document.getElementById("cycles-form")?.matches(":focus-within"));\n  Object.entries(fields).forEach(([id, value]) => {\n    if (cycleFormEditing && cycleFieldIds.has(id)) return;\n    setInputValue(byId(id), value);\n  });\n'''
+          if old not in text:
+              raise SystemExit('renderer patch target not found')
+          renderer.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test_file = Path('tests/e2e/cycle-form.spec.mjs')
+          test_file.write_text(r'''import { expect, test } from "@playwright/test";
+import fs from "node:fs/promises";
+
+const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
+
+test.beforeEach(async ({ page }) => {
+  const failures = [];
+  page.on("console", (message) => { if (message.type() === "error") failures.push(`console.error: ${message.text()}`); });
+  page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
+  await page.addInitScript(() => {
+    window.__voltUnhandled = [];
+    window.addEventListener("unhandledrejection", (event) => window.__voltUnhandled.push(String(event.reason)));
+  });
+  await page.route("**/vendor/supabase/supabase.js*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase }));
+  page.__voltFailures = failures;
+});
+
+test.afterEach(async ({ page }) => {
+  const unhandled = await page.evaluate(() => window.__voltUnhandled || []).catch(() => []);
+  expect([...page.__voltFailures, ...unhandled], "zero console.error, pageerror e unhandledrejection").toEqual([]);
+});
+
+async function signIn(page) {
+  await page.goto("/");
+  await page.locator("#login-email").fill("ana@volt.test");
+  await page.locator("#login-password").fill("senha-segura-123");
+  await page.locator("#login-form").getByRole("button", { name: "Entrar" }).click();
+  await expect(page.locator("#dashboard")).toBeVisible();
+}
+
+async function navigateToSettings(page) {
+  const direct = page.locator('[data-nav="settings"]:visible').first();
+  if (await direct.count()) {
+    await direct.click();
+    return;
+  }
+  await page.locator("[data-action='open-more']:visible").click();
+  await page.locator('#more-dialog [data-nav="settings"]:visible').click();
+}
+
+test("ciclo 22 para 21 atravessa o mês sem ser sobrescrito durante renderização", async ({ page }) => {
+  await signIn(page);
+  await navigateToSettings(page);
+
+  const start = page.locator("#energy-cycle-start");
+  const end = page.locator("#energy-cycle-end");
+  await start.fill("22");
+  await end.fill("21");
+
+  await page.evaluate(() => document.querySelector('[data-accent-choice="azure"]')?.click());
+
+  await expect(start).toHaveValue("22");
+  await expect(end).toHaveValue("21");
+
+  await page.locator("#cycles-form button[type='submit']").click();
+  await expect(page.locator("#cycles-message")).toHaveText("Ciclos atualizados.");
+
+  const saved = await page.evaluate(() => window.__voltFake.getSession().user.user_metadata.cycles.energy);
+  expect(saved).toEqual({ start: 22, end: 21 });
+});
+''', encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Static quality gate
+        run: npm run check:static
+
+      - name: Cycle regression
+        run: npx playwright test tests/e2e/cycle-form.spec.mjs --project=chromium-desktop --project=chromium-mobile
+
+      - name: Commit hotfix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/renderer.js tests/e2e/cycle-form.spec.mjs
+          git commit -m "fix: preserve cross-month cycle edits"
+          git push origin HEAD:main

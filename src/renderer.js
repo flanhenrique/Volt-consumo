@@ -325,7 +325,14 @@ function renderSettings(state, byId) {
     "energy-provider": state.locality.energyProvider,
     "water-provider": state.locality.waterProvider
   };
-  Object.entries(fields).forEach(([id, value]) => setInputValue(byId(id), value));
+  const cycleFieldIds = new Set([
+    "energy-cycle-start", "energy-cycle-end", "water-cycle-start", "water-cycle-end"
+  ]);
+  const cycleFormEditing = Boolean(document.getElementById("cycles-form")?.matches(":focus-within"));
+  Object.entries(fields).forEach(([id, value]) => {
+    if (cycleFormEditing && cycleFieldIds.has(id)) return;
+    setInputValue(byId(id), value);
+  });
 }
 
 function renderThemePreference(state) {

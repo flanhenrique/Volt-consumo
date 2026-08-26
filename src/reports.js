@@ -1,4 +1,4 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
 
 const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });
@@ -23,7 +23,7 @@ function ensureStyles() {
   if (document.querySelector('link[data-volt-reports-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/reports.css?v=20260813.7";
+  link.href = "./styles/reports.css?v=20260825.4";
   link.dataset.voltReportsStyle = "true";
   document.head.append(link);
 }

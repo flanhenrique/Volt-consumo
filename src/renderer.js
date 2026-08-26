@@ -1,8 +1,8 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260813.7";
-import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260813.7";
-import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260813.7";
-import { StartupStatus } from "./app-state.js?v=20260813.7";
-import { renderReports } from "./reports.js?v=20260813.7";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
+import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
+import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260825.4";
+import { StartupStatus } from "./app-state.js?v=20260825.4";
+import { renderReports } from "./reports.js?v=20260825.4";
 
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);

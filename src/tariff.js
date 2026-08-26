@@ -1,6 +1,6 @@
-import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260813.7";
-import { findEnergyBillingProfile } from "../data/energy-billing-profiles.js?v=20260813.7";
-import { renderLegalBillDetail } from "./bill-detail.js?v=20260813.7";
+import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260825.4";
+import { findEnergyBillingProfile } from "../data/energy-billing-profiles.js?v=20260825.4";
+import { renderLegalBillDetail } from "./bill-detail.js?v=20260825.4";
 
 const ENERGY_PROVIDER_RENAMES = Object.freeze(new Map([
   ["amazonas energia", "Âmbar Amazonas"],

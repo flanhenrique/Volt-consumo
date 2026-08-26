@@ -92,10 +92,10 @@ test("B/D — sessão restaurada só revela Home consolidada", async ({ page }) 
   expect(restoreTransitions.length).toBeGreaterThan(0);
   expect(restoreTransitions.every(({ visible }) => visible.length === 1 && visible[0] === "login-screen")).toBe(true);
   expect(Object.fromEntries(releaseRequests)).toEqual({
-    "/app.js": "20260813.7",
-    "/src/app-state.js": "20260813.7",
-    "/src/renderer.js": "20260813.7",
-    "/src/volt-service.js": "20260813.7"
+    "/app.js": "20260825.4",
+    "/src/app-state.js": "20260825.4",
+    "/src/renderer.js": "20260825.4",
+    "/src/volt-service.js": "20260825.4"
   });
 });
 

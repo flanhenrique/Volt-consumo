@@ -1,7 +1,7 @@
-import { VOLT_CONFIG } from "../config.js?v=20260813.7";
-import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260813.7";
-import { getBillingWorkflowSnapshot, startBillingWorkflow } from "./billing-workflow.js?v=20260813.7";
-import { matchRegulatoryRuleForComponent } from "./regulatory-engine.js?v=20260813.7";
+import { VOLT_CONFIG } from "../config.js?v=20260825.4";
+import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260825.4";
+import { getBillingWorkflowSnapshot, startBillingWorkflow } from "./billing-workflow.js?v=20260825.4";
+import { matchRegulatoryRuleForComponent } from "./regulatory-engine.js?v=20260825.4";
 
 const BUILD = "20260817.2";
 const RECONCILIATION_POLICY = Object.freeze({ matchingAmount: 1, smallAmount: 5, smallPercent: 3 });

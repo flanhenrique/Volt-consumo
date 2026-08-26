@@ -63,7 +63,7 @@ function hardenSupabaseAuthLock() {
 function startBillingWorkflow() {
   if (billingWorkflowStarted) return;
   billingWorkflowStarted = true;
-  void import("./billing-workflow.js?v=20260813.7")
+  void import("./billing-workflow.js?v=20260825.4")
     .then((module) => module.startBillingWorkflow?.())
     .catch((error) => console.warn("VOLT billing workflow unavailable", error instanceof Error ? error.message : "unknown_error"));
 }
@@ -79,7 +79,7 @@ export function loadSupabaseRuntime() {
   loadingPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     const runtimeUrl = new URL("../vendor/supabase/supabase.js", import.meta.url);
-    runtimeUrl.searchParams.set("v", "20260813.7");
+    runtimeUrl.searchParams.set("v", "20260825.4");
     script.src = runtimeUrl.href;
     script.async = true;
     script.dataset.voltDependency = "supabase";

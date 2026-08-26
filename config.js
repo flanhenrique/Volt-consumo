@@ -3,7 +3,7 @@ export const VOLT_CONFIG = Object.freeze({
   publishableKey: "sb_publishable_Y6iBS989R-miV65onlQWew_Gof7GIqp"
 });
 
-const APPLICATION_BUILD = "20260825.2";
+const APPLICATION_BUILD = "20260825.4";
 globalThis.__VOLT_BUILD__ = APPLICATION_BUILD;
 
 const AUXILIARY_STYLES = Object.freeze([
@@ -11,14 +11,13 @@ const AUXILIARY_STYLES = Object.freeze([
 ]);
 
 const AUXILIARY_MODULES = Object.freeze([
-  "./src/consumption-reports.js?v=20260814.15",
-  "./src/home-dashboard-v2.js?v=20260814.15",
-  "./src/home-dashboard-sustainability.js?v=20260814.15",
-  "./src/pwa-update.js?v=20260816.3",
-  "./src/admin-user-view.js?v=20260814.15",
-  "./src/admin-billing-context.js?v=20260814.15",
-  "./src/canonical-billing-context.js?v=20260814.15",
-  "./src/notifications.js?v=20260816.3",
+  "./src/consumption-reports.js?v=20260825.4",
+  "./src/home-dashboard-v2.js?v=20260825.4",
+  "./src/home-dashboard-sustainability.js?v=20260825.4",
+  "./src/admin-user-view.js?v=20260825.4",
+  "./src/admin-billing-context.js?v=20260825.4",
+  "./src/canonical-billing-context.js?v=20260825.4",
+  "./src/notifications.js?v=20260825.4",
   `./src/reading-management.js?v=${APPLICATION_BUILD}`
 ]);
 

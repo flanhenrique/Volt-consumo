@@ -1,4 +1,4 @@
-import { formatNumber, monthLabel, periodLabel, signedPercent } from "./consumption-report-data.js?v=20260813.7";
+import { formatNumber, monthLabel, periodLabel, signedPercent } from "./consumption-report-data.js?v=20260825.4";
 
 export function ensureGeneralConsumptionReport() {
   const tab = document.querySelector('[data-report-tab="overview"]');

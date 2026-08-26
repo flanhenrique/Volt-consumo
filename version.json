@@ -1,6 +1,6 @@
 {
-  "release": "20260825.3",
-  "build": "20260825.3",
-  "releasedAt": "2026-08-26T00:01:00Z",
-  "message": "Correção dos ciclos de leitura: períodos que atravessam o mês, como 22 → 21, agora permanecem intactos durante a edição e são salvos corretamente."
+  "release": "20260825.4",
+  "build": "20260825.4",
+  "releasedAt": "2026-08-26T00:13:00Z",
+  "message": "Correção do atualizador do PWA: a versão instalada agora é reconhecida corretamente e o aviso deixa de reaparecer após a atualização."
 }

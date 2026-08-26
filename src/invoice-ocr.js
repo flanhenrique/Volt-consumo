@@ -1,7 +1,7 @@
 const MONEY = /(?:R\$\s*)?(-?\d{1,6}(?:\.\d{3})*,\d{2})/i;
 const NUMBER = /(-?\d+(?:[.,]\d+)?)/;
 const DATE = /(\d{2}\/\d{2}\/\d{4})/;
-const OCR_RUNTIME_URL = new URL("../ocr-runtime.html?v=20260813.7", import.meta.url).href;
+const OCR_RUNTIME_URL = new URL("../ocr-runtime.html?v=20260825.4", import.meta.url).href;
 const OCR_TIMEOUT_MS = 120000;
 
 let runtimeFramePromise = null;

@@ -1,5 +1,5 @@
 const NUMERIC_CANDIDATE = /\b[0-9OIl|]{3,10}(?:[.,][0-9OIl|]{1,3})?\b/g;
-const OCR_RUNTIME_URL = new URL("../ocr-runtime.html?v=20260813.7", import.meta.url).href;
+const OCR_RUNTIME_URL = new URL("../ocr-runtime.html?v=20260825.4", import.meta.url).href;
 const OCR_TIMEOUT_MS = 120000;
 
 let runtimeFramePromise = null;

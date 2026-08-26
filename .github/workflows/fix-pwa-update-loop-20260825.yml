@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Align release identifiers
+      - name: Align every runtime release identifier
         shell: bash
         run: |
           python - <<'PY'
@@ -31,8 +31,8 @@ jobs:
           version.update({
               "release": target,
               "build": target,
-              "releasedAt": "2026-08-26T00:05:00Z",
-              "message": "Correção do atualizador do PWA: a versão instalada agora é reconhecida corretamente e o aviso de atualização deixa de reaparecer após concluir a instalação."
+              "releasedAt": "2026-08-26T00:12:00Z",
+              "message": "Correção do atualizador do PWA: a versão instalada agora é reconhecida corretamente e o aviso deixa de reaparecer após a atualização."
           })
           version_path.write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -42,6 +42,11 @@ jobs:
           bootstrap = re.sub(r'const ATOMIC_RELEASE = "[^"]+";', f'const ATOMIC_RELEASE = "{target}";', bootstrap, count=1)
           bootstrap = re.sub(r'const UPDATE_BUILD = "[^"]+";', f'const UPDATE_BUILD = "{target}";', bootstrap, count=1)
           bootstrap_path.write_text(bootstrap, encoding="utf-8")
+
+          config_path = Path("config.js")
+          config = config_path.read_text(encoding="utf-8")
+          config = re.sub(r'const APPLICATION_BUILD = "[^"]+";', f'const APPLICATION_BUILD = "{target}";', config, count=1)
+          config_path.write_text(config, encoding="utf-8")
 
           index_path = Path("index.html")
           index = index_path.read_text(encoding="utf-8")
@@ -94,44 +99,52 @@ jobs:
           gate_path.write_text(gate, encoding="utf-8")
 
           sw_test = Path("tests/e2e/sw.spec.mjs")
-          text = sw_test.read_text(encoding="utf-8")
-          text = re.sub(r'volt-app-v4-atomic-\d{8}\.\d+', f'volt-app-v4-atomic-{target}', text)
-          sw_test.write_text(text, encoding="utf-8")
+          sw_text = sw_test.read_text(encoding="utf-8")
+          sw_text = re.sub(r'volt-app-v4-atomic-\d{8}\.\d+', f'volt-app-v4-atomic-{target}', sw_text)
+          sw_test.write_text(sw_text, encoding="utf-8")
 
           volt_test = Path("tests/e2e/volt.spec.mjs")
-          text = volt_test.read_text(encoding="utf-8")
-          text = re.sub(r'"202608(?:13\.7|15\.10|17\.2|25\.3)"', f'"{target}"', text)
-          volt_test.write_text(text, encoding="utf-8")
+          volt_text = volt_test.read_text(encoding="utf-8")
+          volt_text = re.sub(r'"202608(?:13\.7|15\.10|17\.2|25\.2|25\.3)"', f'"{target}"', volt_text)
+          volt_test.write_text(volt_text, encoding="utf-8")
           PY
 
-      - name: Create PWA build identity regression
+      - name: Verify no stale runtime build writer remains
+        shell: bash
+        run: |
+          test "$(grep -c 'const APPLICATION_BUILD = "20260825.4"' config.js)" -eq 1
+          test "$(grep -c 'globalThis.__VOLT_BUILD__ = APPLICATION_BUILD' config.js)" -eq 1
+          test "$(grep -c 'const UPDATE_BUILD = "20260825.4"' bootstrap.js)" -eq 1
+          test "$(grep -c 'const UPDATE_BUILD = "20260825.4"' sw.js)" -eq 1
+          ! grep -RIn --exclude-dir=.git --exclude='*.md' --exclude='fix-pwa-update-loop-20260825.yml' -E 'const (APPLICATION_BUILD|UPDATE_BUILD|BOOTSTRAP_BUILD|ATOMIC_RELEASE|RELEASE_ID|CACHE_REVISION) = "(20260813\.7|20260815\.10|20260817\.2|20260825\.2|20260825\.3)"' .
+
+      - name: Create direct build-identity regression
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           Path("tests/e2e/pwa-build-identity.tmp.spec.mjs").write_text(r'''import { expect, test } from "@playwright/test";
-          import fs from "node:fs/promises";
+import fs from "node:fs/promises";
 
-          const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
+const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
 
-          test.beforeEach(async ({ page }) => {
-            await page.route("**/vendor/supabase/supabase.js*", (route) =>
-              route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase })
-            );
-          });
+test.beforeEach(async ({ page }) => {
+  await page.route("**/vendor/supabase/supabase.js*", (route) =>
+    route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase })
+  );
+});
 
-          test("build carregado é o mesmo anunciado pelo atualizador", async ({ page }) => {
-            await page.goto("/?session=user");
-            await expect(page.locator("#dashboard")).toBeVisible();
-            const identity = await page.evaluate(async () => {
-              const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
-              const remote = await response.json();
-              return { installed: String(globalThis.__VOLT_BUILD__ || ""), advertised: String(remote.build || "") };
-            });
-            expect(identity.installed).toBe(identity.advertised);
-            expect(identity.installed).toBe("20260825.4");
-          });
-          ''', encoding="utf-8")
+test("build instalado coincide com o build anunciado", async ({ page }) => {
+  await page.goto("/?session=user");
+  await expect(page.locator("#dashboard")).toBeVisible();
+  const identity = await page.evaluate(async () => {
+    const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
+    const remote = await response.json();
+    return { installed: String(globalThis.__VOLT_BUILD__ || ""), advertised: String(remote.build || "") };
+  });
+  expect(identity).toEqual({ installed: "20260825.4", advertised: "20260825.4" });
+});
+''', encoding="utf-8")
           PY
 
       - name: Install test runtime
@@ -140,13 +153,14 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Validate static release consistency
+      - name: Validate release consistency
         run: |
           node --check bootstrap.js
+          node --check config.js
           node --check sw.js
           npm run check:static
 
-      - name: Validate installed build identity
+      - name: Validate runtime build identity and cycle regression
         run: npx playwright test tests/e2e/pwa-build-identity.tmp.spec.mjs tests/e2e/cycle-form.spec.mjs --project=chromium-desktop
 
       - name: Remove temporary regression file
@@ -158,6 +172,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html bootstrap.js app.js src sw.js version.json tests/quality_gate.py tests/e2e/sw.spec.mjs tests/e2e/volt.spec.mjs
+          git add index.html bootstrap.js config.js app.js src sw.js version.json tests/quality_gate.py tests/e2e/sw.spec.mjs tests/e2e/volt.spec.mjs
           git commit -m "fix: stop recurring PWA update prompt"
           git push origin HEAD:main

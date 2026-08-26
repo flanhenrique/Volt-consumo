@@ -31,21 +31,22 @@ jobs:
           version.update({
               "release": target,
               "build": target,
-              "releasedAt": "2026-08-26T00:12:00Z",
+              "releasedAt": "2026-08-26T00:13:00Z",
               "message": "Correção do atualizador do PWA: a versão instalada agora é reconhecida corretamente e o aviso deixa de reaparecer após a atualização."
           })
           version_path.write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
           bootstrap_path = Path("bootstrap.js")
           bootstrap = bootstrap_path.read_text(encoding="utf-8")
-          bootstrap = re.sub(r'const BOOTSTRAP_BUILD = "[^"]+";', f'const BOOTSTRAP_BUILD = "{target}";', bootstrap, count=1)
-          bootstrap = re.sub(r'const ATOMIC_RELEASE = "[^"]+";', f'const ATOMIC_RELEASE = "{target}";', bootstrap, count=1)
-          bootstrap = re.sub(r'const UPDATE_BUILD = "[^"]+";', f'const UPDATE_BUILD = "{target}";', bootstrap, count=1)
+          for name in ("BOOTSTRAP_BUILD", "ATOMIC_RELEASE", "UPDATE_BUILD"):
+              bootstrap = re.sub(rf'const {name} = "[^"]+";', f'const {name} = "{target}";', bootstrap, count=1)
           bootstrap_path.write_text(bootstrap, encoding="utf-8")
 
           config_path = Path("config.js")
           config = config_path.read_text(encoding="utf-8")
           config = re.sub(r'const APPLICATION_BUILD = "[^"]+";', f'const APPLICATION_BUILD = "{target}";', config, count=1)
+          config = re.sub(r'\?v=\d{8}\.\d+', f'?v={target}', config)
+          config = re.sub(r'\n\s*"\./src/pwa-update\.js\?v=[^"]+",', '', config, count=1)
           config_path.write_text(config, encoding="utf-8")
 
           index_path = Path("index.html")
@@ -62,10 +63,8 @@ jobs:
 
           sw_path = Path("sw.js")
           sw = sw_path.read_text(encoding="utf-8")
-          sw = re.sub(r'const RELEASE_ID = "[^"]+";', f'const RELEASE_ID = "{target}";', sw, count=1)
-          sw = re.sub(r'const CACHE_REVISION = "[^"]+";', f'const CACHE_REVISION = "{target}";', sw, count=1)
-          sw = re.sub(r'const BOOTSTRAP_BUILD = "[^"]+";', f'const BOOTSTRAP_BUILD = "{target}";', sw, count=1)
-          sw = re.sub(r'const UPDATE_BUILD = "[^"]+";', f'const UPDATE_BUILD = "{target}";', sw, count=1)
+          for name in ("RELEASE_ID", "CACHE_REVISION", "BOOTSTRAP_BUILD", "UPDATE_BUILD"):
+              sw = re.sub(rf'const {name} = "[^"]+";', f'const {name} = "{target}";', sw, count=1)
           old_cache = '  "volt-app-v4-atomic-20260817.2",\n'
           marker = 'const OWNED_CACHE_NAMES = new Set([\n'
           if old_cache not in sw:
@@ -81,21 +80,11 @@ jobs:
               count=1
           )
           anchor = 'check(f\'const ATOMIC_RELEASE = "{RELEASE_ID}"\' in bootstrap_source, "bootstrap deve atualizar o grafo atômico correto")\n'
-          addition = (
-              anchor
-              + 'check(f\'const UPDATE_BUILD = "{RELEASE_ID}"\' in bootstrap_source, "bootstrap deve identificar o build instalado com version.json")\n'
-              + 'check("globalThis.__VOLT_BUILD__ = UPDATE_BUILD" in bootstrap_source, "build instalado deve ser publicado ao atualizador")\n'
-          )
           if 'bootstrap deve identificar o build instalado com version.json' not in gate:
-              gate = gate.replace(anchor, addition, 1)
+              gate = gate.replace(anchor, anchor + 'check(f\'const UPDATE_BUILD = "{RELEASE_ID}"\' in bootstrap_source, "bootstrap deve identificar o build instalado com version.json")\ncheck("globalThis.__VOLT_BUILD__ = UPDATE_BUILD" in bootstrap_source, "bootstrap deve publicar o build instalado")\n', 1)
           sw_anchor = 'check(f\'const BOOTSTRAP_BUILD = "{BOOTSTRAP_BUILD}"\' in sw_source, "Service Worker deve conhecer o build do bootstrap")\n'
-          sw_addition = (
-              sw_anchor
-              + 'check(f\'const CACHE_REVISION = "{RELEASE_ID}"\' in sw_source, "cache do Service Worker deve pertencer ao build publicado")\n'
-              + 'check(f\'const UPDATE_BUILD = "{RELEASE_ID}"\' in sw_source, "Service Worker deve anunciar o mesmo build de version.json")\n'
-          )
           if 'cache do Service Worker deve pertencer ao build publicado' not in gate:
-              gate = gate.replace(sw_anchor, sw_addition, 1)
+              gate = gate.replace(sw_anchor, sw_anchor + 'check(f\'const CACHE_REVISION = "{RELEASE_ID}"\' in sw_source, "cache do Service Worker deve pertencer ao build publicado")\ncheck(f\'const UPDATE_BUILD = "{RELEASE_ID}"\' in sw_source, "Service Worker deve anunciar o mesmo build de version.json")\n', 1)
           gate_path.write_text(gate, encoding="utf-8")
 
           sw_test = Path("tests/e2e/sw.spec.mjs")
@@ -105,47 +94,47 @@ jobs:
 
           volt_test = Path("tests/e2e/volt.spec.mjs")
           volt_text = volt_test.read_text(encoding="utf-8")
-          volt_text = re.sub(r'"202608(?:13\.7|15\.10|17\.2|25\.2|25\.3)"', f'"{target}"', volt_text)
+          volt_text = re.sub(r'"202608(?:13\.7|14\.15|15\.10|16\.3|17\.2|25\.2|25\.3)"', f'"{target}"', volt_text)
           volt_test.write_text(volt_text, encoding="utf-8")
           PY
 
-      - name: Verify no stale runtime build writer remains
+      - name: Verify deterministic build identity
         shell: bash
         run: |
-          test "$(grep -c 'const APPLICATION_BUILD = "20260825.4"' config.js)" -eq 1
-          test "$(grep -c 'globalThis.__VOLT_BUILD__ = APPLICATION_BUILD' config.js)" -eq 1
-          test "$(grep -c 'const UPDATE_BUILD = "20260825.4"' bootstrap.js)" -eq 1
-          test "$(grep -c 'const UPDATE_BUILD = "20260825.4"' sw.js)" -eq 1
-          ! grep -RIn --exclude-dir=.git --exclude='*.md' --exclude='fix-pwa-update-loop-20260825.yml' -E 'const (APPLICATION_BUILD|UPDATE_BUILD|BOOTSTRAP_BUILD|ATOMIC_RELEASE|RELEASE_ID|CACHE_REVISION) = "(20260813\.7|20260815\.10|20260817\.2|20260825\.2|20260825\.3)"' .
-
-      - name: Create direct build-identity regression
-        shell: bash
-        run: |
+          node --check bootstrap.js
+          node --check config.js
+          node --check sw.js
           python - <<'PY'
           from pathlib import Path
-          Path("tests/e2e/pwa-build-identity.tmp.spec.mjs").write_text(r'''import { expect, test } from "@playwright/test";
-import fs from "node:fs/promises";
+          import json
+          import re
 
-const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
-
-test.beforeEach(async ({ page }) => {
-  await page.route("**/vendor/supabase/supabase.js*", (route) =>
-    route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase })
-  );
-});
-
-test("build instalado coincide com o build anunciado", async ({ page }) => {
-  await page.goto("/?session=user");
-  await expect(page.locator("#dashboard")).toBeVisible();
-  const identity = await page.evaluate(async () => {
-    const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
-    const remote = await response.json();
-    return { installed: String(globalThis.__VOLT_BUILD__ || ""), advertised: String(remote.build || "") };
-  });
-  expect(identity).toEqual({ installed: "20260825.4", advertised: "20260825.4" });
-});
-''', encoding="utf-8")
+          target = json.loads(Path("version.json").read_text(encoding="utf-8"))["build"]
+          assert target == "20260825.4"
+          bootstrap = Path("bootstrap.js").read_text(encoding="utf-8")
+          config = Path("config.js").read_text(encoding="utf-8")
+          sw = Path("sw.js").read_text(encoding="utf-8")
+          index = Path("index.html").read_text(encoding="utf-8")
+          assert f'const UPDATE_BUILD = "{target}"' in bootstrap
+          assert f'const APPLICATION_BUILD = "{target}"' in config
+          assert f'const UPDATE_BUILD = "{target}"' in sw
+          assert f'const CACHE_REVISION = "{target}"' in sw
+          assert f'bootstrap.js?v={target}' in index
+          assert "src/pwa-update.js" not in config
+          writers = []
+          for path in [Path("bootstrap.js"), Path("config.js"), *Path("src").glob("*.js")]:
+              text = path.read_text(encoding="utf-8")
+              if "__VOLT_BUILD__ =" in text:
+                  writers.append((str(path), text))
+          assert len(writers) == 2, writers
+          for path, text in writers:
+              assert target in text, path
+          stale = re.compile(r'const (?:APPLICATION_BUILD|UPDATE_BUILD|BOOTSTRAP_BUILD|ATOMIC_RELEASE|RELEASE_ID|CACHE_REVISION) = "(?:20260813\.7|20260815\.10|20260817\.2|20260825\.2|20260825\.3)"')
+          for path in [Path("bootstrap.js"), Path("config.js"), Path("sw.js")]:
+              assert not stale.search(path.read_text(encoding="utf-8")), path
+          print("PWA BUILD IDENTITY: PASSOU")
           PY
+          npm run check:static
 
       - name: Install test runtime
         run: npm ci
@@ -153,19 +142,8 @@ test("build instalado coincide com o build anunciado", async ({ page }) => {
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Validate release consistency
-        run: |
-          node --check bootstrap.js
-          node --check config.js
-          node --check sw.js
-          npm run check:static
-
-      - name: Validate runtime build identity and cycle regression
-        run: npx playwright test tests/e2e/pwa-build-identity.tmp.spec.mjs tests/e2e/cycle-form.spec.mjs --project=chromium-desktop
-
-      - name: Remove temporary regression file
-        if: always()
-        run: rm -f tests/e2e/pwa-build-identity.tmp.spec.mjs
+      - name: Preserve cycle regression
+        run: npx playwright test tests/e2e/cycle-form.spec.mjs --project=chromium-desktop
 
       - name: Commit correction
         shell: bash

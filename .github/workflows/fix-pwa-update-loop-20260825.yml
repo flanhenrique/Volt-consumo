@@ -26,7 +26,6 @@ jobs:
 
           target = "20260825.4"
 
-          # version.json is the release manifest exposed to the installed PWA.
           version_path = Path("version.json")
           version = json.loads(version_path.read_text(encoding="utf-8"))
           version.update({
@@ -37,7 +36,6 @@ jobs:
           })
           version_path.write_text(json.dumps(version, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-          # Make the bootstrap runtime identify itself with the same build that version.json advertises.
           bootstrap_path = Path("bootstrap.js")
           bootstrap = bootstrap_path.read_text(encoding="utf-8")
           bootstrap = re.sub(r'const BOOTSTRAP_BUILD = "[^"]+";', f'const BOOTSTRAP_BUILD = "{target}";', bootstrap, count=1)
@@ -45,13 +43,11 @@ jobs:
           bootstrap = re.sub(r'const UPDATE_BUILD = "[^"]+";', f'const UPDATE_BUILD = "{target}";', bootstrap, count=1)
           bootstrap_path.write_text(bootstrap, encoding="utf-8")
 
-          # Every mutable root asset in index.html must point at the same new build.
           index_path = Path("index.html")
           index = index_path.read_text(encoding="utf-8")
           index = re.sub(r'\?v=\d{8}\.\d+', f'?v={target}', index)
           index_path.write_text(index, encoding="utf-8")
 
-          # Align local ES-module graph cache-busters and Supabase runtime version.
           for path in [Path("app.js"), *sorted(Path("src").glob("*.js"))]:
               text = path.read_text(encoding="utf-8")
               text = re.sub(r'\?v=\d{8}\.\d+', f'?v={target}', text)
@@ -59,7 +55,6 @@ jobs:
                   text = re.sub(r'searchParams\.set\("v",\s*"[^"]+"\)', f'searchParams.set("v", "{target}")', text)
               path.write_text(text, encoding="utf-8")
 
-          # A new worker/cache revision is required so installed PWAs actually receive the fix.
           sw_path = Path("sw.js")
           sw = sw_path.read_text(encoding="utf-8")
           sw = re.sub(r'const RELEASE_ID = "[^"]+";', f'const RELEASE_ID = "{target}";', sw, count=1)
@@ -72,7 +67,6 @@ jobs:
               sw = sw.replace(marker, marker + old_cache, 1)
           sw_path.write_text(sw, encoding="utf-8")
 
-          # Static gate now derives the expected release from version.json and verifies all runtime identifiers.
           gate_path = Path("tests/quality_gate.py")
           gate = gate_path.read_text(encoding="utf-8")
           gate = re.sub(
@@ -99,7 +93,6 @@ jobs:
               gate = gate.replace(sw_anchor, sw_addition, 1)
           gate_path.write_text(gate, encoding="utf-8")
 
-          # Keep browser assertions synchronized with the new cache/build identifiers.
           sw_test = Path("tests/e2e/sw.spec.mjs")
           text = sw_test.read_text(encoding="utf-8")
           text = re.sub(r'volt-app-v4-atomic-\d{8}\.\d+', f'volt-app-v4-atomic-{target}', text)
@@ -111,6 +104,36 @@ jobs:
           volt_test.write_text(text, encoding="utf-8")
           PY
 
+      - name: Create PWA build identity regression
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          Path("tests/e2e/pwa-build-identity.tmp.spec.mjs").write_text(r'''import { expect, test } from "@playwright/test";
+          import fs from "node:fs/promises";
+
+          const fakeSupabase = await fs.readFile(new URL("../fixtures/fake-supabase.js", import.meta.url), "utf8");
+
+          test.beforeEach(async ({ page }) => {
+            await page.route("**/vendor/supabase/supabase.js*", (route) =>
+              route.fulfill({ status: 200, contentType: "application/javascript", body: fakeSupabase })
+            );
+          });
+
+          test("build carregado é o mesmo anunciado pelo atualizador", async ({ page }) => {
+            await page.goto("/?session=user");
+            await expect(page.locator("#dashboard")).toBeVisible();
+            const identity = await page.evaluate(async () => {
+              const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
+              const remote = await response.json();
+              return { installed: String(globalThis.__VOLT_BUILD__ || ""), advertised: String(remote.build || "") };
+            });
+            expect(identity.installed).toBe(identity.advertised);
+            expect(identity.installed).toBe("20260825.4");
+          });
+          ''', encoding="utf-8")
+          PY
+
       - name: Install test runtime
         run: npm ci
 
@@ -118,10 +141,17 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Validate static release consistency
-        run: npm run check:static
+        run: |
+          node --check bootstrap.js
+          node --check sw.js
+          npm run check:static
 
-      - name: Validate update and service worker behavior
-        run: npx playwright test tests/e2e/cycle-form.spec.mjs tests/e2e/sw.spec.mjs --project=chromium-desktop --project=chromium-service-worker
+      - name: Validate installed build identity
+        run: npx playwright test tests/e2e/pwa-build-identity.tmp.spec.mjs tests/e2e/cycle-form.spec.mjs --project=chromium-desktop
+
+      - name: Remove temporary regression file
+        if: always()
+        run: rm -f tests/e2e/pwa-build-identity.tmp.spec.mjs
 
       - name: Commit correction
         shell: bash

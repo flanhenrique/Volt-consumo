@@ -5,3 +5,4 @@ __pycache__/
 *.py[cod]
 browser-smoke.out
 browser-smoke.err
+inpi/output/

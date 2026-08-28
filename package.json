@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "check:static": "python tests/quality_gate.py",
+    "test:domain": "node --test tests/*.test.mjs",
     "test:browser": "playwright test",
-    "test": "npm run check:static && npm run test:browser"
+    "test": "npm run check:static && npm run test:domain && npm run test:browser"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"

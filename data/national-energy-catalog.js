@@ -4,9 +4,9 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-08-24T10:22:57.945Z",
+  "generatedAt": "2026-08-31T08:28:36.758Z",
   "mode": "aneel-weekly",
-  "automaticRules": 99
+  "automaticRules": 97
 });
 
 export const NATIONAL_ENERGY_CATALOG = Object.freeze([
@@ -86,15 +86,15 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "cea-b1-residencial-convencional-2026-01-01",
+    "id": "cea-b1-residencial-convencional-2026-04-13",
     "utility": "energy",
     "provider": "CEA",
     "providerAliases": [
       "CEA"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-12-12",
+    "validFrom": "2026-04-13",
+    "validUntil": "2027-05-24",
     "ratePerKwh": 0.82515,
     "components": {
       "tusdPerMwh": 784.1,
@@ -227,6 +227,31 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.536, DE 23 DE SETEMBRO DE 2025",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
+    "id": "celesc-b1-residencial-convencional-2026-08-22",
+    "utility": "energy",
+    "provider": "CELESC",
+    "providerAliases": [
+      "CELESC"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-08-22",
+    "validUntil": "2027-08-21",
+    "ratePerKwh": 0.75975,
+    "components": {
+      "tusdPerMwh": 414.04,
+      "tePerMwh": 345.71
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.602, DE 21 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -1236,31 +1261,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "cooperalianca-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "COOPERALIANÇA",
-    "providerAliases": [
-      "COOPERALIANÇA"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-28",
-    "ratePerKwh": 0.69568,
-    "components": {
-      "tusdPerMwh": 373.75,
-      "tePerMwh": 321.93
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.514, DE 26 DE AGOSTO DE 2025",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
     "id": "coopercocal-b1-residencial-convencional-2026-01-01",
     "utility": "energy",
     "provider": "COOPERCOCAL",
@@ -1611,31 +1611,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "dcelt-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "DCELT",
-    "providerAliases": [
-      "DCELT"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-28",
-    "ratePerKwh": 0.68354,
-    "components": {
-      "tusdPerMwh": 373.77,
-      "tePerMwh": 309.77
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.515, DE 26 DE AGOSTO DE 2025",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
     "id": "demei-b1-residencial-convencional-2026-07-22",
     "utility": "energy",
     "provider": "DEMEI",
@@ -1686,22 +1661,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "eac-b1-residencial-convencional-2026-01-01",
+    "id": "eac-b1-residencial-convencional-2026-08-26",
     "utility": "energy",
     "provider": "EAC",
     "providerAliases": [
       "EAC"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
+    "validFrom": "2026-08-26",
     "validUntil": "2026-12-12",
-    "ratePerKwh": 0.87381,
+    "ratePerKwh": 0.82971,
     "components": {
-      "tusdPerMwh": 716.68,
-      "tePerMwh": 157.13
+      "tusdPerMwh": 715.85,
+      "tePerMwh": 113.86
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.556, DE 9 DE DEZEMBRO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.318, DE 24 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -1761,72 +1736,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "efljc-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "EFLJC",
-    "providerAliases": [
-      "EFLJC"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-28",
-    "ratePerKwh": 0.69568,
-    "components": {
-      "tusdPerMwh": 373.75,
-      "tePerMwh": 321.93
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.516, DE 26 DE AGOSTO DE 2025",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "eflul-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "EFLUL",
-    "providerAliases": [
-      "EFLUL"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-28",
-    "ratePerKwh": 0.65095,
-    "components": {
-      "tusdPerMwh": 472.73,
-      "tePerMwh": 178.22
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.517, DE 26 DE AGOSTO DE 2025",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "elektro-b1-residencial-convencional-2026-01-01",
+    "id": "elektro-b1-residencial-convencional-2026-08-27",
     "utility": "energy",
     "provider": "ELEKTRO",
     "providerAliases": [
       "ELEKTRO"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-26",
-    "ratePerKwh": 0.79605,
+    "validFrom": "2026-08-27",
+    "validUntil": "2027-08-26",
+    "ratePerKwh": 0.89163,
     "components": {
-      "tusdPerMwh": 477.85,
-      "tePerMwh": 318.2
+      "tusdPerMwh": 565.27,
+      "tePerMwh": 326.36
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.510, DE 19 DE AGOSTO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.605, DE 26 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -1986,22 +1911,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "enel-ce-b1-residencial-convencional-2026-04-22",
+    "id": "enel-ce-b1-residencial-convencional-2026-08-26",
     "utility": "energy",
     "provider": "ENEL CE",
     "providerAliases": [
       "ENEL CE"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-04-22",
+    "validFrom": "2026-08-26",
     "validUntil": "2027-04-21",
-    "ratePerKwh": 0.74977,
+    "ratePerKwh": 0.70175,
     "components": {
-      "tusdPerMwh": 488.78,
-      "tePerMwh": 260.99
+      "tusdPerMwh": 488.49,
+      "tePerMwh": 213.26
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.574, DE 22 DE ABRIL DE 2026",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.324, DE 24 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2027,31 +1952,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.570, DE 10 DE MARÇO DE 2026",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "epb-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "EPB",
-    "providerAliases": [
-      "EPB"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-27",
-    "ratePerKwh": 0.67565,
-    "components": {
-      "tusdPerMwh": 419.33,
-      "tePerMwh": 256.32
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.518, DE 26 DE AGOSTO DE 2025",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2111,22 +2011,47 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "equatorial-ma-b1-residencial-convencional-2026-01-01",
+    "id": "equatorial-ma-b1-residencial-convencional-2026-08-28",
     "utility": "energy",
     "provider": "EQUATORIAL MA",
     "providerAliases": [
       "EQUATORIAL MA"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-27",
-    "ratePerKwh": 0.84318,
+    "validFrom": "2026-08-28",
+    "validUntil": "2027-08-27",
+    "ratePerKwh": 0.88884,
     "components": {
-      "tusdPerMwh": 559.86,
-      "tePerMwh": 283.32
+      "tusdPerMwh": 607.54,
+      "tePerMwh": 281.3
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.512, DE 26 DE AGOSTO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.604, DE 26 DE AGOSTO DE 2026",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
+    "id": "equatorial-pa-b1-residencial-convencional-2026-01-01",
+    "utility": "energy",
+    "provider": "EQUATORIAL PA",
+    "providerAliases": [
+      "EQUATORIAL PA"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-01-01",
+    "validUntil": "2026-12-31",
+    "ratePerKwh": 0.9783,
+    "components": {
+      "tusdPerMwh": 692.08,
+      "tePerMwh": 286.22
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.507, DE 5 DE AGOSTO DE 2025",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2161,22 +2086,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "ero-b1-residencial-convencional-2026-01-01",
+    "id": "ero-b1-residencial-convencional-2026-08-26",
     "utility": "energy",
     "provider": "ERO",
     "providerAliases": [
       "ERO"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
+    "validFrom": "2026-08-26",
     "validUntil": "2026-12-12",
-    "ratePerKwh": 0.84139,
+    "ratePerKwh": 0.76244,
     "components": {
-      "tusdPerMwh": 622.26,
-      "tePerMwh": 219.13
+      "tusdPerMwh": 703.59,
+      "tePerMwh": 58.85
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.560, DE 9 DE DEZEMBRO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.320, DE 24 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2236,22 +2161,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "eto-b1-residencial-convencional-2026-07-04",
+    "id": "eto-b1-residencial-convencional-2026-08-26",
     "utility": "energy",
     "provider": "ETO",
     "providerAliases": [
       "ETO"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-07-04",
-    "validUntil": "2027-07-03",
-    "ratePerKwh": 1.00606,
+    "validFrom": "2026-08-26",
+    "validUntil": "2027-08-25",
+    "ratePerKwh": 0.99278,
     "components": {
-      "tusdPerMwh": 683.43,
-      "tePerMwh": 322.63
+      "tusdPerMwh": 683.27,
+      "tePerMwh": 309.51
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.593, DE 2 DE JULHO DE 2026",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.323, DE 24 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2411,22 +2336,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "pacto-energia-pr-b1-residencial-convencional-2026-01-01",
+    "id": "pacto-energia-pr-b1-residencial-convencional-2026-06-26",
     "utility": "energy",
     "provider": "PACTO ENERGIA PR",
     "providerAliases": [
       "PACTO ENERGIA PR"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-08-25",
-    "ratePerKwh": 0.64242,
+    "validFrom": "2026-06-26",
+    "validUntil": "2027-06-25",
+    "ratePerKwh": 0.76802,
     "components": {
-      "tusdPerMwh": 366.67,
-      "tePerMwh": 275.75
+      "tusdPerMwh": 457.17,
+      "tePerMwh": 310.85
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.509, DE 19 DE AGOSTO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.606, DE 26 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",
@@ -2452,6 +2377,31 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.590, DE 16 DE JUNHO DE 2026",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
+    "id": "sulgipe-b1-residencial-convencional-2026-08-26",
+    "utility": "energy",
+    "provider": "SULGIPE",
+    "providerAliases": [
+      "SULGIPE"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-08-26",
+    "validUntil": "2027-05-21",
+    "ratePerKwh": 0.71881,
+    "components": {
+      "tusdPerMwh": 529.09,
+      "tePerMwh": 189.72
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.321, DE 24 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

@@ -4,9 +4,9 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-08-31T08:28:36.758Z",
+  "generatedAt": "2026-09-07T14:18:42.144Z",
   "mode": "aneel-weekly",
-  "automaticRules": 97
+  "automaticRules": 99
 });
 
 export const NATIONAL_ENERGY_CATALOG = Object.freeze([
@@ -1611,6 +1611,31 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
+    "id": "dcelt-b1-residencial-convencional-2026-08-29",
+    "utility": "energy",
+    "provider": "DCELT",
+    "providerAliases": [
+      "DCELT"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-08-29",
+    "validUntil": "2027-08-28",
+    "ratePerKwh": 0.75975,
+    "components": {
+      "tusdPerMwh": 414.04,
+      "tePerMwh": 345.71
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.380, DE 28 DE AGOSTO DE 2026",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
     "id": "demei-b1-residencial-convencional-2026-07-22",
     "utility": "energy",
     "provider": "DEMEI",
@@ -1952,6 +1977,31 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.570, DE 10 DE MARÇO DE 2026",
+    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
+    "excludes": [
+      "ICMS",
+      "PIS/Cofins",
+      "CIP/COSIP",
+      "bandeira tarifária"
+    ]
+  },
+  {
+    "id": "epb-b1-residencial-convencional-2026-08-28",
+    "utility": "energy",
+    "provider": "EPB",
+    "providerAliases": [
+      "EPB"
+    ],
+    "customerClass": "B1 Residencial — Convencional",
+    "validFrom": "2026-08-28",
+    "validUntil": "2027-08-27",
+    "ratePerKwh": 0.7097,
+    "components": {
+      "tusdPerMwh": 460.32,
+      "tePerMwh": 249.38
+    },
+    "automatic": true,
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.603, DE 28 DE AGOSTO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

@@ -4,7 +4,7 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-09-07T14:18:42.144Z",
+  "generatedAt": "2026-09-14T15:05:05.513Z",
   "mode": "aneel-weekly",
   "automaticRules": 99
 });

@@ -4,9 +4,9 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-09-21T15:10:12.909Z",
+  "generatedAt": "2026-09-28T16:49:33.535Z",
   "mode": "aneel-weekly",
-  "automaticRules": 102
+  "automaticRules": 101
 });
 
 export const NATIONAL_ENERGY_CATALOG = Object.freeze([
@@ -1902,31 +1902,6 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     },
     "automatic": true,
     "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.596, DE 3 DE JULHO DE 2026",
-    "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-    "excludes": [
-      "ICMS",
-      "PIS/Cofins",
-      "CIP/COSIP",
-      "bandeira tarifária"
-    ]
-  },
-  {
-    "id": "elfsm-b1-residencial-convencional-2026-01-01",
-    "utility": "energy",
-    "provider": "ELFSM",
-    "providerAliases": [
-      "ELFSM"
-    ],
-    "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-09-21",
-    "ratePerKwh": 0.74537,
-    "components": {
-      "tusdPerMwh": 441.98,
-      "tePerMwh": 303.39
-    },
-    "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.519, DE 16 DE SETEMBRO DE 2025",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

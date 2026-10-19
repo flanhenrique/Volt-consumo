@@ -4,7 +4,7 @@
 export const NATIONAL_ENERGY_CATALOG_META = Object.freeze({
   "source": "ANEEL — Tarifas de aplicação das distribuidoras de energia elétrica",
   "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
-  "generatedAt": "2026-10-12T18:02:08.417Z",
+  "generatedAt": "2026-10-19T15:43:34.041Z",
   "mode": "aneel-weekly",
   "automaticRules": 103
 });
@@ -36,11 +36,11 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "ambar-energia-rr-b1-residencial-convencional-2026-01-25",
+    "id": "ambar-roraima-b1-residencial-convencional-2026-01-25",
     "utility": "energy",
-    "provider": "ÂMBAR ENERGIA RR",
+    "provider": "Âmbar Roraima",
     "providerAliases": [
-      "ÂMBAR ENERGIA RR"
+      "Âmbar Roraima"
     ],
     "customerClass": "B1 Residencial — Convencional",
     "validFrom": "2026-01-25",
@@ -2186,22 +2186,22 @@ export const NATIONAL_ENERGY_CATALOG = Object.freeze([
     ]
   },
   {
-    "id": "equatorial-pa-b1-residencial-convencional-2026-01-01",
+    "id": "equatorial-pa-b1-residencial-convencional-2026-09-18",
     "utility": "energy",
     "provider": "EQUATORIAL PA",
     "providerAliases": [
       "EQUATORIAL PA"
     ],
     "customerClass": "B1 Residencial — Convencional",
-    "validFrom": "2026-01-01",
-    "validUntil": "2026-12-31",
-    "ratePerKwh": 0.9783,
+    "validFrom": "2026-09-18",
+    "validUntil": "2027-08-06",
+    "ratePerKwh": 1.04322,
     "components": {
-      "tusdPerMwh": 692.08,
-      "tePerMwh": 286.22
+      "tusdPerMwh": 754.3,
+      "tePerMwh": 288.92
     },
     "automatic": true,
-    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.507, DE 5 DE AGOSTO DE 2025",
+    "source": "ANEEL — RESOLUÇÃO HOMOLOGATÓRIA Nº 3.608, DE 18 DE SETEMBRO DE 2026",
     "sourceUrl": "https://dadosabertos.aneel.gov.br/dataset/tarifas-distribuidoras-energia-eletrica",
     "excludes": [
       "ICMS",

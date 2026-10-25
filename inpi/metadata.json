@@ -1,0 +1,44 @@
+{
+  "software": {
+    "title": "VOLT Consumo",
+    "version": "20260816.5",
+    "description": "Aplicação web progressiva para registro de leituras, acompanhamento, análise e projeção de consumo de energia elétrica e água, com ciclos, tarifas, indicadores e relatórios de consumo.",
+    "repository": "flanhenrique/Volt-consumo",
+    "frozen_commit": "5c99b3daf292e775405f6f24959525c3f69e21cd",
+    "release_date": "2026-08-16",
+    "program_type_primary": {
+      "code": "AP01",
+      "label": "Aplicativo"
+    },
+    "program_type_complementary": [
+      {
+        "code": "GI01",
+        "label": "Gerenciador de Informações",
+        "status": "usar somente se o formulário permitir múltiplos enquadramentos e permanecer fiel ao produto"
+      }
+    ],
+    "application_field_primary": {
+      "code": "EN01",
+      "label": "Energia"
+    },
+    "technical_archive": "VOLT-20260816.5-source.zip",
+    "hash_algorithm": "SHA-512"
+  },
+  "inpi": {
+    "service": "Pedido de Registro de Programa de Computador — RPC",
+    "service_code": 730,
+    "fee_brl_verified_2026_08_16": 210.0,
+    "filing_system": "e-Software",
+    "requires_qualified_icp_brasil_signature": true
+  },
+  "rights": {
+    "author_or_authors": "CONFIRMAR NOMES CIVIS E PARTICIPAÇÃO AUTORAL HUMANA",
+    "right_holder": "CONFIRMAR EXATAMENTE COMO CADASTRADO NO e-INPI",
+    "assignment_or_employment_documents": "CONFIRMAR SE HÁ TERCEIROS COM DIREITOS A FORMALIZAR"
+  },
+  "dates": {
+    "original_creation_date": "CONFIRMAR",
+    "first_publication_date": "CONFIRMAR",
+    "registered_version_release_date": "2026-08-16"
+  }
+}

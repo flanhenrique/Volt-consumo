@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "check:static": "python tests/quality_gate.py",
+    "check:widgets": "node --test tests/widget-snapshot-adapter.test.mjs",
     "test:browser": "playwright test",
-    "test": "npm run check:static && npm run test:browser"
+    "test": "npm run check:static && npm run check:widgets && npm run test:browser"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"

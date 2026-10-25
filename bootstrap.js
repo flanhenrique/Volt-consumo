@@ -246,6 +246,12 @@ try {
 }
 
 try {
+  await import(`./src/volt-widget-bridge.js?v=${UPDATE_BUILD}`);
+} catch (error) {
+  console.warn("VOLT native widget bridge unavailable", error);
+}
+
+try {
   await import(`./src/pwa-update.js?v=${UPDATE_BUILD}`);
 } catch (error) {
   console.warn("VOLT update manager unavailable", error);

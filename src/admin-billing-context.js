@@ -1,5 +1,5 @@
-import { VOLT_CONFIG } from "../config.js?v=20260825.4";
-import { renderLegalBillDetail } from "./bill-detail.js?v=20260825.4";
+import { VOLT_CONFIG } from "../config.js?v=20261125.1";
+import { renderLegalBillDetail } from "./bill-detail.js?v=20261125.1";
 
 const STORE_WAIT_LIMIT = 80;
 let store = null;

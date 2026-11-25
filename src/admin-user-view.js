@@ -1,9 +1,9 @@
-import { VOLT_CONFIG } from "../config.js?v=20260825.4";
-import { normalizeCycle } from "./cycles.js?v=20260825.4";
-import { renderLegalBillDetail } from "./bill-detail.js?v=20260825.4";
-import { buildEnergyBillingRules } from "./regulatory-engine.js?v=20260825.4";
-import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20260825.4";
-import { normalizeEnergyBillingReference } from "./volt-service.js?v=20260825.4";
+import { VOLT_CONFIG } from "../config.js?v=20261125.1";
+import { normalizeCycle } from "./cycles.js?v=20261125.1";
+import { renderLegalBillDetail } from "./bill-detail.js?v=20261125.1";
+import { buildEnergyBillingRules } from "./regulatory-engine.js?v=20261125.1";
+import { normalizeLocality, resolveEnergyTariff } from "./tariff.js?v=20261125.1";
+import { normalizeEnergyBillingReference } from "./volt-service.js?v=20261125.1";
 
 const DEFAULT_ENERGY_SETTINGS = Object.freeze({ rate: 0.89456, goal: 250, flag: "yellow", lightingFee: 32 });
 const DEFAULT_WATER_SETTINGS = Object.freeze({ rate: 8, goal: 15, sewerPercent: 100, fixedFee: 0 });

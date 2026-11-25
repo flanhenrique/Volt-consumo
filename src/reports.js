@@ -1,6 +1,7 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
 
-const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
+import { forecastEnergyBill, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
+const currentOfficialFlag = () => resolveCycleFlags(new Date(), new Date(), "sin").segments[0]?.flag || "";
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });
 const MODE_LABELS = Object.freeze({ overview: "Visão geral", energy: "Energia", water: "Água", custom: "Personalizados" });
 
@@ -350,20 +351,23 @@ function aggregateMonths(energyIntervals, waterIntervals) {
 function estimateBuckets(buckets, settings) {
   const result = { energy: 0, water: 0, total: 0, base: 0, flag: 0, lighting: 0, adjustments: 0 };
   for (const bucket of buckets) {
-    const energy = calculateEnergyEstimate(bucket.energy, {
-      rate: settings.energy.rate,
-      flagRate: FLAG_RATES[settings.energy.flag] ?? 0,
-      lightingFee: settings.energy.lightingFee,
-      flagLabel: settings.energy.flag
+    const date = new Date(bucket.date);
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth()+1, 0);
+    const profile = globalThis.__VOLT_BILLING_CONTEXT__?.profile;
+    const energy = forecastEnergyBill(bucket.energy, profile?.rules || {}, {
+      fallbackRate: settings.energy.rate,
+      flagPeriod: { start, end, systemType: profile?.systemType || "not_identified" },
+      lightingFee: settings.energy.lightingFee
     });
     const water = calculateWaterEstimate(bucket.water, settings.water);
     const lighting = Number(settings.energy.lightingFee) || 0;
     result.energy += Number(energy.totalCost) || 0;
     result.water += Number(water.totalCost) || 0;
-    result.base += Number(energy.baseCost) || 0;
-    result.flag += Number(energy.flagCost) || 0;
+    result.base += Number(energy.energySubtotal) || 0;
+    result.flag += Number(energy.flagNet) || 0;
     result.lighting += lighting;
-    result.adjustments += (Number(energy.totalCost) || 0) - (Number(energy.baseCost) || 0) - (Number(energy.flagCost) || 0) - lighting;
+    result.adjustments += (Number(energy.totalCost) || 0) - (Number(energy.energySubtotal) || 0) - (Number(energy.flagNet) || 0) - lighting;
   }
   result.total = result.energy + result.water;
   return result;
@@ -453,7 +457,7 @@ function renderEnergy(data) {
   renderMonthlyChart("report-energy-chart", data.monthBuckets, "energy", data.state.settings);
   replaceSummary("report-energy-settings", [
     ["Tarifa base", `${currency(Number(data.state.settings.energy.rate) || 0)}/kWh`, "Configuração atual"],
-    ["Bandeira", flagLabel(data.state.settings.energy.flag), `${currency(FLAG_RATES[data.state.settings.energy.flag] ?? 0)}/kWh`],
+    ["Bandeira ANEEL", currentOfficialFlag() ? flagLabel(currentOfficialFlag()) : "Aguardando divulgação", "Estimativas por competência; sem tributos não identificados"],
     ["Iluminação pública", currency(Number(data.state.settings.energy.lightingFee) || 0), "por ciclo estimado"],
     ["Meta de energia", `${formatNumber(data.state.settings.energy.goal, 0)} kWh`, data.snapshot.energy.status.label]
   ]);
@@ -612,7 +616,7 @@ function exportReport(customOnly) {
     rows.push(["RESUMO", ""], ["Consumo de energia", `${plainNumber(data.energyConsumption, 3)} kWh`], ["Consumo de água", `${plainNumber(data.waterConsumption, 3)} m³`], ["Gasto estimado energia", plainCurrency(data.estimates.energy)], ["Gasto estimado água", plainCurrency(data.estimates.water)], ["Gasto estimado total", plainCurrency(data.estimates.total)], ["Dias analisados", String(data.days)], ["", ""]);
   }
   if (selected.energy) {
-    rows.push(["ENERGIA", ""], ["Tarifa base R$/kWh", plainNumber(data.state.settings.energy.rate, 6)], ["Bandeira", flagLabel(data.state.settings.energy.flag)], ["Iluminação pública", plainCurrency(data.state.settings.energy.lightingFee)], ["Meta kWh", plainNumber(data.state.settings.energy.goal, 3)], ["", ""]);
+    rows.push(["ENERGIA", ""], ["Tarifa base R$/kWh", plainNumber(data.state.settings.energy.rate, 6)], ["Bandeira", (currentOfficialFlag() ? flagLabel(currentOfficialFlag()) : "Aguardando divulgação")], ["Iluminação pública", plainCurrency(data.state.settings.energy.lightingFee)], ["Meta kWh", plainNumber(data.state.settings.energy.goal, 3)], ["", ""]);
     rows.push(["Mês", "Consumo kWh"]);
     data.monthBuckets.forEach((bucket) => rows.push([monthLabel(bucket.date, true), plainNumber(bucket.energy, 3)]));
     rows.push(["", ""]);

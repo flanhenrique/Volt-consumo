@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { forecastEnergyBill, projectMeterCycle, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js";
+import { forecastEnergyBill, projectMeterCycle, resolveCycleFlags, ANEEL_MONTHLY_FLAGS } from "../packages/consumption-domain/browser/billing-engine.js";
 const day = (y,m,d) => new Date(y,m-1,d,0,0,0);
 const close = (actual,expected) => assert.ok(Math.abs(actual-expected)<1e-8, String(actual));
 test("projeção usa os mesmos extremos da leitura em vez de dias do cadastro",()=>{
@@ -22,9 +22,14 @@ test("setembro/outubro: 14 dias amarelos e 16 verdes, com tarifa proporcional",(
  const result=forecastEnergyBill(300,{}, {fallbackRate:0.87571,flagPeriod:{start:"2026-09-17",end:"2026-10-16",systemType:"sin"},lightingFee:21.33});
  assert.equal(result.flagGross,2.64);
 });
-test("dezembro desconhecido permanece pendente mesmo quando novembro é verde",()=>{
+test("não extrapola competência desconhecida; dezembro depende de publicação oficial",()=>{
  const flags=resolveCycleFlags("2026-11-17","2026-12-16","sin");
- assert.equal(flags.complete,false); assert.deepEqual(flags.pendingMonths,["2026-12"]); assert.equal(flags.rate,0);
+ const december=ANEEL_MONTHLY_FLAGS["2026-12"];
+ assert.equal(flags.complete,Boolean(december));
+ assert.deepEqual(flags.pendingMonths,december ? [] : ["2026-12"]);
+ close(flags.rate,(december?.[1] ?? 0)*16/30);
+ const unknown=resolveCycleFlags("2099-12-01","2099-12-31","sin");
+ assert.equal(unknown.complete,false); assert.deepEqual(unknown.pendingMonths,["2099-12"]);
 });
 test("sistemas isolados e não identificados não recebem adicional presumido",()=>{
  assert.equal(resolveCycleFlags("2026-09-01","2026-09-30","isolated").complete,true);

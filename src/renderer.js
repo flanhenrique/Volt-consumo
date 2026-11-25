@@ -1,5 +1,5 @@
 import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
-import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
+import { forecastEnergyBill, projectMeterCycle, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260825.4";
 import { StartupStatus } from "./app-state.js?v=20260825.4";
 import { renderReports } from "./reports.js?v=20260825.4";
@@ -157,14 +157,16 @@ function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsu
   const rateIntervals = buildDailyRateIntervals(readings, cycle.current);
   const progress = cycleProgress(cycle.current);
   const lastReading = latestReadingForRange(readings, cycle.current);
-  const measuredDays = lastReading ? clampNumber(dayDifference(cycle.current.start, dayStart(lastReading.date)), 0, progress.totalDays) : 0;
+  const legacyMeasuredDays = lastReading ? clampNumber(dayDifference(cycle.current.start, dayStart(lastReading.date)), 0, progress.totalDays) : 0;
+  const meterProjection = type === "energy" ? projectMeterCycle(readings, cycle.current, consumption) : null;
+  const measuredDays = meterProjection ? meterProjection.measuredDays : legacyMeasuredDays;
   const fallbackAverage = dailySeries.length ? dailySeries.reduce((total, item) => total + item.value, 0) / dailySeries.length : 0;
-  const average = measuredDays > 0 ? consumption / measuredDays : fallbackAverage;
-  const projectedConsumption = measuredDays > 0 ? Math.max(consumption, average * progress.totalDays) : consumption;
-  const currentEstimate = estimateUtilityCost(type, consumption, state);
-  const projectedEstimate = estimateUtilityCost(type, projectedConsumption, state);
+  const average = meterProjection ? meterProjection.average : (measuredDays > 0 ? consumption / measuredDays : fallbackAverage);
+  const projectedConsumption = meterProjection ? meterProjection.projectedConsumption : (measuredDays > 0 ? Math.max(consumption, average * progress.totalDays) : consumption);
+  const currentEstimate = estimateUtilityCost(type, consumption, state, { start: cycle.current.start, end: lastReading ? dayStart(lastReading.date) : cycle.current.start });
+  const projectedEstimate = estimateUtilityCost(type, projectedConsumption, state, cycle.current);
   const targetDaily = progress.totalDays > 0 && goal > 0 ? goal / progress.totalDays : 0;
-  const remainingFromReading = Math.max(0, progress.totalDays - measuredDays);
+  const remainingFromReading = meterProjection ? meterProjection.remainingDays : Math.max(0, progress.totalDays - measuredDays);
   const paceToGoal = remainingFromReading > 0 && goal > 0 ? Math.max(0, goal - consumption) / remainingFromReading : 0;
   const ratio = goal > 0 ? consumption / goal : 0;
   const forecastRatio = goal > 0 ? projectedConsumption / goal : 0;
@@ -174,7 +176,7 @@ function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsu
   return {
     type, consumption, goal, ratio, forecastRatio, cycle, readings, intervals, dailySeries, rateIntervals,
     average, projectedConsumption, cost: currentEstimate.total, projectedCost: projectedEstimate.total,
-    costSource: currentEstimate.source, targetDaily, paceToGoal, progress, lastReading, measuredDays,
+    costSource: currentEstimate.source, projectedCostSource: projectedEstimate.source, targetDaily, paceToGoal, progress, lastReading, measuredDays,
     remainingFromReading, previousConsumption, previousChange, quality,
     maxDaily: values.length ? Math.max(...values) : 0,
     minDaily: values.length ? Math.min(...values) : 0,
@@ -241,7 +243,7 @@ function renderConsumption(state, snapshot, byId) {
   byId("consumption-cost").textContent = currency(utility.cost);
   byId("consumption-cost-note").textContent = utility.costSource;
   byId("consumption-forecast-cost").textContent = currency(utility.projectedCost);
-  byId("consumption-forecast-cost-note").textContent = utility.measuredDays > 0 ? "se o ritmo medido continuar" : "aguardando base de leitura";
+  byId("consumption-forecast-cost-note").textContent = utility.measuredDays > 0 ? (utility.type === "energy" ? utility.projectedCostSource : "se o ritmo medido continuar") : "aguardando base de leitura";
 
   byId("consumption-cycle-range").textContent = utility.cycle.label;
   byId("consumption-cycle-days").textContent = `${utility.progress.elapsedDays} de ${utility.progress.totalDays} dias`;
@@ -313,7 +315,7 @@ function renderSettings(state, byId) {
     "water-cycle-end": state.cycles.water.end,
     "energy-rate": energy.rate,
     "energy-goal": energy.goal,
-    "energy-flag": energy.flag,
+    "energy-flag": resolveCycleFlags(new Date(), new Date(), "sin").segments[0]?.flag || "",
     "lighting-fee": energy.lightingFee,
     "water-rate": water.rate,
     "water-goal": water.goal,
@@ -395,16 +397,19 @@ function cycleProgress(range, now = new Date()) {
   return { totalDays, elapsedDays, remainingDays: Math.max(0, totalDays - elapsedDays), ratio: elapsedDays / totalDays };
 }
 
-function estimateUtilityCost(type, consumption, state) {
+function estimateUtilityCost(type, consumption, state, period) {
   if (type === "water") return { total: calculateWaterEstimate(consumption, state.settings.water).totalCost, source: "Tarifa de água configurada" };
   const settings = state.settings.energy;
-  const rules = globalThis.__VOLT_BILLING_CONTEXT__?.profile?.rules;
-  if (rules) {
-    const result = forecastEnergyBill(consumption, rules, { fallbackRate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, flagLabel: "Bandeira tarifária", lightingFee: settings.lightingFee });
-    return { total: result.totalCost, source: "Regras regulatórias aplicadas" };
-  }
-  const fallback = calculateEnergyEstimate(consumption, { rate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, lightingFee: settings.lightingFee });
-  return { total: fallback.totalCost, source: "Configuração atual" };
+  const profile = globalThis.__VOLT_BILLING_CONTEXT__?.profile;
+  const systemType = profile?.systemType || "not_identified";
+  const flagPeriod = { start: period.start, end: period.end, systemType };
+  const result = forecastEnergyBill(consumption, profile?.rules || {}, { fallbackRate: settings.rate, flagPeriod, lightingFee: settings.lightingFee });
+  const flags = result.flagPeriod;
+  const notes = ["Subtotal estimado sem tributos não identificados"];
+  if (flags.pendingMonths.length) notes.push("bandeira pendente: " + flags.pendingMonths.join(", "));
+  if (flags.scope === "not_identified") notes.push("sistema elétrico não confirmado; adicional não incluído");
+  if (flags.scope === "isolated") notes.push("sistema isolado, sem bandeira");
+  return { total: result.totalCost, source: notes.join(" · ") };
 }
 
 function readingConfidence(lastReading, rateIntervals, now = new Date()) {

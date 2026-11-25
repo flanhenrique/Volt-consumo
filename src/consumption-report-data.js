@@ -1,9 +1,9 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261125.1";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261125.1";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20261125.1";
 
 const DAY_MS = 86400000;
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });
-const FLAG_RATES = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
+import { forecastEnergyBill, projectMeterCycle } from "../packages/consumption-domain/browser/billing-engine.js?v=20261125.1";
 
 export function buildConsumptionReportData(type, state, period) {
   const readings = [...(state.readings?.[type] || [])].sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
@@ -24,7 +24,7 @@ export function buildConsumptionReportData(type, state, period) {
   const monthly = usesMonthlyHistory ? consumption / Math.max(1, selectedHistory.length) : daily * 30;
   const goal = Number(state.settings?.[type]?.goal) || 0;
   const currentConsumption = consumptionWithinCycle(readings, cycle.current);
-  const projection = projectCurrentCycle(currentConsumption, goal, cycle.current);
+  const projection = type === "energy" ? (() => { const p = projectMeterCycle(readings, cycle.current, currentConsumption); return { projected: p.projectedConsumption, goal, ratio: goal > 0 ? p.projectedConsumption / goal : 0, elapsedDays: p.measuredDays, totalDays: fullCycleDays(cycle.current) }; })() : projectCurrentCycle(currentConsumption, goal, cycle.current);
   const buckets = usesMonthlyHistory ? historyBuckets(selectedHistory) : monthBuckets(selectedIntervals);
   const previous = usesMonthlyHistory
     ? previousHistoricalConsumption(period, monthlyHistory, selectedHistory)
@@ -37,7 +37,9 @@ export function buildConsumptionReportData(type, state, period) {
   const cycleHistory = buildCycleHistory(readings, cycle, billing);
   const contextRange = { start: new Date(cycle.previous.start), end: new Date(cycle.current.end) };
   const contextLabel = `${dateOnly(contextRange.start)} a ${dateOnly(contextRange.end)}`;
-  const financial = estimateFinancial(type, consumption, state.settings?.[type] || {});
+  const lastMeasured = readings.filter(r => inside(r.date, range)).at(-1);
+  const financialRange = period === "cycle" ? { start: range.start, end: lastMeasured ? new Date(lastMeasured.date) : range.start } : range;
+  const financial = estimateFinancial(type, consumption, state.settings?.[type] || {}, financialRange);
   return {
     type,
     readings,
@@ -94,7 +96,7 @@ export function currency(value) {
 }
 
 export function flagLabel(flag) {
-  return ({ green: "Verde", yellow: "Amarela", red1: "Vermelha 1", red2: "Vermelha 2" })[flag] || "Verde";
+  return ({ green: "Verde", yellow: "Amarela", red1: "Vermelha 1", red2: "Vermelha 2" })[flag] || "Mista / pendente";
 }
 
 export function signedPercent(value) {
@@ -106,7 +108,7 @@ export function rangeContains(value, range) {
   return inside(value, range);
 }
 
-function estimateFinancial(type, consumption, settings) {
+function estimateFinancial(type, consumption, settings, range) {
   if (type === "water") {
     const estimate = calculateWaterEstimate(consumption, settings);
     return {
@@ -116,20 +118,22 @@ function estimateFinancial(type, consumption, settings) {
       fixedFee: Number(settings.fixedFee) || 0
     };
   }
-  const flagRate = FLAG_RATES[settings.flag] ?? 0;
-  const estimate = calculateEnergyEstimate(consumption, {
-    rate: settings.rate,
-    flagRate,
-    lightingFee: settings.lightingFee,
-    flagLabel: settings.flag
+  const profile = globalThis.__VOLT_BILLING_CONTEXT__?.profile;
+  const estimate = forecastEnergyBill(consumption, profile?.rules || {}, {
+    fallbackRate: settings.rate,
+    flagPeriod: { start: range.start, end: range.end, systemType: profile?.systemType || "not_identified" },
+    lightingFee: settings.lightingFee
   });
+  const flags = estimate.flagPeriod;
+  const flag = flags.segments.length && flags.segments.every(s=>s.flag===flags.segments[0].flag) ? flags.segments[0].flag : null;
   return {
     totalCost: Number(estimate.totalCost) || 0,
-    baseCost: Number(estimate.baseCost) || 0,
-    flagCost: Number(estimate.flagCost) || 0,
+    baseCost: Number(estimate.energySubtotal) || 0,
+    flagCost: Number(estimate.flagNet) || 0,
     rate: Number(settings.rate) || 0,
-    flag: settings.flag || "green",
-    flagRate,
+    flag,
+    flagRate: flags.rate,
+    flagComplete: flags.complete,
     lightingFee: Number(settings.lightingFee) || 0
   };
 }

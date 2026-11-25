@@ -264,7 +264,7 @@ async function handleCyclesUpdate(event) {
 async function handleEnergySettings(event) {
   event.preventDefault();
   const settings = {
-    rate: numericValue("energy-rate"), goal: numericValue("energy-goal"), flag: document.getElementById("energy-flag").value,
+    rate: numericValue("energy-rate"), goal: numericValue("energy-goal"), flag: store.getState().settings.energy.flag,
     lightingFee: numericValue("lighting-fee")
   };
   if (settings.rate < 0 || settings.goal <= 0 || settings.lightingFee < 0) return renderer.setMessage("energy-settings-message", "Revise os valores informados.", true);

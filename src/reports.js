@@ -1,6 +1,6 @@
-import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261125.1";
 
-import { forecastEnergyBill, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
+import { forecastEnergyBill, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20261125.1";
 const currentOfficialFlag = () => resolveCycleFlags(new Date(), new Date(), "sin").segments[0]?.flag || "";
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });
 const MODE_LABELS = Object.freeze({ overview: "Visão geral", energy: "Energia", water: "Água", custom: "Personalizados" });
@@ -24,7 +24,7 @@ function ensureStyles() {
   if (document.querySelector('link[data-volt-reports-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/reports.css?v=20260825.4";
+  link.href = "./styles/reports.css?v=20261125.1";
   link.dataset.voltReportsStyle = "true";
   document.head.append(link);
 }

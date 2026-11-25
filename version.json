@@ -1,6 +1,6 @@
 {
-  "release": "20260825.4",
-  "build": "20260825.4",
-  "releasedAt": "2026-08-26T00:13:00Z",
-  "message": "Correção do atualizador do PWA: a versão instalada agora é reconhecida corretamente e o aviso deixa de reaparecer após a atualização."
+  "release": "20261125.1",
+  "build": "20261125.1",
+  "releasedAt": "2026-11-25T05:15:22Z",
+  "message": "Correção da projeção por intervalo real e bandeiras ANEEL por competência."
 }

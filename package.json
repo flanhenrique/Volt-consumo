@@ -6,7 +6,8 @@
   "scripts": {
     "check:static": "python tests/quality_gate.py",
     "test:browser": "playwright test",
-    "test": "npm run check:static && npm run test:browser"
+    "test": "npm run check:static && npm run test:forecast && npm run test:browser",
+    "test:forecast": "node --test tests/forecast-aneel.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.54.2"

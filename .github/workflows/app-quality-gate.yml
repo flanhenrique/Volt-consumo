@@ -17,7 +17,7 @@ concurrency:
 jobs:
   static:
     name: Static, DOM, import and vendor integrity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -33,7 +33,7 @@ jobs:
       - name: Validate DOM contract, imports, local references, SW and checksums
         run: python tests/quality_gate.py
       - name: Validate billing, regulatory, OCR and PDF domain
-        run: node --test tests/billing-domain.test.mjs
+        run: node --test tests/billing-domain.test.mjs tests/forecast-aneel.test.mjs
       - name: Validate backend helper semantics
         shell: bash
         run: |
@@ -54,7 +54,7 @@ jobs:
 
   ios-shell:
     name: iPhone WebKit fullscreen shell
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -81,7 +81,7 @@ jobs:
   browser:
     name: Browser startup and Service Worker
     needs: static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7

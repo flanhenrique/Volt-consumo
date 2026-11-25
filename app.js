@@ -1,10 +1,10 @@
-import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20260825.4";
-import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20260825.4";
-import { VOLT_CONFIG } from "./config.js?v=20260825.4";
-import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20260825.4";
-import { createRenderer } from "./src/renderer.js?v=20260825.4";
-import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20260825.4";
-import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20260825.4";
+import { calculateConsumptionSummary } from "./packages/consumption-domain/browser/index.js?v=20261125.1";
+import { createApplicationStore, StartupStatus } from "./src/app-state.js?v=20261125.1";
+import { VOLT_CONFIG } from "./config.js?v=20261125.1";
+import { loadCycleState, normalizeCycle } from "./src/cycles.js?v=20261125.1";
+import { createRenderer } from "./src/renderer.js?v=20261125.1";
+import { loadSupabaseRuntime } from "./src/supabase-loader.js?v=20261125.1";
+import { createVoltService, normalizeIdentity } from "./src/volt-service.js?v=20261125.1";
 
 const store = createApplicationStore();
 const renderer = createRenderer();
@@ -264,7 +264,7 @@ async function handleCyclesUpdate(event) {
 async function handleEnergySettings(event) {
   event.preventDefault();
   const settings = {
-    rate: numericValue("energy-rate"), goal: numericValue("energy-goal"), flag: document.getElementById("energy-flag").value,
+    rate: numericValue("energy-rate"), goal: numericValue("energy-goal"), flag: store.getState().settings.energy.flag,
     lightingFee: numericValue("lighting-fee")
   };
   if (settings.rate < 0 || settings.goal <= 0 || settings.lightingFee < 0) return renderer.setMessage("energy-settings-message", "Revise os valores informados.", true);
@@ -514,7 +514,7 @@ async function handleReadingPhoto(event) {
   preview.hidden = false;
   renderer.setMessage("ocr-message", "Analisando a imagem localmente…");
   try {
-    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20260825.4");
+    const { analyzeMeterImage } = await import("./src/meter-ocr.js?v=20261125.1");
     const result = await analyzeMeterImage(file);
     if (sequence !== readingPhotoSequence) return;
     if (result.value !== null) {

@@ -1,11 +1,11 @@
-import { VOLT_CONFIG } from "../config.js?v=20260825.4";
-import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260825.4";
-import { getCycleContext } from "./cycles.js?v=20260825.4";
-import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
-import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
-import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20260825.4";
-import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20260825.4";
-import { downloadExecutivePdf } from "./executive-pdf.js?v=20260825.4";
+import { VOLT_CONFIG } from "../config.js?v=20261125.1";
+import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20261125.1";
+import { getCycleContext } from "./cycles.js?v=20261125.1";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261125.1";
+import { forecastEnergyBill, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20261125.1";
+import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20261125.1";
+import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20261125.1";
+import { downloadExecutivePdf } from "./executive-pdf.js?v=20261125.1";
 
 const RECONCILIATION_POLICY = Object.freeze({ matchingAmount: 1, smallAmount: 5, smallPercent: 3 });
 const CACHE_VERSION = "billing-workflow-v1";
@@ -42,7 +42,7 @@ function ensureStyleSheet() {
   if (document.querySelector('link[data-volt-billing-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/billing-workflow.css?v=20260825.4";
+  link.href = "./styles/billing-workflow.css?v=20261125.1";
   link.dataset.voltBillingStyle = "true";
   document.head.append(link);
 }
@@ -195,11 +195,13 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
   const settings = state.settings?.energy;
   if (!settings) return null;
   const regulatory = buildEnergyBillingRules({ rules: domain.rules, profiles: domain.profiles, unit, cycle });
-  const flagRate = settings.flag === "green" ? 0 : finiteOrNull(regulatory.flagRates?.[settings.flag]);
+  const flagPeriod = { start: cycle.cycle_start, end: cycle.cycle_end, systemType: unit.system_type || "not_identified" };
+  const flags = resolveCycleFlags(flagPeriod.start, flagPeriod.end, flagPeriod.systemType);
+  const flagRate = flags.rate;
   const result = forecastEnergyBill(measured, regulatory, {
     fallbackRate: settings.rate,
-    flagRate: flagRate ?? 0,
-    flagLabel: flagLabel(settings.flag),
+    flagPeriod,
+    flagLabel: "Bandeira tarifária proporcional",
     lightingFee: settings.lightingFee
   });
   return {
@@ -209,13 +211,14 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
     inputs: {
       measuredConsumptionKwh: measured,
       fallbackRate: settings.rate,
-      flag: settings.flag,
+      flag: flags.segments.length && flags.segments.every(s => s.flag === flags.segments[0].flag) ? flags.segments[0].flag : null,
       flagRate,
-      flagRateSource: flagRate == null ? "not_identified" : "regulatory_rule",
+      flagRateSource: "aneel_monthly_calendar",
+      flagPeriod: flags,
       lightingFee: settings.lightingFee,
       regulatoryRules: regulatory.applied
     },
-    output: { ...result, note: flagRate == null ? "Estimativa congelada no fechamento; taxa de bandeira não identificada e não cobrada." : "Estimativa congelada no fechamento; itens não identificados não são inventados." }
+    output: { ...result, note: flags.complete ? "Estimativa congelada; bandeiras proporcionais aos dias de vigência. Tributos não identificados não incluídos." : "Estimativa parcial congelada; competência ou sistema não confirmado. Adicionais não identificados e tributos não incluídos." }
   };
 }
 

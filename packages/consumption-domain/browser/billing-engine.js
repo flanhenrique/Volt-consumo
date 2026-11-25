@@ -152,10 +152,74 @@ function verifiedFlagRate(rules, runtimeRate) {
   return verified.some((value) => Math.abs(value - candidate) <= 0.0000005) ? candidate : 0;
 }
 
+
+/** Acionamentos oficiais por competência. Não extrapolar meses ainda não publicados.
+ * https://dadosabertos.aneel.gov.br/dataset/bandeiras-tarifarias
+ */
+export const ANEEL_MONTHLY_FLAGS = Object.freeze({
+  "2026-01": ["green", 0], "2026-02": ["green", 0], "2026-03": ["green", 0],
+  "2026-04": ["green", 0], "2026-05": ["yellow", 0.01885], "2026-06": ["yellow", 0.01885],
+  "2026-07": ["yellow", 0.01885], "2026-08": ["yellow", 0.01885], "2026-09": ["yellow", 0.01885],
+  "2026-10": ["green", 0], "2026-11": ["green", 0]
+});
+
+function civilDay(value) {
+  if (value instanceof Date) {
+    return Date.UTC(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return NaN;
+  const time = Date.UTC(Number(match[1]), Number(match[2])-1, Number(match[3]));
+  return new Date(time).toISOString().slice(0,10) === match[0] ? time : NaN;
+}
+
+/** Rate weighted by civil days, inclusive billing dates. Unknown competence or
+ * system type is explicitly provisional and never assumed to be green/SIN. */
+export function resolveCycleFlags(start, end, systemType = "not_identified") {
+  const first = civilDay(start), last = civilDay(end), day = 86400000;
+  const days = Math.round((last-first)/day)+1;
+  if (!Number.isFinite(days) || days < 1 || days > 370) {
+    return { rate: 0, complete: false, pendingMonths: [], segments: [], scope: "invalid_period" };
+  }
+  if (systemType === "isolated") return { rate: 0, complete: true, pendingMonths: [], segments: [], scope: "isolated" };
+  const segments = [];
+  for (let t=first;t<=last;t+=day) {
+    const month = new Date(t).toISOString().slice(0,7);
+    const entry = ANEEL_MONTHLY_FLAGS[month];
+    const previous = segments.at(-1);
+    if (previous?.month === month) previous.days++;
+    else segments.push({ month, days: 1, flag: entry?.[0] ?? null, rate: entry?.[1] ?? null });
+  }
+  const pendingMonths = segments.filter(s=>s.flag===null).map(s=>s.month);
+  const scope = systemType === "sin" ? "sin" : "not_identified";
+  const rate = scope === "sin" ? segments.reduce((sum,s)=>sum+s.days*(s.rate ?? 0),0)/days : 0;
+  return { rate, complete: !pendingMonths.length && scope==="sin", pendingMonths, segments, scope };
+}
+
+/** Project using exactly the same meter endpoints as the consumption delta.
+ * The end date is a calendar estimate, not a promised meter-reading time. */
+export function projectMeterCycle(readings, range, consumption) {
+  const sorted = [...readings].filter(r=>Number.isFinite(Date.parse(r.date)) && Number.isFinite(Number(r.value)))
+    .sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+  const start = new Date(range.start), end = new Date(range.end);
+  const last = sorted.filter(r=>new Date(r.date)>=start && new Date(r.date)<=end).at(-1);
+  const baseline = range.baselineValue == null
+    ? (sorted.filter(r=>new Date(r.date)<=start).at(-1) || sorted.find(r=>new Date(r.date)>=start && new Date(r.date)<=end))
+    : sorted.filter(r=>new Date(r.date)<=start && Number(r.value)===Number(range.baselineValue)).at(-1);
+  const measuredDays = baseline && last ? (Date.parse(last.date)-Date.parse(baseline.date))/86400000 : 0;
+  // Match the last reading's local time on the final civil day.
+  const remainingDays = last ? Math.max(0,(civilDay(end)-civilDay(new Date(last.date)))/86400000) : 0;
+  const valid = measuredDays>0 && Number(last.value)-Number(baseline.value)===Number(consumption);
+  const average = valid ? consumption/measuredDays : 0;
+  return { measuredDays: valid ? measuredDays : 0, remainingDays, average,
+    projectedConsumption: valid ? Math.max(consumption, consumption+average*remainingDays) : consumption };
+}
+
 export function forecastEnergyBill(consumptionKwhInput, rules = {}, runtime = {}) {
   const consumptionKwh = nonNegative(consumptionKwhInput);
   const fallbackRate = nonNegative(runtime?.fallbackRate);
-  const flagRate = verifiedFlagRate(rules, runtime?.flagRate);
+  const flagPeriod = runtime.flagPeriod ? resolveCycleFlags(runtime.flagPeriod.start, runtime.flagPeriod.end, runtime.flagPeriod.systemType) : null;
+  const flagRate = flagPeriod ? flagPeriod.rate : verifiedFlagRate(rules, runtime?.flagRate);
   const bands = normalizeBands(rules, fallbackRate);
   const energyItems = tariffItems(consumptionKwh, bands);
   const energySubtotal = sum(energyItems);
@@ -193,7 +257,7 @@ export function forecastEnergyBill(consumptionKwhInput, rules = {}, runtime = {}
   const items = [...energyItems, ...(flagItem ? [flagItem] : []), ...benefitItems, ...chargeItems, ...fixedItems];
   const flagNet = sum(items, (item) => item.category === "flag" || (item.category === "benefit" && item.code.toLowerCase().includes("flag")));
   const totalCost = sum(items, (item) => item.forecastable !== false && !item.extraordinary);
-  return { engine: "billing-rules-v2", consumptionKwh, energySubtotal, flagGross, flagNet, totalCost, items };
+  return { engine: flagPeriod ? "billing-rules-v3" : "billing-rules-v2", consumptionKwh, energySubtotal, flagGross, flagNet, totalCost, items, ...(flagPeriod ? { flagPeriod } : {}) };
 }
 
 export function analyzeEnergyInvoice(input = {}) {

@@ -1,10 +1,9 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
 import { forecastEnergyBill, projectMeterCycle, resolveCycleFlags } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
 import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260825.4";
 import { StartupStatus } from "./app-state.js?v=20260825.4";
 import { renderReports } from "./reports.js?v=20260825.4";
 
-const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
 const REQUIRED_IDS = [
   "login-screen", "login-form", "login-email", "login-password", "login-message", "login-progress",
@@ -176,7 +175,7 @@ function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsu
   return {
     type, consumption, goal, ratio, forecastRatio, cycle, readings, intervals, dailySeries, rateIntervals,
     average, projectedConsumption, cost: currentEstimate.total, projectedCost: projectedEstimate.total,
-    costSource: currentEstimate.source, projectedCostSource: projectedEstimate.source, targetDaily, paceToGoal, progress, lastReading, measuredDays,
+    flagNet: currentEstimate.flagNet, flagPeriod: currentEstimate.flagPeriod, costSource: currentEstimate.source, projectedCostSource: projectedEstimate.source, targetDaily, paceToGoal, progress, lastReading, measuredDays,
     remainingFromReading, previousConsumption, previousChange, quality,
     maxDaily: values.length ? Math.max(...values) : 0,
     minDaily: values.length ? Math.min(...values) : 0,
@@ -185,6 +184,10 @@ function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsu
 }
 
 function renderHome(state, snapshot, byId) {
+  const flagHost = byId("home-energy-cost");
+  flagHost.dataset.flagNet = String(snapshot.energy.flagNet ?? 0);
+  flagHost.dataset.flagScope = snapshot.energy.flagPeriod?.scope || "not_identified";
+  flagHost.dataset.flagPending = (snapshot.energy.flagPeriod?.pendingMonths || []).join(",");
   byId("cycle-label").textContent = `${snapshot.energy.cycle.label} · ${snapshot.water.cycle.label}`;
   byId("home-cycle-copy").textContent = `Ciclos atuais: energia ${snapshot.energy.cycle.label.toLowerCase()} e água ${snapshot.water.cycle.label.toLowerCase()}.`;
   renderUtilityHome("energy", snapshot.energy, byId);
@@ -409,7 +412,7 @@ function estimateUtilityCost(type, consumption, state, period) {
   if (flags.pendingMonths.length) notes.push("bandeira pendente: " + flags.pendingMonths.join(", "));
   if (flags.scope === "not_identified") notes.push("sistema elétrico não confirmado; adicional não incluído");
   if (flags.scope === "isolated") notes.push("sistema isolado, sem bandeira");
-  return { total: result.totalCost, source: notes.join(" · ") };
+  return { total: result.totalCost, source: notes.join(" · "), flagNet: result.flagNet, flagPeriod: flags };
 }
 
 function readingConfidence(lastReading, rateIntervals, now = new Date()) {

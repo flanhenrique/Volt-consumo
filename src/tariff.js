@@ -7,7 +7,10 @@ const ENERGY_PROVIDER_RENAMES = Object.freeze(new Map([
   ["amazonas energia sa", "Âmbar Amazonas"],
   ["amazonas distribuidora de energia", "Âmbar Amazonas"],
   ["amazonas distribuidora de energia sa", "Âmbar Amazonas"],
-  ["ambar energia", "Âmbar Amazonas"]
+  ["ambar energia", "Âmbar Amazonas"],
+  ["ambar energia am", "Âmbar Amazonas"],
+  ["ambar energia amazonas", "Âmbar Amazonas"],
+  ["ambar energia amazonas sa", "Âmbar Amazonas"]
 ]));
 
 export function normalizeLocality(value) {

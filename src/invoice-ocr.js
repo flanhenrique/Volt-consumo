@@ -49,8 +49,25 @@ export function extractInvoiceFieldsFromLines(linesInput) {
   for (const line of lines) {
     const lineKey = keyText(line);
     if (!fields.dueDate && /vencimento/.test(lineKey)) fields.dueDate = isoDate(line);
-    if (fields.previousReading == null && /leitura anterior/.test(lineKey)) fields.previousReading = numberAfter(line, /leitura anterior/);
-    if (fields.currentReading == null && /leitura atual|leitura atualizada/.test(lineKey)) fields.currentReading = numberAfter(line, /leitura atual/);
+    // Âmbar labels the current date first, then the previous date (often separate rows).
+    const previousDate = lineKey.match(/(?:leitura\s+)?anterior\s*:\s*(\d{2}\/\d{2}\/\d{4})/);
+    const currentDate = lineKey.match(/(?:leitura\s+)?atual\s*:\s*(\d{2}\/\d{2}\/\d{4})/);
+    if (previousDate) fields.cycleStart = isoDate(previousDate[1]);
+    if (currentDate) fields.cycleEnd = isoDate(currentDate[1]);
+    const explicitReadings = lineKey.match(/leit(?:ura)?\.?\s*atual\s+(\d+)\s+leit(?:ura)?\.?\s*anterior\s+(\d+)\b/);
+    if (explicitReadings) {
+      fields.currentReading = parsePtNumber(explicitReadings[1]);
+      fields.previousReading = parsePtNumber(explicitReadings[2]);
+    }
+    const meterRow = lineKey.match(/^en(?:ergia)?\.?\s+ativa\s+total\s+(\d+)\s+(\d+)\s+(\d+(?:[.,]\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/);
+    if (meterRow && /leit\.?\s*atual[\s\S]*leit\.?\s*anterior/i.test(key)) {
+      fields.currentReading = parsePtNumber(meterRow[1]);
+      fields.previousReading = parsePtNumber(meterRow[2]);
+      fields.billedConsumption = parsePtNumber(meterRow[6]);
+      fields.billingMethod = "metered";
+    }
+    if (fields.previousReading == null && !previousDate && /leitura anterior/.test(lineKey)) fields.previousReading = numberAfter(line, /leitura anterior/);
+    if (fields.currentReading == null && !currentDate && /leitura atual|leitura atualizada/.test(lineKey)) fields.currentReading = numberAfter(line, /leitura atual/);
     if (fields.billedConsumption == null && /consumo|\bkwh\b|\bm3\b|m³/.test(lineKey)) fields.billedConsumption = billedConsumptionFromLine(line);
     if (!fields.billingMethod && /media|estimad|leitura real|medido/.test(lineKey)) fields.billingMethod = /media|estimad/.test(lineKey) ? "average" : "metered";
     if (/total a pagar|valor total|total da fatura/.test(lineKey)) { const amount = amountFromLine(line); if (amount != null) fields.invoiceTotal = Math.abs(amount); }

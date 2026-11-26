@@ -1,3 +1,4 @@
+import { isConfirmedGreenCycle } from "./regulatory-engine.js?v=20260825.4";
 import { VOLT_CONFIG } from "../config.js?v=20260825.4";
 import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260825.4";
 import { getCycleContext } from "./cycles.js?v=20260825.4";
@@ -195,11 +196,13 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
   const settings = state.settings?.energy;
   if (!settings) return null;
   const regulatory = buildEnergyBillingRules({ rules: domain.rules, profiles: domain.profiles, unit, cycle });
-  const flagRate = settings.flag === "green" ? 0 : finiteOrNull(regulatory.flagRates?.[settings.flag]);
+  const confirmedGreen = isConfirmedGreenCycle(cycle.cycle_start, cycle.cycle_end);
+  const flag = confirmedGreen ? "green" : settings.flag;
+  const flagRate = flag === "green" ? 0 : finiteOrNull(regulatory.flagRates?.[flag]);
   const result = forecastEnergyBill(measured, regulatory, {
     fallbackRate: settings.rate,
     flagRate: flagRate ?? 0,
-    flagLabel: flagLabel(settings.flag),
+    flagLabel: flagLabel(flag),
     lightingFee: settings.lightingFee
   });
   return {
@@ -209,9 +212,9 @@ function calculateEstimate(unit, cycle, measured, domain, state) {
     inputs: {
       measuredConsumptionKwh: measured,
       fallbackRate: settings.rate,
-      flag: settings.flag,
+      flag,
       flagRate,
-      flagRateSource: flagRate == null ? "not_identified" : "regulatory_rule",
+      flagRateSource: confirmedGreen ? "aneel_official_oct_nov_2026" : flagRate == null ? "not_identified" : "configured_flag_regulatory_rate",
       lightingFee: settings.lightingFee,
       regulatoryRules: regulatory.applied
     },

@@ -4,6 +4,8 @@ import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260825.
 import { StartupStatus } from "./app-state.js?v=20260825.4";
 import { renderReports } from "./reports.js?v=20260825.4";
 
+import { isConfirmedGreenCycle } from "./regulatory-engine.js?v=20260825.4";
+
 const FLAGS = Object.freeze({ green: 0, yellow: 0.01885, red1: 0.04463, red2: 0.07877 });
 const PAGE_IDS = Object.freeze(["home", "consumption", "readings", "alerts", "reports", "users", "settings", "help"]);
 const REQUIRED_IDS = [
@@ -161,8 +163,8 @@ function utilitySnapshot(type, consumption, goal, cycle, readings, previousConsu
   const fallbackAverage = dailySeries.length ? dailySeries.reduce((total, item) => total + item.value, 0) / dailySeries.length : 0;
   const average = measuredDays > 0 ? consumption / measuredDays : fallbackAverage;
   const projectedConsumption = measuredDays > 0 ? Math.max(consumption, average * progress.totalDays) : consumption;
-  const currentEstimate = estimateUtilityCost(type, consumption, state);
-  const projectedEstimate = estimateUtilityCost(type, projectedConsumption, state);
+  const currentEstimate = estimateUtilityCost(type, consumption, state, { start: cycle.current.start, end: lastReading ? new Date(lastReading.date) : new Date() });
+  const projectedEstimate = estimateUtilityCost(type, projectedConsumption, state, cycle.current);
   const targetDaily = progress.totalDays > 0 && goal > 0 ? goal / progress.totalDays : 0;
   const remainingFromReading = Math.max(0, progress.totalDays - measuredDays);
   const paceToGoal = remainingFromReading > 0 && goal > 0 ? Math.max(0, goal - consumption) / remainingFromReading : 0;
@@ -395,15 +397,17 @@ function cycleProgress(range, now = new Date()) {
   return { totalDays, elapsedDays, remainingDays: Math.max(0, totalDays - elapsedDays), ratio: elapsedDays / totalDays };
 }
 
-function estimateUtilityCost(type, consumption, state) {
+function estimateUtilityCost(type, consumption, state, range) {
   if (type === "water") return { total: calculateWaterEstimate(consumption, state.settings.water).totalCost, source: "Tarifa de água configurada" };
   const settings = state.settings.energy;
+  const confirmedGreen = isConfirmedGreenCycle(range?.start, range?.end);
+  const flagRate = confirmedGreen ? 0 : (FLAGS[settings.flag] ?? 0);
   const rules = globalThis.__VOLT_BILLING_CONTEXT__?.profile?.rules;
   if (rules) {
-    const result = forecastEnergyBill(consumption, rules, { fallbackRate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, flagLabel: "Bandeira tarifária", lightingFee: settings.lightingFee });
-    return { total: result.totalCost, source: "Regras regulatórias aplicadas" };
+    const result = forecastEnergyBill(consumption, rules, { fallbackRate: settings.rate, flagRate, flagLabel: confirmedGreen ? "Bandeira verde (ANEEL)" : "Bandeira tarifária", lightingFee: settings.lightingFee });
+    return { total: result.totalCost, source: confirmedGreen ? "Regras regulatórias · bandeira verde ANEEL" : "Regras regulatórias · bandeira conforme configuração" };
   }
-  const fallback = calculateEnergyEstimate(consumption, { rate: settings.rate, flagRate: FLAGS[settings.flag] ?? 0, lightingFee: settings.lightingFee });
+  const fallback = calculateEnergyEstimate(consumption, { rate: settings.rate, flagRate, lightingFee: settings.lightingFee });
   return { total: fallback.totalCost, source: "Configuração atual" };
 }
 

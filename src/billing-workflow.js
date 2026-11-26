@@ -1,12 +1,12 @@
-import { isConfirmedGreenCycle } from "./regulatory-engine.js?v=20260825.4";
-import { VOLT_CONFIG } from "../config.js?v=20260825.4";
-import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20260825.4";
-import { getCycleContext } from "./cycles.js?v=20260825.4";
-import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
-import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20260825.4";
-import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20260825.4";
-import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20260825.4";
-import { downloadExecutivePdf } from "./executive-pdf.js?v=20260825.4";
+import { isConfirmedGreenCycle } from "./regulatory-engine.js?v=20261126.1";
+import { VOLT_CONFIG } from "../config.js?v=20261126.1";
+import { getApplicationStateSnapshot, StartupStatus } from "./app-state.js?v=20261126.1";
+import { getCycleContext } from "./cycles.js?v=20261126.1";
+import { calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261126.1";
+import { forecastEnergyBill } from "../packages/consumption-domain/browser/billing-engine.js?v=20261126.1";
+import { buildEnergyBillingRules, matchRegulatoryRuleForComponent, regulatoryProfileLabel } from "./regulatory-engine.js?v=20261126.1";
+import { analyzeInvoiceImage } from "./invoice-ocr.js?v=20261126.1";
+import { downloadExecutivePdf } from "./executive-pdf.js?v=20261126.1";
 
 const RECONCILIATION_POLICY = Object.freeze({ matchingAmount: 1, smallAmount: 5, smallPercent: 3 });
 const CACHE_VERSION = "billing-workflow-v1";
@@ -43,7 +43,7 @@ function ensureStyleSheet() {
   if (document.querySelector('link[data-volt-billing-style="true"]')) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/billing-workflow.css?v=20260825.4";
+  link.href = "./styles/billing-workflow.css?v=20261126.1";
   link.dataset.voltBillingStyle = "true";
   document.head.append(link);
 }

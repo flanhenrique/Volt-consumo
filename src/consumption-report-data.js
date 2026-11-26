@@ -1,5 +1,5 @@
-import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
-import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20260825.4";
+import { calculateEnergyEstimate, calculateWaterEstimate } from "../packages/consumption-domain/browser/index.js?v=20261126.1";
+import { consumptionWithinCycle, getCycleContext } from "./cycles.js?v=20261126.1";
 
 const DAY_MS = 86400000;
 const PERIOD_MONTHS = Object.freeze({ "3m": 3, "6m": 6 });

@@ -1,5 +1,5 @@
-import { calculateConsumptionSummary } from "../packages/consumption-domain/browser/index.js?v=20260825.4";
-import { VOLT_CONFIG } from "../config.js?v=20260825.4";
+import { calculateConsumptionSummary } from "../packages/consumption-domain/browser/index.js?v=20261126.1";
+import { VOLT_CONFIG } from "../config.js?v=20261126.1";
 
 const BUILD = "20260825.1";
 const TABLES = Object.freeze({ energy: "beta_meter_readings", water: "beta_water_readings" });

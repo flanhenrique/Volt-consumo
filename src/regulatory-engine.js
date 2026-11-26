@@ -174,3 +174,17 @@ export function regulatoryProfileLabel(state) {
   };
   return labels[state] || "Não analisado";
 }
+
+// ANEEL: October and November 2026 officially green. Bounded evidence,
+// not a permanent default or an assumption about unpublished months.
+export function isConfirmedGreenCycle(start, end) {
+  function localDay(value) {
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+      return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, "0"), String(value.getDate()).padStart(2, "0")].join("-");
+    }
+    return dateOnly(value);
+  }
+  const first = localDay(start);
+  const last = localDay(end);
+  return Boolean(first && last && first <= last && first >= "2026-10-01" && last <= "2026-11-30");
+}

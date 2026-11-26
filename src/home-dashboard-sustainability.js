@@ -28,7 +28,7 @@ function loadCss() {
   if (document.querySelector("link[data-home-sustainability]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
-  link.href = "./styles/home-dashboard-sustainability.css?v=20260825.4";
+  link.href = "./styles/home-dashboard-sustainability.css?v=20261126.1";
   link.dataset.homeSustainability = "";
   document.head.append(link);
 }

@@ -180,3 +180,35 @@ test('PDF executivo gerado é um PDF real e mantém medido/faturado separados', 
   const prefix = new TextDecoder('latin1').decode((await blob.arrayBuffer()).slice(0, 8));
   assert.match(prefix, /^%PDF-1\.4/);
 });
+
+// Anonymous regression fixture: synthetic meter identifiers and readings, same arithmetic.
+test('novembro 2026: 270 kWh, bandeira verde, COSIP observada e R$ 257,77', async () => {
+  const { isConfirmedGreenCycle } = await import('../src/regulatory-engine.js');
+  assert.equal(isConfirmedGreenCycle('2026-10-16', '2026-11-16'), true);
+  assert.equal(isConfirmedGreenCycle('2026-11-16', '2026-12-16'), false);
+  assert.equal(isConfirmedGreenCycle('2026-09-30', '2026-10-16'), false);
+  const resolved = resolveEnergyTariff({ country: 'BR', state: 'AM', city: 'Manaus', energyProvider: 'Âmbar Energia - AM' }, { rate: 0.89456 }, new Date('2026-11-16T12:00:00Z'));
+  assert.equal(resolved.settings.rate, 0.87571);
+  const result = forecastEnergyBill(270, { flagRates: { yellow: 0.01885 } }, { fallbackRate: resolved.settings.rate, flagRate: 0, lightingFee: 21.33 });
+  assert.equal(result.energySubtotal, 236.44);
+  assert.equal(result.flagGross, 0);
+  assert.equal(result.totalCost, 257.77);
+});
+
+test('OCR Âmbar: ordem atual/anterior e linha de medição em tabela', () => {
+  const { fields } = extractInvoiceFieldsFromLines([
+    'Âmbar Energia', 'CONTA MÊS NOVEMBRO/2026 VENCIMENTO 01/12/2026 CONSUMO (KWH) 270 TOTAL A PAGAR (R$) 257,77',
+    'Atual: 16/11/2026 Dias de consumo: 31', 'Anterior: 16/10/2026 Próxima leitura: 16/12/2026',
+    'Desc. da Grandeza Leit. Atual Leit. Anterior Constante Resíduo Medido Faturado',
+    'En Ativa Total 10270 10000 1,000 0 270 270',
+    'CONSUMO 270 A R$ 0,875710 = 236,44', 'CONTR. ILUMINACAO PUB. (COSIP) 21,33'
+  ]);
+  assert.equal(fields.cycleStart, '2026-10-16');
+  assert.equal(fields.cycleEnd, '2026-11-16');
+  assert.equal(fields.previousReading, 10000);
+  assert.equal(fields.currentReading, 10270);
+  assert.equal(fields.billedConsumption, 270);
+  assert.equal(fields.invoiceTotal, 257.77);
+  assert.equal(fields.items.find(x => x.code === 'energy_charge').unitRate, 0.87571);
+  assert.equal(fields.items.find(x => x.code === 'lighting_fee').amount, 21.33);
+});

@@ -1,13 +1,16 @@
-import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20260825.4";
-import { findEnergyBillingProfile } from "../data/energy-billing-profiles.js?v=20260825.4";
-import { renderLegalBillDetail } from "./bill-detail.js?v=20260825.4";
+import { findNationalEnergyRule } from "../data/national-energy-catalog.js?v=20261126.1";
+import { findEnergyBillingProfile } from "../data/energy-billing-profiles.js?v=20261126.1";
+import { renderLegalBillDetail } from "./bill-detail.js?v=20261126.1";
 
 const ENERGY_PROVIDER_RENAMES = Object.freeze(new Map([
   ["amazonas energia", "Âmbar Amazonas"],
   ["amazonas energia sa", "Âmbar Amazonas"],
   ["amazonas distribuidora de energia", "Âmbar Amazonas"],
   ["amazonas distribuidora de energia sa", "Âmbar Amazonas"],
-  ["ambar energia", "Âmbar Amazonas"]
+  ["ambar energia", "Âmbar Amazonas"],
+  ["ambar energia am", "Âmbar Amazonas"],
+  ["ambar energia amazonas", "Âmbar Amazonas"],
+  ["ambar energia amazonas sa", "Âmbar Amazonas"]
 ]));
 
 export function normalizeLocality(value) {

@@ -1,8 +1,8 @@
-import { getApplicationStateSnapshot } from "./app-state.js?v=20260825.4";
-import { buildConsumptionReportData } from "./consumption-report-data.js?v=20260825.4";
-import { ensureGeneralConsumptionReport, renderGeneralConsumptionReport } from "./consumption-report-general.js?v=20260825.4";
-import { ensureUtilityConsumptionReport, renderUtilityConsumptionReport } from "./consumption-report-utility.js?v=20260825.4";
-import { exportConsumptionReport } from "./consumption-report-export.js?v=20260825.4";
+import { getApplicationStateSnapshot } from "./app-state.js?v=20261126.1";
+import { buildConsumptionReportData } from "./consumption-report-data.js?v=20261126.1";
+import { ensureGeneralConsumptionReport, renderGeneralConsumptionReport } from "./consumption-report-general.js?v=20261126.1";
+import { ensureUtilityConsumptionReport, renderUtilityConsumptionReport } from "./consumption-report-utility.js?v=20261126.1";
+import { exportConsumptionReport } from "./consumption-report-export.js?v=20261126.1";
 
 window.addEventListener("volt:startup-status", (event) => {
   if (event.detail?.status === "READY") queueMicrotask(refresh);
@@ -63,8 +63,8 @@ function selectedPeriod() {
 }
 
 function ensureStyles() {
-  ensureStyle("./styles/consumption-reports.css?v=20260825.4", "consumption-reports-style");
-  ensureStyle("./styles/reports-mobile-compact.css?v=20260825.4", "reports-mobile-compact-style");
+  ensureStyle("./styles/consumption-reports.css?v=20261126.1", "consumption-reports-style");
+  ensureStyle("./styles/reports-mobile-compact.css?v=20261126.1", "reports-mobile-compact-style");
 }
 
 function ensureStyle(href, key) {

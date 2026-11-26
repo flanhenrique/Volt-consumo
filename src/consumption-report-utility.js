@@ -1,4 +1,4 @@
-import { currency, cycleLabel, dateOnly, flagLabel, formatNumber, signedPercent } from "./consumption-report-data.js?v=20260825.4";
+import { currency, cycleLabel, dateOnly, flagLabel, formatNumber, signedPercent } from "./consumption-report-data.js?v=20261126.1";
 
 export function ensureUtilityConsumptionReport(type) {
   const panel = document.querySelector(`[data-report-panel="${type}"]`);

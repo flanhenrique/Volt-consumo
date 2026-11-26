@@ -260,7 +260,7 @@ function activateSqlBillingContext(context, fallbackRate) {
       validFrom: null,
       active: true,
       legalBenefits: [],
-      rules: { tariffBands: resolved.tariffBands, benefits: compatibleBenefits, charges: resolved.charges },
+      rules: { tariffBands: resolved.tariffBands, benefits: compatibleBenefits, charges: resolved.charges, flagRates: resolved.flagRates },
       appliedRules: resolved.applied
     }
   };
